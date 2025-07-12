@@ -61,27 +61,38 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // DETECCIÓN AUTOMÁTICA DEL TIPO DE USUARIO POR EMAIL
+      // DETECCIÓN AUTOMÁTICA DEL PERFIL DE USUARIO POR EMAIL
       let loginSuccess = false;
       let userType = '';
       let redirectPath = '/';
 
-      // 1. INTENTAR LOGIN COMO ADMIN (todos los perfiles administrativos)
-      // Detectar por dominio @pecaditos.com
-      if (email.includes('@pecaditos.com')) {
+      // 1. PERFILES ADMINISTRATIVOS ESPECÍFICOS
+      // Cada perfil tiene su propia ruta y panel
+      const adminProfiles = {
+        'admin@pecaditos.com': { type: 'Admin General', path: '/admin' },
+        'pedidos@pecaditos.com': { type: 'Pedidos', path: '/pedidos' },
+        'reparto@pecaditos.com': { type: 'Reparto', path: '/reparto' },
+        'produccion@pecaditos.com': { type: 'Producción', path: '/produccion' },
+        'seguimiento@pecaditos.com': { type: 'Seguimiento', path: '/seguimiento-panel' },
+        'cobranzas@pecaditos.com': { type: 'Cobranzas', path: '/cobranzas' }
+      };
+
+      // Verificar si es un perfil administrativo específico
+      if (adminProfiles[email as keyof typeof adminProfiles]) {
         try {
           const success = await adminLogin(email, password);
           if (success) {
             loginSuccess = true;
-            userType = 'Administrador';
-            redirectPath = '/admin';
+            const profile = adminProfiles[email as keyof typeof adminProfiles];
+            userType = profile.type;
+            redirectPath = profile.path;
           }
         } catch (error) {
-          console.log('No es usuario admin:', error);
+          console.log(`No es usuario ${adminProfiles[email as keyof typeof adminProfiles]?.type}:`, error);
         }
       }
 
-      // 2. INTENTAR LOGIN COMO MAYORISTA
+      // 2. MAYORISTAS
       // Detectar por patrones de email mayorista
       if (!loginSuccess && (
         email.includes('@ejemplo.com') || 
@@ -162,23 +173,25 @@ const Login = () => {
         </CardHeader>
         
         <CardContent>
-          {/* CREDENCIALES DE PRUEBA */}
+          {/* CREDENCIALES DE PRUEBA ACTUALIZADAS */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-blue-800 font-medium mb-3">Usuarios de prueba disponibles:</p>
             <div className="space-y-2 text-xs text-blue-700">
               <div className="border-b border-blue-200 pb-2">
-                <p className="font-semibold text-blue-800">ADMINISTRADORES:</p>
-                <p>• <strong>Admin General:</strong> admin@pecaditos.com / admin123</p>
-                <p>• <strong>Pedidos:</strong> pedidos@pecaditos.com / admin123</p>
-                <p>• <strong>Reparto:</strong> reparto@pecaditos.com / admin123</p>
-                <p>• <strong>Producción:</strong> produccion@pecaditos.com / admin123</p>
-                <p>• <strong>Seguimiento:</strong> seguimiento@pecaditos.com / admin123</p>
-                <p>• <strong>Cobranzas:</strong> cobranzas@pecaditos.com / admin123</p>
+                <p className="font-semibold text-blue-800">PERFILES ADMINISTRATIVOS:</p>
+                <p>• <strong>Admin General:</strong> admin@pecaditos.com → /admin</p>
+                <p>• <strong>Pedidos:</strong> pedidos@pecaditos.com → /pedidos</p>
+                <p>• <strong>Reparto:</strong> reparto@pecaditos.com → /reparto</p>
+                <p>• <strong>Producción:</strong> produccion@pecaditos.com → /produccion</p>
+                <p>• <strong>Seguimiento:</strong> seguimiento@pecaditos.com → /seguimiento-panel</p>
+                <p>• <strong>Cobranzas:</strong> cobranzas@pecaditos.com → /cobranzas</p>
+                <p className="text-blue-600 font-medium">Contraseña para todos: admin123</p>
               </div>
               <div>
                 <p className="font-semibold text-blue-800">MAYORISTAS:</p>
-                <p>• <strong>Distribuidora:</strong> distribuidora@ejemplo.com / password123</p>
-                <p>• <strong>Minimarket:</strong> minimarket@ejemplo.com / password123</p>
+                <p>• <strong>Distribuidora:</strong> distribuidora@ejemplo.com → /mayorista</p>
+                <p>• <strong>Minimarket:</strong> minimarket@ejemplo.com → /mayorista</p>
+                <p className="text-blue-600 font-medium">Contraseña para todos: password123</p>
               </div>
             </div>
           </div>
@@ -199,6 +212,7 @@ const Login = () => {
             </div>
           </div>
           
+          {/* FORMULARIO DE LOGIN */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="relative">
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-stone-400" />
@@ -273,31 +287,34 @@ const Login = () => {
 export default Login;
 
 /*
-INSTRUCCIONES PARA REACTIVAR CLIENTE FINAL (RETAIL):
+DETECCIÓN AUTOMÁTICA DE PERFILES ACTUALIZADA:
 
-1. En este archivo (Login.tsx):
-   - Cambiar la redirección del retail de '/login' a '/catalogo'
-   - Eliminar o modificar el toast de "Catálogo no disponible"
+PERFILES ADMINISTRATIVOS (cada uno con su ruta específica):
+- admin@pecaditos.com → /admin (Panel completo de administración)
+- pedidos@pecaditos.com → /pedidos (Solo gestión de pedidos)  
+- reparto@pecaditos.com → /reparto (Solo entregas y distribución)
+- produccion@pecaditos.com → /produccion (Solo control de stock)
+- seguimiento@pecaditos.com → /seguimiento-panel (Solo seguimiento de clientes)
+- cobranzas@pecaditos.com → /cobranzas (Solo facturación y cobros)
 
-2. En ProtectedRoute.tsx:
-   - Cambiar CATALOG_RETAIL.allowedRoles de ['admin'] a ['retail', 'admin']
+MAYORISTAS:
+- Cualquier email con @ejemplo.com, distribuidora, minimarket, mayorista → /mayorista
 
-3. En MainCards.tsx:
-   - Cambiar showRetailCatalog de false a true
+RETAIL (OCULTO):
+- Cualquier otro email → Bloqueado (redirige a /login con mensaje)
 
-PERSONALIZACIÓN:
-- Modificar patrones de detección de email según necesidades
-- Cambiar credenciales de prueba
-- Personalizar mensajes y redirecciones
-- Ajustar información de contacto
+CONTRASEÑAS DE PRUEBA:
+- Administrativos: admin123
+- Mayoristas: password123
 
-DETECCIÓN DE USUARIOS:
-- Admin: emails que contengan @pecaditos.com
-- Mayorista: emails que contengan @ejemplo.com, distribuidora, minimarket, mayorista
-- Retail: cualquier otro email (ACTUALMENTE OCULTO)
+CADA PERFIL TIENE:
+- Su propia ruta protegida
+- Su panel específico con funcionalidades limitadas
+- Acceso SOLO a su área (excepto admin que puede impersonar)
+- Redirección automática si intenta acceder a otra área
 
-FLUJO DE REDIRECCIÓN:
-- Admin (todos los perfiles) → /admin
-- Mayorista → /mayorista  
-- Retail → /login (porque catálogo está oculto)
+PARA REACTIVAR CATÁLOGO MINORISTA:
+1. Cambiar redirectPath de retail de '/login' a '/catalogo'
+2. Actualizar ProtectedRoute.tsx allowedProfiles de CATALOG_RETAIL
+3. Eliminar mensaje de catálogo no disponible
 */

@@ -5,27 +5,34 @@ import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
 import { useAdmin } from '@/contexts/AdminContext';
 
 /**
- * COMPONENTE DE RUTA PROTEGIDA - CONTROL DE ACCESO TOTAL
+ * COMPONENTE DE RUTA PROTEGIDA - CONTROL DE ACCESO POR PERFIL
  * 
- * Controla el acceso a diferentes rutas según el perfil del usuario:
+ * Controla el acceso a diferentes rutas según el perfil específico del usuario:
  * - CATALOG_RETAIL: Catálogo minorista (OCULTO - solo admin puede acceder)
  * - CATALOG_WHOLESALE: Solo mayoristas y admin
- * - ADMIN: Solo usuarios admin (todos los sub-perfiles de admin)
+ * - ADMIN: Solo usuario admin general (perfil "admin")
+ * - ORDERS: Solo perfil de pedidos
+ * - DELIVERY: Solo perfil de reparto
+ * - PRODUCTION: Solo perfil de producción
+ * - TRACKING: Solo perfil de seguimiento
+ * - BILLING: Solo perfil de cobranzas
  * - PUBLIC: Acceso público (seguimiento de pedidos)
  * 
- * PERFILES DE ADMIN DISPONIBLES:
- * - admin: Acceso completo
- * - pedidos: Gestión de pedidos
- * - reparto: Control de entregas
- * - produccion: Control de stock y producción
- * - seguimiento: Seguimiento de clientes
- * - cobranzas: Gestión de facturación
+ * DETECCIÓN DE PERFIL:
+ * El perfil se detecta automáticamente por el email del usuario:
+ * - admin@pecaditos.com -> perfil "admin" -> ruta /admin
+ * - pedidos@pecaditos.com -> perfil "pedidos" -> ruta /pedidos
+ * - reparto@pecaditos.com -> perfil "reparto" -> ruta /reparto
+ * - produccion@pecaditos.com -> perfil "produccion" -> ruta /produccion
+ * - seguimiento@pecaditos.com -> perfil "seguimiento" -> ruta /seguimiento
+ * - cobranzas@pecaditos.com -> perfil "cobranzas" -> ruta /cobranzas
+ * - distribuidora@ejemplo.com -> perfil "mayorista" -> ruta /mayorista
  * 
- * PARA REACTIVAR CATÁLOGO MINORISTA:
- * - Cambiar allowedRoles de CATALOG_RETAIL de ['admin'] a ['retail', 'admin']
+ * IMPORTANTE: Cada perfil solo puede acceder a SU ruta específica.
+ * Si intenta acceder a otra ruta, será redirigido automáticamente a su panel.
  */
 
-export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'PUBLIC';
+export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'ORDERS' | 'DELIVERY' | 'PRODUCTION' | 'TRACKING' | 'BILLING' | 'PUBLIC';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -40,14 +47,58 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
 
   // Determinar qué tipo de usuario está logueado
   const currentUser = adminUser || wholesaleUser || retailUser;
-  const userType = adminUser ? 'admin' : wholesaleUser ? 'wholesale' : retailUser ? 'retail' : null;
+  
+  // FUNCIÓN PARA DETECTAR PERFIL POR EMAIL
+  // Aquí es donde se puede modificar la lógica de detección de perfiles
+  const getUserProfile = (user: any): string | null => {
+    if (!user) return null;
+    
+    const email = user.email || '';
+    
+    // Detección por email específico para cada perfil administrativo
+    if (email === 'admin@pecaditos.com') return 'admin';
+    if (email === 'pedidos@pecaditos.com') return 'pedidos';
+    if (email === 'reparto@pecaditos.com') return 'reparto';
+    if (email === 'produccion@pecaditos.com') return 'produccion';
+    if (email === 'seguimiento@pecaditos.com') return 'seguimiento';
+    if (email === 'cobranzas@pecaditos.com') return 'cobranzas';
+    
+    // Detección de mayoristas por patrones de email
+    if (email.includes('@ejemplo.com') || 
+        email.includes('distribuidora') || 
+        email.includes('minimarket') ||
+        email.includes('mayorista')) {
+      return 'mayorista';
+    }
+    
+    // Usuarios retail (catálogo oculto)
+    return 'retail';
+  };
+
+  const userProfile = getUserProfile(currentUser);
+
+  // FUNCIÓN PARA OBTENER LA RUTA PRINCIPAL DE CADA PERFIL
+  // Aquí es donde se puede modificar las rutas de redirección por perfil
+  const getProfileMainRoute = (profile: string): string => {
+    switch (profile) {
+      case 'admin': return '/admin';
+      case 'pedidos': return '/pedidos';
+      case 'reparto': return '/reparto';
+      case 'produccion': return '/produccion';
+      case 'seguimiento': return '/seguimiento';
+      case 'cobranzas': return '/cobranzas';
+      case 'mayorista': return '/mayorista';
+      case 'retail': return '/login'; // Catálogo oculto
+      default: return '/login';
+    }
+  };
 
   // CONFIGURACIÓN DE ACCESO POR RUTA
+  // Aquí es donde se define qué perfiles pueden acceder a cada ruta
   const routeConfig = {
-    // CATÁLOGO MINORISTA - SOLO ADMIN PUEDE ACCEDER (OCULTO PARA TODOS LOS DEMÁS)
-    // Para reactivar completamente: cambiar allowedRoles a ['retail', 'admin']
+    // CATÁLOGO MINORISTA - SOLO ADMIN PUEDE ACCEDER (OCULTO)
     CATALOG_RETAIL: {
-      allowedRoles: ['admin'], // SOLO ADMIN - Catálogo minorista oculto
+      allowedProfiles: ['admin'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Catálogo minorista temporalmente no disponible'
@@ -55,23 +106,63 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
     
     // CATÁLOGO MAYORISTA - Solo mayoristas y admin
     CATALOG_WHOLESALE: {
-      allowedRoles: ['wholesale', 'admin'],
+      allowedProfiles: ['mayorista', 'admin'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido a mayoristas autorizados'
     },
     
-    // PANEL ADMIN - Todos los perfiles administrativos
+    // PANEL ADMIN - Solo perfil admin general
     ADMIN: {
-      allowedRoles: ['admin'],
+      allowedProfiles: ['admin'],
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Acceso restringido a personal autorizado'
+      message: 'Acceso restringido a administrador general'
+    },
+
+    // PANEL PEDIDOS - Solo perfil pedidos
+    ORDERS: {
+      allowedProfiles: ['pedidos', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de pedidos'
+    },
+
+    // PANEL REPARTO - Solo perfil reparto
+    DELIVERY: {
+      allowedProfiles: ['reparto', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de reparto'
+    },
+
+    // PANEL PRODUCCIÓN - Solo perfil producción
+    PRODUCTION: {
+      allowedProfiles: ['produccion', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de producción'
+    },
+
+    // PANEL SEGUIMIENTO - Solo perfil seguimiento
+    TRACKING: {
+      allowedProfiles: ['seguimiento', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de seguimiento'
+    },
+
+    // PANEL COBRANZAS - Solo perfil cobranzas
+    BILLING: {
+      allowedProfiles: ['cobranzas', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de cobranzas'
     },
     
     // RUTAS PÚBLICAS - Sin restricción
     PUBLIC: {
-      allowedRoles: ['retail', 'wholesale', 'admin', 'public'],
+      allowedProfiles: ['admin', 'mayorista', 'pedidos', 'reparto', 'produccion', 'seguimiento', 'cobranzas', 'retail', 'public'],
       redirectTo: '/',
       requireAuth: false,
       message: 'Acceso público'
@@ -87,53 +178,62 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
 
   // Si requiere autenticación pero no hay usuario logueado
   if (config.requireAuth && !currentUser) {
-    console.log(`Acceso denegado: No hay usuario autenticado para ${routeType}`);
+    console.log(`🔒 Acceso denegado: No hay usuario autenticado para ${routeType}`);
     return <Navigate to={config.redirectTo} state={{ from: location }} replace />;
   }
 
-  // Verificar permisos por tipo de usuario
-  if (!config.allowedRoles.includes(userType || '')) {
+  // Verificar permisos por perfil específico
+  if (!config.allowedProfiles.includes(userProfile || '')) {
     // REGISTRO DE INTENTO DE ACCESO NO AUTORIZADO
-    console.log(`Acceso denegado: Usuario ${userType} intentó acceder a ${routeType}`);
-    console.log(`Mensaje: ${config.message}`);
+    console.log(`🚫 Acceso denegado: Usuario con perfil "${userProfile}" intentó acceder a ${routeType}`);
+    console.log(`📄 Mensaje: ${config.message}`);
     
-    // Redirigir según el tipo de usuario
-    let redirectPath = config.redirectTo;
-    if (adminUser) redirectPath = '/admin';
-    else if (wholesaleUser) redirectPath = '/mayorista';
-    else if (retailUser) redirectPath = '/login'; // Retail va a login porque catálogo está oculto
+    // REDIRIGIR AL PANEL PRINCIPAL DEL PERFIL DEL USUARIO
+    const userMainRoute = getProfileMainRoute(userProfile || '');
+    console.log(`🔄 Redirigiendo a: ${userMainRoute}`);
     
-    return <Navigate to={redirectPath} state={{ from: location }} replace />;
+    return <Navigate to={userMainRoute} state={{ from: location }} replace />;
   }
 
   // Usuario autorizado - permitir acceso
-  console.log(`Acceso autorizado: Usuario ${userType} accedió a ${routeType}`);
+  console.log(`✅ Acceso autorizado: Usuario con perfil "${userProfile}" accedió a ${routeType}`);
   return <>{children}</>;
 };
 
 /*
-INSTRUCCIONES PARA MODIFICAR ACCESO:
+INSTRUCCIONES PARA MODIFICAR EL SISTEMA:
 
-1. PARA REACTIVAR CATÁLOGO MINORISTA COMPLETAMENTE:
-   - Cambiar CATALOG_RETAIL.allowedRoles de ['admin'] a ['retail', 'admin']
-   - Descomentar código retail en Login.tsx
-   - Cambiar showRetailCatalog a true en MainCards.tsx
+1. PARA AGREGAR NUEVOS PERFILES:
+   - Modificar getUserProfile() para detectar el nuevo perfil por email
+   - Agregar la ruta principal en getProfileMainRoute()
+   - Crear nueva entrada en routeConfig con los perfiles permitidos
+   - Agregar el nuevo RouteType al enum
 
-2. PARA PERSONALIZAR REDIRECCIONES:
-   - Modificar redirectTo en cada configuración
-   - Personalizar mensajes de acceso denegado
+2. PARA CAMBIAR DETECCIÓN DE PERFILES:
+   - Modificar la función getUserProfile()
+   - Cambiar los patrones de email o criterios de detección
+   - Actualizar los comentarios de documentación
 
-3. PARA AGREGAR NUEVOS TIPOS DE RUTA:
-   - Agregar a RouteType
-   - Agregar configuración en routeConfig
-   - Usar: <ProtectedRoute routeType="NUEVA_RUTA">
+3. PARA MODIFICAR RUTAS DE REDIRECCIÓN:
+   - Cambiar getProfileMainRoute() para nuevas rutas
+   - Actualizar routeConfig según necesidades
 
-4. LOGS Y DEBUGGING:
+4. PARA PERMITIR IMPERSONACIÓN:
+   - Solo el perfil 'admin' puede acceder a otros paneles
+   - Otros perfiles son redirigidos automáticamente a su panel
+
+5. LOGS Y DEBUGGING:
    - Todos los intentos de acceso se registran en console.log
-   - Incluye información del usuario, ruta y resultado
+   - Incluye perfil del usuario, ruta solicitada y resultado
+   - Emojis para fácil identificación: 🔒 🚫 🔄 ✅
 
-5. PERFILES ADMINISTRATIVOS:
-   Todos los sub-perfiles (pedidos, reparto, produccion, seguimiento, cobranzas)
-   son tratados como 'admin' y tienen acceso al panel /admin donde cada uno
-   ve solo sus secciones permitidas según su perfil específico.
+PERFILES CONFIGURADOS:
+- admin: Acceso completo + impersonación
+- pedidos: Solo /pedidos  
+- reparto: Solo /reparto
+- produccion: Solo /produccion
+- seguimiento: Solo /seguimiento
+- cobranzas: Solo /cobranzas
+- mayorista: Solo /mayorista
+- retail: Bloqueado (catálogo oculto)
 */
