@@ -5,17 +5,24 @@ import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
 import { useAdmin } from '@/contexts/AdminContext';
 
 /**
- * COMPONENTE DE RUTA PROTEGIDA
+ * COMPONENTE DE RUTA PROTEGIDA - CONTROL DE ACCESO TOTAL
  * 
  * Controla el acceso a diferentes rutas según el perfil del usuario:
- * - CATALOG_RETAIL: Catálogo minorista (OCULTO - redirige a login)
+ * - CATALOG_RETAIL: Catálogo minorista (OCULTO - solo admin puede acceder)
  * - CATALOG_WHOLESALE: Solo mayoristas y admin
- * - ADMIN: Solo usuarios admin
+ * - ADMIN: Solo usuarios admin (todos los sub-perfiles de admin)
  * - PUBLIC: Acceso público (seguimiento de pedidos)
  * 
+ * PERFILES DE ADMIN DISPONIBLES:
+ * - admin: Acceso completo
+ * - pedidos: Gestión de pedidos
+ * - reparto: Control de entregas
+ * - produccion: Control de stock y producción
+ * - seguimiento: Seguimiento de clientes
+ * - cobranzas: Gestión de facturación
+ * 
  * PARA REACTIVAR CATÁLOGO MINORISTA:
- * - Cambiar allowedRoles de CATALOG_RETAIL de [] a ['retail', 'admin']
- * - O eliminar la validación completamente
+ * - Cambiar allowedRoles de CATALOG_RETAIL de ['admin'] a ['retail', 'admin']
  */
 
 export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'PUBLIC';
@@ -37,33 +44,37 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
 
   // CONFIGURACIÓN DE ACCESO POR RUTA
   const routeConfig = {
-    // CATÁLOGO MINORISTA - COMPLETAMENTE OCULTO
-    // Para reactivar: cambiar allowedRoles a ['retail', 'admin']
+    // CATÁLOGO MINORISTA - SOLO ADMIN PUEDE ACCEDER (OCULTO PARA TODOS LOS DEMÁS)
+    // Para reactivar completamente: cambiar allowedRoles a ['retail', 'admin']
     CATALOG_RETAIL: {
-      allowedRoles: [], // VACÍO = NADIE PUEDE ACCEDER
+      allowedRoles: ['admin'], // SOLO ADMIN - Catálogo minorista oculto
       redirectTo: '/login',
-      requireAuth: true
+      requireAuth: true,
+      message: 'Catálogo minorista temporalmente no disponible'
     },
     
     // CATÁLOGO MAYORISTA - Solo mayoristas y admin
     CATALOG_WHOLESALE: {
       allowedRoles: ['wholesale', 'admin'],
       redirectTo: '/login',
-      requireAuth: true
+      requireAuth: true,
+      message: 'Acceso restringido a mayoristas autorizados'
     },
     
-    // PANEL ADMIN - Solo admin
+    // PANEL ADMIN - Todos los perfiles administrativos
     ADMIN: {
       allowedRoles: ['admin'],
       redirectTo: '/login',
-      requireAuth: true
+      requireAuth: true,
+      message: 'Acceso restringido a personal autorizado'
     },
     
     // RUTAS PÚBLICAS - Sin restricción
     PUBLIC: {
       allowedRoles: ['retail', 'wholesale', 'admin', 'public'],
       redirectTo: '/',
-      requireAuth: false
+      requireAuth: false,
+      message: 'Acceso público'
     }
   };
 
@@ -76,6 +87,7 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
 
   // Si requiere autenticación pero no hay usuario logueado
   if (config.requireAuth && !currentUser) {
+    console.log(`Acceso denegado: No hay usuario autenticado para ${routeType}`);
     return <Navigate to={config.redirectTo} state={{ from: location }} replace />;
   }
 
@@ -83,30 +95,45 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
   if (!config.allowedRoles.includes(userType || '')) {
     // REGISTRO DE INTENTO DE ACCESO NO AUTORIZADO
     console.log(`Acceso denegado: Usuario ${userType} intentó acceder a ${routeType}`);
-    return <Navigate to={config.redirectTo} state={{ from: location }} replace />;
+    console.log(`Mensaje: ${config.message}`);
+    
+    // Redirigir según el tipo de usuario
+    let redirectPath = config.redirectTo;
+    if (adminUser) redirectPath = '/admin';
+    else if (wholesaleUser) redirectPath = '/mayorista';
+    else if (retailUser) redirectPath = '/login'; // Retail va a login porque catálogo está oculto
+    
+    return <Navigate to={redirectPath} state={{ from: location }} replace />;
   }
 
   // Usuario autorizado - permitir acceso
+  console.log(`Acceso autorizado: Usuario ${userType} accedió a ${routeType}`);
   return <>{children}</>;
 };
 
 /*
 INSTRUCCIONES PARA MODIFICAR ACCESO:
 
-1. PARA REACTIVAR CATÁLOGO MINORISTA:
-   - Cambiar CATALOG_RETAIL.allowedRoles de [] a ['retail', 'admin']
-   - O agregar 'wholesale' si también quieres que mayoristas accedan
+1. PARA REACTIVAR CATÁLOGO MINORISTA COMPLETAMENTE:
+   - Cambiar CATALOG_RETAIL.allowedRoles de ['admin'] a ['retail', 'admin']
+   - Descomentar código retail en Login.tsx
+   - Cambiar showRetailCatalog a true en MainCards.tsx
 
-2. PARA CAMBIAR REDIRECCIONES:
+2. PARA PERSONALIZAR REDIRECCIONES:
    - Modificar redirectTo en cada configuración
-   - Ejemplo: redirectTo: '/acceso-denegado'
+   - Personalizar mensajes de acceso denegado
 
 3. PARA AGREGAR NUEVOS TIPOS DE RUTA:
-   - Agregar a RouteType: 'NUEVA_RUTA'
+   - Agregar a RouteType
    - Agregar configuración en routeConfig
-   - Usar en componente: <ProtectedRoute routeType="NUEVA_RUTA">
+   - Usar: <ProtectedRoute routeType="NUEVA_RUTA">
 
 4. LOGS Y DEBUGGING:
-   - Los intentos de acceso no autorizado se registran en console.log
-   - Para producción, cambiar por sistema de logs robusto
+   - Todos los intentos de acceso se registran en console.log
+   - Incluye información del usuario, ruta y resultado
+
+5. PERFILES ADMINISTRATIVOS:
+   Todos los sub-perfiles (pedidos, reparto, produccion, seguimiento, cobranzas)
+   son tratados como 'admin' y tienen acceso al panel /admin donde cada uno
+   ve solo sus secciones permitidas según su perfil específico.
 */
