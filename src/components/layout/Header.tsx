@@ -13,14 +13,21 @@ export const Header = () => {
   const navigate = useNavigate();
 
   // Hooks de autenticación
-  const { user: retailUser, logout: retailLogout } = useAuth();
+  const { user: retailUser, userData: retailUserData, logout: retailLogout } = useAuth();
   const { user: wholesaleUser, logout: wholesaleLogout } = useWholesaleAuth();
   const { user: adminUser, logout: adminLogout } = useAdmin();
 
-  // Determinar usuario activo
+  // Determinar usuario activo y obtener el nombre correctamente
   const currentUser = adminUser || wholesaleUser || retailUser;
   const userType = adminUser ? 'Admin' : wholesaleUser ? 'Mayorista' : retailUser ? 'Cliente' : null;
-  const userName = adminUser?.name || wholesaleUser?.name || retailUser?.name || '';
+  
+  // Obtener el nombre del usuario según su tipo
+  const userName = adminUser?.name || 
+                   wholesaleUser?.name || 
+                   retailUserData?.name || 
+                   retailUser?.displayName || 
+                   retailUser?.email || 
+                   '';
 
   const toggleDarkMode = () => {
     setIsDarkMode(!isDarkMode);
@@ -46,7 +53,8 @@ export const Header = () => {
     // Redirigir según el tipo de usuario
     if (adminUser) navigate('/admin');
     else if (wholesaleUser) navigate('/mayorista');
-    // Para retail user, cuando esté activo: navigate('/catalogo');
+    // Para retail user, redirigir a login ya que el catálogo está oculto
+    else if (retailUser) navigate('/login');
     
     setIsMenuOpen(false);
   };
@@ -176,11 +184,12 @@ DETECCIÓN AUTOMÁTICA DE USUARIO:
 - Detecta automáticamente el tipo de usuario logueado
 - Muestra información del usuario en el menú móvil
 - Indicador visual del tipo de usuario
+- Obtiene el nombre correctamente desde userData o displayName de Firebase
 
 NAVEGACIÓN POR PERFIL:
 - Admin -> /admin
 - Mayorista -> /mayorista  
-- Cliente -> /catalogo (cuando esté activo)
+- Cliente -> /login (catálogo minorista oculto)
 
 FUNCIONES:
 - Logout unificado para todos los tipos de usuario
