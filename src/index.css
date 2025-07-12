@@ -1,96 +1,96 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* Fuentes personalizadas */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
+/* Variables de diseño para Pecaditos Integrales */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Colores base */
+    --background: 44 16% 98%;
+    --foreground: 30 12% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    /* Colores de la marca - tonos tierra y amber */
+    --primary: 35 91% 48%; /* Amber-500 */
+    --primary-foreground: 30 12% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --secondary: 37 39% 91%; /* Amber-100 */
+    --secondary-foreground: 30 12% 12%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --card: 44 16% 99%;
+    --card-foreground: 30 12% 12%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --popover: 44 16% 99%;
+    --popover-foreground: 30 12% 12%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 37 20% 94%;
+    --muted-foreground: 30 6% 46%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 37 31% 88%;
+    --accent-foreground: 30 12% 12%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 30 12% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 37 20% 88%;
+    --input: 37 20% 88%;
+    --ring: 35 91% 48%;
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    /* Sidebar */
+    --sidebar-background: 44 16% 98%;
+    --sidebar-foreground: 30 12% 26%;
+    --sidebar-primary: 35 91% 48%;
+    --sidebar-primary-foreground: 30 12% 98%;
+    --sidebar-accent: 37 39% 91%;
+    --sidebar-accent-foreground: 30 12% 12%;
+    --sidebar-border: 37 20% 88%;
+    --sidebar-ring: 35 91% 48%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    /* Modo oscuro con tonos tierra */
+    --background: 30 12% 8%;
+    --foreground: 44 16% 94%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --primary: 35 91% 52%; /* Amber más claro para contraste */
+    --primary-foreground: 30 12% 8%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --secondary: 30 12% 15%;
+    --secondary-foreground: 44 16% 94%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --card: 30 12% 10%;
+    --card-foreground: 44 16% 94%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --popover: 30 12% 10%;
+    --popover-foreground: 44 16% 94%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 30 12% 15%;
+    --muted-foreground: 30 6% 65%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 30 12% 18%;
+    --accent-foreground: 44 16% 94%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 44 16% 94%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --border: 30 12% 18%;
+    --input: 30 12% 18%;
+    --ring: 35 91% 52%;
+
+    /* Sidebar oscuro */
+    --sidebar-background: 30 12% 6%;
+    --sidebar-foreground: 44 16% 90%;
+    --sidebar-primary: 35 91% 52%;
+    --sidebar-primary-foreground: 30 12% 8%;
+    --sidebar-accent: 30 12% 12%;
+    --sidebar-accent-foreground: 44 16% 90%;
+    --sidebar-border: 30 12% 15%;
+    --sidebar-ring: 35 91% 52%;
   }
 }
 
@@ -100,6 +100,159 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* Títulos con fuente display */
+  h1, h2, h3 {
+    @apply font-display;
+  }
+
+  /* Scroll suave */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Personalización de scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-stone-100 dark:bg-stone-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-amber-400 hover:bg-amber-500 rounded-full;
+  }
+}
+
+@layer components {
+  /* Gradientes personalizados para la marca */
+  .gradient-primary {
+    @apply bg-gradient-to-r from-amber-400 via-orange-500 to-red-500;
+  }
+
+  .gradient-secondary {
+    @apply bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 dark:from-stone-800 dark:via-stone-700 dark:to-stone-600;
+  }
+
+  /* Sombras personalizadas */
+  .shadow-soft {
+    box-shadow: 0 4px 6px -1px rgba(251, 191, 36, 0.1), 0 2px 4px -1px rgba(251, 191, 36, 0.06);
+  }
+
+  .shadow-warm {
+    box-shadow: 0 10px 15px -3px rgba(251, 146, 60, 0.1), 0 4px 6px -2px rgba(251, 146, 60, 0.05);
+  }
+
+  /* Efectos hover personalizados */
+  .hover-lift {
+    @apply transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-warm;
+  }
+
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-lg hover:shadow-amber-200 dark:hover:shadow-amber-900;
+  }
+
+  /* Textos con gradiente */
+  .text-gradient {
+    @apply bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 bg-clip-text text-transparent;
+  }
+
+  /* Bordes redondeados consistentes */
+  .rounded-brand {
+    @apply rounded-2xl;
+  }
+
+  /* Espaciado consistente */
+  .section-padding {
+    @apply py-16 px-4 lg:py-24;
+  }
+
+  /* Animaciones de entrada */
+  .animate-slide-up {
+    animation: slide-up 0.6s ease-out forwards;
+  }
+
+  .animate-fade-in-delayed {
+    animation: fade-in 0.8s ease-out 0.2s forwards;
+    opacity: 0;
+  }
+}
+
+@layer utilities {
+  /* Utilidades para centrado perfecto */
+  .center-absolute {
+    @apply absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2;
+  }
+
+  /* Utilidades para aspect ratio */
+  .aspect-golden {
+    aspect-ratio: 1.618;
+  }
+
+  /* Utilidades para backdrop blur */
+  .backdrop-blur-brand {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Utilidades para texto responsivo */
+  .text-responsive-xl {
+    @apply text-2xl lg:text-4xl xl:text-5xl;
+  }
+
+  .text-responsive-lg {
+    @apply text-xl lg:text-2xl xl:text-3xl;
+  }
+
+  /* Utilidades para grid responsivo */
+  .grid-auto-fit {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+
+  .grid-auto-fill {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  }
+}
+
+/* Animaciones personalizadas adicionales */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Mejoras de accesibilidad */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Mejoras para impresión */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
   }
 }

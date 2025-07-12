@@ -1,73 +1,194 @@
-# Welcome to your Lovable project
 
-## Project info
+# 🍪 Pecaditos Integrales - Landing Page
 
-**URL**: https://lovable.dev/projects/b5f3404e-cfb9-4243-b968-5410b89c6d4f
+Página de bienvenida moderna y responsive para **Pecaditos Integrales**, una marca de galletas artesanales integrales.
 
-## How can I edit this code?
+## ✨ Características
 
-There are several ways of editing your application.
+### 🎨 Diseño
+- **Responsive**: Optimizado para desktop, tablet y móvil
+- **Modo oscuro/claro**: Detección automática con toggle manual
+- **Animaciones suaves**: Efectos hover, transiciones y micro-interacciones
+- **Colores marca**: Paleta tierra y amber (beige, naranja, rojo)
+- **Tipografía**: Inter (sans-serif) + Playfair Display (display)
 
-**Use Lovable**
+### 🚀 Funcionalidades
+- **Landing principal** con logo, eslogan y texto editable
+- **Cards animadas** para Catálogo y Login (con efectos hover)
+- **Modal de seguimiento** de pedidos por número (simulado)
+- **Redes sociales** con enlaces a WhatsApp, Instagram, Facebook, TikTok
+- **Footer completo** con información legal y contacto
+- **Configuración Firebase** lista para implementar
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/b5f3404e-cfb9-4243-b968-5410b89c6d4f) and start prompting.
+## 🛠️ Tecnologías
 
-Changes made via Lovable will be committed automatically to this repo.
+- **React 18** + **TypeScript**
+- **Vite** (build tool)
+- **Tailwind CSS** (estilos)
+- **Shadcn/ui** (componentes)
+- **Lucide React** (iconos)
+- **Firebase** (preparado para auth + database)
 
-**Use your preferred IDE**
+## 📁 Estructura del Proyecto
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```
+src/
+├── components/
+│   ├── layout/
+│   │   ├── Header.tsx          # Header móvil
+│   │   └── Footer.tsx          # Footer con info legal
+│   ├── sections/
+│   │   ├── HeroSection.tsx     # Logo, eslogan, texto
+│   │   ├── MainCards.tsx       # Cards catálogo y login
+│   │   ├── OrderTracking.tsx   # Botón seguimiento
+│   │   └── SocialMedia.tsx     # Redes sociales
+│   └── modals/
+│       └── OrderTrackingModal.tsx # Modal seguimiento
+├── config/
+│   └── firebase.ts             # Configuración Firebase
+├── services/
+│   └── firebaseService.ts      # Servicios Firebase
+├── data/
+│   └── mockData.ts             # Datos de prueba
+├── hooks/
+│   └── useAuth.tsx             # Hook autenticación
+└── pages/
+    └── Index.tsx               # Página principal
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 🚀 Instalación y Uso
 
-Follow these steps:
+1. **Clonar e instalar dependencias**:
+```bash
+npm install
+```
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+2. **Ejecutar en desarrollo**:
+```bash
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+3. **Ver en el navegador**:
+```
+http://localhost:8080
+```
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## ⚙️ Configuración
 
-**Use GitHub Codespaces**
+### 🔥 Firebase (Próxima Etapa)
+Para habilitar autenticación y base de datos:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+1. Crear proyecto en [Firebase Console](https://console.firebase.google.com)
+2. Activar **Authentication** (Email/Password)
+3. Activar **Realtime Database**
+4. Copiar configuración en `src/config/firebase.ts`
+5. Configurar reglas de seguridad
 
-## What technologies are used for this project?
+### 🎨 Personalización
 
-This project is built with:
+#### Textos Editables
+En `src/components/sections/HeroSection.tsx`:
+```tsx
+// Cambiar eslogan principal
+<h1>Pecaditos Integrales</h1>
+<p>Sabor auténtico, salud natural</p>
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+// Cambiar texto de bienvenida  
+<p>Descubre nuestras galletas artesanales...</p>
 
-## How can I deploy this project?
+// Cambiar frase motivacional
+<blockquote>"Porque cuidarte nunca fue tan delicioso"</blockquote>
+```
 
-Simply open [Lovable](https://lovable.dev/projects/b5f3404e-cfb9-4243-b968-5410b89c6d4f) and click on Share -> Publish.
+#### Colores de Marca
+En `src/index.css` - variables CSS:
+```css
+:root {
+  --primary: 35 91% 48%; /* Amber principal */
+  --secondary: 37 39% 91%; /* Amber claro */
+  /* ... más colores */
+}
+```
 
-## Can I connect a custom domain to my Lovable project?
+#### Redes Sociales
+En `src/components/sections/SocialMedia.tsx`:
+```tsx
+const socialLinks = [
+  {
+    name: 'WhatsApp',
+    url: 'https://wa.me/51999999999', // ← Cambiar número
+    // ...
+  }
+  // ... más redes
+];
+```
 
-Yes, you can!
+## 🧪 Datos de Prueba
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Seguimiento de Pedidos
+Números para probar el modal:
+- `ORD001` - Pedido en camino
+- `ORD002` - Pedido entregado
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Mock Data
+Ver `src/data/mockData.ts` para:
+- Productos de ejemplo
+- Usuarios de prueba  
+- Pedidos simulados
+- Configuración de descuentos
+
+## 📱 Funcionalidades Implementadas
+
+### ✅ Completado
+- [x] Landing page responsive
+- [x] Cards animadas (Catálogo + Login)
+- [x] Modal seguimiento pedidos
+- [x] Redes sociales interactivas
+- [x] Footer completo con enlaces legales
+- [x] Modo oscuro/claro automático
+- [x] Configuración Firebase base
+- [x] Mock data y estructura modular
+
+### 🔄 Próxima Etapa
+- [ ] Página de catálogo de productos
+- [ ] Carrito de compras sticky
+- [ ] Sistema de login/registro
+- [ ] Checkout y pasarela de pagos
+- [ ] Dashboard de pedidos
+
+## 🎯 Notas de Desarrollo
+
+### Mock Data
+Los datos de prueba están en `src/data/mockData.ts`. Incluye:
+- **Productos**: galletas con precios, categorías, ingredientes
+- **Usuarios**: datos de ejemplo con historial
+- **Pedidos**: estados, números de seguimiento
+- **Configuración**: descuentos, distritos permitidos
+
+### Servicios Firebase
+En `src/services/firebaseService.ts` están preparadas las funciones:
+- Autenticación (login, registro, logout)
+- Productos (obtener, filtrar)
+- Pedidos (crear, actualizar, buscar)
+- Usuarios (perfil, historial)
+
+### Componentes Modulares
+Cada sección está en su propio archivo para fácil mantenimiento y personalización.
+
+## 🚀 Deploy
+
+```bash
+# Build para producción
+npm run build
+
+# Preview del build
+npm run preview
+```
+
+---
+
+## 📞 Contacto y Soporte
+
+Para preguntas sobre implementación o personalización, contactar al equipo de desarrollo.
+
+**¡Listo para la siguiente etapa!** 🎉
