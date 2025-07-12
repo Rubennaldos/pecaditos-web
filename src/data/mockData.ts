@@ -12,7 +12,6 @@ export interface Product {
   ingredients: string[];
   available: boolean;
   featured: boolean;
-  onPromotion?: boolean;
 }
 
 export interface User {
@@ -52,11 +51,6 @@ export interface OrderItem {
   subtotal: number;
 }
 
-export interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
 // PRODUCTOS DE EJEMPLO
 export const mockProducts: Product[] = [
   {
@@ -68,8 +62,7 @@ export const mockProducts: Product[] = [
     image: '/placeholder-cookie-choco.jpg',
     ingredients: ['Harina integral', 'Chocolate belga', 'Miel de abeja', 'Aceite de coco'],
     available: true,
-    featured: true,
-    onPromotion: true
+    featured: true
   },
   {
     id: 'prod_002',
@@ -84,40 +77,6 @@ export const mockProducts: Product[] = [
   },
   {
     id: 'prod_003',
-    name: 'Galletas de Maracuyá',
-    description: 'Sabor tropical único con maracuyá peruano. Frescas y deliciosas.',
-    price: 13.00,
-    category: 'tropicales',
-    image: '/placeholder-cookie-maracuya.jpg',
-    ingredients: ['Harina integral', 'Maracuyá', 'Miel de abeja'],
-    available: true,
-    featured: true
-  },
-  {
-    id: 'prod_004',
-    name: 'Galletas de Higo',
-    description: 'Con higos naturales deshidratados. Dulzura natural y textura perfecta.',
-    price: 14.00,
-    category: 'especiales',
-    image: '/placeholder-cookie-fig.jpg',
-    ingredients: ['Harina integral', 'Higos deshidratados', 'Canela'],
-    available: true,
-    featured: false
-  },
-  {
-    id: 'prod_005',
-    name: 'Galletas de Frutos Rojos',
-    description: 'Mezcla de arándanos, frambuesas y fresas deshidratadas.',
-    price: 15.00,
-    category: 'especiales',
-    image: '/placeholder-cookie-berries.jpg',
-    ingredients: ['Harina integral', 'Frutos rojos', 'Miel de abeja'],
-    available: true,
-    featured: true,
-    onPromotion: true
-  },
-  {
-    id: 'prod_006',
     name: 'Combo Familiar (12 unidades)',
     description: 'Variedad de nuestras mejores galletas. Perfecto para compartir en familia.',
     price: 65.00,
@@ -128,10 +87,10 @@ export const mockProducts: Product[] = [
     featured: true
   },
   {
-    id: 'prod_007',
+    id: 'prod_004',
     name: 'Galletas Energéticas con Quinua',
     description: 'Galletas nutritivas con quinua peruana y frutos secos. Ideales para deportistas.',
-    price: 16.00,
+    price: 14.00,
     category: 'especiales',
     image: '/placeholder-cookie-quinoa.jpg',
     ingredients: ['Harina integral', 'Quinua', 'Almendras', 'Nueces'],
@@ -194,6 +153,7 @@ export const mockOrders: Order[] = [
     id: 'order_002',
     userId: 'user_002',
     orderNumber: 'ORD002',
+    orderNumber: 'ORD002',
     items: [
       {
         productId: 'prod_002',
@@ -220,9 +180,7 @@ export const mockOrders: Order[] = [
 
 // CATEGORÍAS DE PRODUCTOS
 export const productCategories = [
-  { id: 'todas', name: 'Todas', description: 'Todos nuestros productos' },
   { id: 'clasicas', name: 'Clásicas', description: 'Nuestros sabores tradicionales' },
-  { id: 'tropicales', name: 'Tropicales', description: 'Sabores exóticos peruanos' },
   { id: 'especiales', name: 'Especiales', description: 'Sabores únicos y nutritivos' },
   { id: 'combos', name: 'Combos', description: 'Packs familiares y promocionales' },
   { id: 'promociones', name: 'Promociones', description: 'Ofertas limitadas' }
@@ -230,25 +188,13 @@ export const productCategories = [
 
 // CONFIGURACIÓN DE DESCUENTOS
 export const discountRules = {
-  quantity6: { minQuantity: 6, discount: 0.05, description: '5% de descuento por 6 unidades' },
-  quantity12: { minQuantity: 12, discount: 0.10, description: '10% de descuento por 12 unidades' }
+  quantity6: { minQuantity: 6, discount: 0.05, description: '5% de descuento' },
+  quantity12: { minQuantity: 12, discount: 0.10, description: '10% de descuento' }
 };
-
-// DISTRITOS PERMITIDOS PARA DELIVERY
-export const allowedDistricts = [
-  'San Borja', 'Miraflores', 'San Isidro', 'Surco', 'La Molina',
-  'Barranco', 'Chorrillos', 'Magdalena', 'Pueblo Libre', 'Jesús María',
-  'Lince', 'Breña', 'San Miguel'
-];
-
-// DISTRITOS CON ZONAS PELIGROSAS
-export const dangerousDistricts = [
-  'Cercado de Lima', 'La Victoria', 'El Agustino', 'Ate', 'San Juan de Lurigancho'
-];
 
 // CONFIGURACIÓN GENERAL
 export const appConfig = {
-  minOrderAmount: 70, // Monto mínimo de pedido en soles
+  minOrderAmount: 70, // Monto mínimo de pedido
   deliveryFee: 0, // Sin costo de delivery por ahora
   businessHours: {
     monday: { open: '08:00', close: '20:00' },
@@ -259,12 +205,13 @@ export const appConfig = {
     saturday: { open: '09:00', close: '18:00' },
     sunday: { open: '10:00', close: '16:00' }
   },
-  whatsappNumber: '+51999888777',
-  socialMedia: {
-    instagram: '@pecaditos.integrales',
-    facebook: 'PecaditosIntegrales',
-    tiktok: '@pecaditos.integrales'
-  }
+  allowedDistricts: [
+    'San Borja', 'Miraflores', 'San Isidro', 'Surco', 'La Molina',
+    'Barranco', 'Chorrillos', 'Magdalena', 'Pueblo Libre'
+  ],
+  dangerousZones: [
+    'Cercado de Lima', 'La Victoria', 'El Agustino'
+  ]
 };
 
 /*
@@ -278,7 +225,7 @@ INSTRUCCIONES PARA USAR MOCK DATA:
    - ref(database, 'users') para usuarios
 
 4. Para desarrollo, importar así:
-   import { mockProducts, mockOrders, productCategories } from '@/data/mockData';
+   import { mockProducts, mockOrders } from '@/data/mockData';
 
 5. Para producción, reemplazar por servicios de Firebase
 */
