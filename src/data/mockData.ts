@@ -96,6 +96,28 @@ export const mockProducts: Product[] = [
     ingredients: ['Harina integral', 'Quinua', 'Almendras', 'Nueces'],
     available: true,
     featured: false
+  },
+  {
+    id: 'prod_005',
+    name: 'Galletas de Maracuyá',
+    description: 'Sabor tropical único con pulpa de maracuyá natural. Refrescantes y deliciosas.',
+    price: 13.50,
+    category: 'especiales',
+    image: '/placeholder-cookie-maracuya.jpg',
+    ingredients: ['Harina integral', 'Pulpa de maracuyá', 'Miel', 'Aceite de coco'],
+    available: true,
+    featured: true
+  },
+  {
+    id: 'prod_006',
+    name: 'Galletas de Higo',
+    description: 'Galletas con higos secos naturales. Dulzura natural y textura única.',
+    price: 13.00,
+    category: 'especiales',
+    image: '/placeholder-cookie-higo.jpg',
+    ingredients: ['Harina integral', 'Higos secos', 'Canela', 'Nuez moscada'],
+    available: true,
+    featured: false
   }
 ];
 
@@ -153,7 +175,6 @@ export const mockOrders: Order[] = [
     id: 'order_002',
     userId: 'user_002',
     orderNumber: 'ORD002',
-    orderNumber: 'ORD002',
     items: [
       {
         productId: 'prod_002',
@@ -180,6 +201,7 @@ export const mockOrders: Order[] = [
 
 // CATEGORÍAS DE PRODUCTOS
 export const productCategories = [
+  { id: 'todas', name: 'Todas', description: 'Ver todos los productos' },
   { id: 'clasicas', name: 'Clásicas', description: 'Nuestros sabores tradicionales' },
   { id: 'especiales', name: 'Especiales', description: 'Sabores únicos y nutritivos' },
   { id: 'combos', name: 'Combos', description: 'Packs familiares y promocionales' },
