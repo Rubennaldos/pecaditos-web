@@ -1,131 +1,171 @@
 
-import { useState } from 'react';
-import { ShoppingCart, User, Cookie } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { useEffect, useState } from 'react';
+import { ArrowRight, Package, UserCheck, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { useAuth } from '@/hooks/useAuth';
+import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
+import { useAdmin } from '@/contexts/AdminContext';
 
 export const MainCards = () => {
-  const [hoveredCard, setHoveredCard] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [showRetailCatalog, setShowRetailCatalog] = useState(false); // Control manual para mostrar catálogo minorista
+  
+  // Hooks de autenticación para detectar usuarios logueados
+  const { user: retailUser } = useAuth();
+  const { user: wholesaleUser } = useWholesaleAuth();
+  const { user: adminUser } = useAdmin();
 
-  // Simular navegación (en una app real iría a rutas)
-  const handleCatalogClick = () => {
-    console.log('Navegando al catálogo de productos...');
-    // TODO: Aquí iría la navegación al catálogo en la siguiente etapa
-    alert('🛍️ El catálogo de productos estará disponible en la siguiente etapa');
-  };
+  // Determinar tipo de usuario logueado
+  const currentUser = adminUser || wholesaleUser || retailUser;
+  const userType = adminUser ? 'admin' : wholesaleUser ? 'wholesale' : retailUser ? 'retail' : null;
 
-  const handleLoginClick = () => {
-    console.log('Navegando al login...');
-    // TODO: Aquí iría la navegación al login
-    alert('🔐 El sistema de login estará disponible próximamente');
-  };
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  // CONFIGURACIÓN DE VISIBILIDAD DEL CATÁLOGO MINORISTA
+  // Para mostrar el botón del catálogo minorista, cambiar showRetailCatalog a true
+  // O descomentar la lógica condicional basada en el tipo de usuario
+  const shouldShowRetailCatalog = showRetailCatalog; // || userType === 'admin'; // Ejemplo: solo admin puede ver
 
   return (
-    <section className="container mx-auto px-4 py-8">
-      <div className="flex flex-col lg:flex-row justify-center items-center gap-8 lg:gap-12">
+    <section className="container mx-auto px-4 py-8 lg:py-12">
+      <div className="grid md:grid-cols-2 gap-6 lg:gap-8 max-w-4xl mx-auto">
         
-        {/* Card Catálogo de Productos */}
-        <Card 
-          className={`group cursor-pointer transition-all duration-500 hover:scale-105 hover:rotate-1 w-full max-w-sm
-            ${hoveredCard === 'catalog' ? 'shadow-2xl shadow-amber-200 dark:shadow-amber-900' : 'shadow-lg hover:shadow-xl'}
-            bg-gradient-to-br from-white to-amber-50 dark:from-stone-800 dark:to-stone-700 
-            border-2 border-transparent hover:border-amber-300 dark:hover:border-amber-600`}
-          onMouseEnter={() => setHoveredCard('catalog')}
-          onMouseLeave={() => setHoveredCard(null)}
-          onClick={handleCatalogClick}
-        >
-          <CardContent className="p-8 text-center space-y-6">
-            
-            {/* Ícono animado */}
-            <div className="relative">
-              <div className={`w-20 h-20 mx-auto bg-gradient-to-br from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:rotate-12`}>
-                <Cookie className="w-10 h-10 text-white" />
+        {/* TARJETA CATÁLOGO MINORISTA - ACTUALMENTE OCULTA */}
+        {shouldShowRetailCatalog && (
+          <Card className={`group hover:shadow-xl transition-all duration-500 border-2 hover:border-amber-300 transform hover:-translate-y-2 ${
+            isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+          }`}>
+            <CardContent className="p-8 text-center space-y-6">
+              <div className="w-16 h-16 mx-auto bg-gradient-to-br from-green-400 to-emerald-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                <Package className="h-8 w-8 text-white" />
               </div>
               
-              {/* Ícono carrito flotante */}
-              <div className={`absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center transform transition-all duration-500 ${
-                hoveredCard === 'catalog' ? 'scale-100 rotate-0' : 'scale-0 rotate-180'
-              }`}>
-                <ShoppingCart className="w-4 h-4 text-white" />
+              <div className="space-y-3">
+                <h3 className="text-2xl font-bold text-stone-800 dark:text-stone-200">
+                  Ver Catálogo
+                </h3>
+                <p className="text-stone-600 dark:text-stone-400 leading-relaxed">
+                  Explora nuestros productos artesanales, precios especiales y promociones exclusivas.
+                </p>
               </div>
-            </div>
+              
+              <div className="space-y-3">
+                <Button 
+                  size="lg" 
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-3 group-hover:shadow-lg transition-all duration-300"
+                  onClick={() => window.location.href = '/login'} // Redirige a login en lugar de catálogo
+                >
+                  Explorar Productos
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </Button>
+                
+                <p className="text-xs text-stone-500 dark:text-stone-500">
+                  Necesitas iniciar sesión
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-            {/* Contenido */}
+        {/* TARJETA PORTAL MAYORISTA - SIEMPRE VISIBLE */}
+        <Card className={`group hover:shadow-xl transition-all duration-500 border-2 hover:border-blue-300 transform hover:-translate-y-2 ${
+          isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'
+        } ${shouldShowRetailCatalog ? '' : 'md:col-span-2 max-w-lg mx-auto'}`}>
+          <CardContent className="p-8 text-center space-y-6">
+            <div className="w-16 h-16 mx-auto bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+              <UserCheck className="h-8 w-8 text-white" />
+            </div>
+            
             <div className="space-y-3">
-              <h3 className="text-2xl font-bold text-stone-800 dark:text-stone-200 group-hover:text-amber-600 transition-colors">
-                Catálogo de Productos
+              <h3 className="text-2xl font-bold text-stone-800 dark:text-stone-200">
+                Portal Mayorista
               </h3>
               <p className="text-stone-600 dark:text-stone-400 leading-relaxed">
-                Explora nuestra deliciosa variedad de galletas integrales, combos especiales y promociones exclusivas.
+                Acceso exclusivo para mayoristas con precios especiales, pedidos mínimos y gestión empresarial.
               </p>
             </div>
-
-            {/* Botón */}
-            <Button 
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-xl"
-            >
-              Ver Productos
-            </Button>
-
-            {/* Indicadores de beneficios */}
-            <div className="flex justify-center space-x-4 text-xs">
-              <span className="text-green-600 dark:text-green-400 font-medium">✓ Descuentos por cantidad</span>
-              <span className="text-blue-600 dark:text-blue-400 font-medium">✓ Envío disponible</span>
+            
+            <div className="space-y-3">
+              <Button 
+                size="lg" 
+                className="w-full bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-semibold py-3 group-hover:shadow-lg transition-all duration-300"
+                onClick={() => window.location.href = '/mayorista'}
+              >
+                Acceder como Mayorista
+                <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              </Button>
+              
+              <p className="text-xs text-stone-500 dark:text-stone-500">
+                Solo usuarios registrados
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Card Login */}
-        <Card 
-          className={`group cursor-pointer transition-all duration-500 hover:scale-105 hover:-rotate-1 w-full max-w-sm
-            ${hoveredCard === 'login' ? 'shadow-2xl shadow-blue-200 dark:shadow-blue-900' : 'shadow-lg hover:shadow-xl'}
-            bg-gradient-to-br from-white to-blue-50 dark:from-stone-800 dark:to-stone-700
-            border-2 border-transparent hover:border-blue-300 dark:hover:border-blue-600`}
-          onMouseEnter={() => setHoveredCard('login')}
-          onMouseLeave={() => setHoveredCard(null)}
-          onClick={handleLoginClick}
-        >
-          <CardContent className="p-8 text-center space-y-6">
-            
-            {/* Ícono animado */}
-            <div className="relative">
-              <div className={`w-20 h-20 mx-auto bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center transition-all duration-300 group-hover:scale-110 group-hover:-rotate-12`}>
-                <User className="w-10 h-10 text-white" />
+        {/* PANEL DE CONTROL DE VISIBILIDAD - Solo visible para admin en desarrollo */}
+        {adminUser && process.env.NODE_ENV === 'development' && (
+          <Card className="md:col-span-2 border-dashed border-orange-300 bg-orange-50">
+            <CardContent className="p-4 text-center">
+              <div className="flex items-center justify-center gap-4">
+                <span className="text-sm text-orange-800">
+                  Control Admin - Catálogo Minorista:
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowRetailCatalog(!showRetailCatalog)}
+                  className="text-orange-800 border-orange-300"
+                >
+                  {showRetailCatalog ? (
+                    <>
+                      <EyeOff className="h-4 w-4 mr-2" />
+                      Ocultar
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Mostrar
+                    </>
+                  )}
+                </Button>
               </div>
-              
-              {/* Indicador de seguridad */}
-              <div className={`absolute -top-1 -right-1 w-6 h-6 bg-gradient-to-br from-green-400 to-green-500 rounded-full flex items-center justify-center transform transition-all duration-500 ${
-                hoveredCard === 'login' ? 'scale-100 rotate-0' : 'scale-0 -rotate-90'
-              }`}>
-                <span className="text-white text-xs font-bold">✓</span>
-              </div>
-            </div>
-
-            {/* Contenido */}
-            <div className="space-y-3">
-              <h3 className="text-2xl font-bold text-stone-800 dark:text-stone-200 group-hover:text-blue-600 transition-colors">
-                Inicia Sesión
-              </h3>
-              <p className="text-stone-600 dark:text-stone-400 leading-relaxed">
-                Accede a tu cuenta para ver tus pedidos, historial de compras y ofertas personalizadas.
-              </p>
-            </div>
-
-            {/* Botón destacado */}
-            <Button 
-              className="w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white font-semibold py-3 rounded-xl shadow-lg transform transition-all duration-200 hover:scale-[1.02] hover:shadow-xl"
-            >
-              Entrar Ahora
-            </Button>
-
-            {/* Beneficios de login */}
-            <div className="flex justify-center space-x-4 text-xs">
-              <span className="text-purple-600 dark:text-purple-400 font-medium">✓ Ofertas exclusivas</span>
-              <span className="text-pink-600 dark:text-pink-400 font-medium">✓ Historial completo</span>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </section>
   );
 };
+
+/*
+CONFIGURACIÓN DE VISIBILIDAD DEL CATÁLOGO MINORISTA:
+
+ESTADO ACTUAL:
+- showRetailCatalog = false (catálogo minorista oculto)
+- Solo se muestra el Portal Mayorista
+
+PARA REACTIVAR CATÁLOGO MINORISTA:
+1. Cambiar showRetailCatalog a true en la línea 21
+2. O descomentar la lógica condicional: || userType === 'admin'
+3. Asegurar que ProtectedRoute permita acceso a CATALOG_RETAIL
+
+OPCIONES DE CONFIGURACIÓN:
+- Mostrar siempre: showRetailCatalog = true
+- Mostrar solo para admin: userType === 'admin'
+- Mostrar solo para usuarios logueados: currentUser !== null
+- Ocultar completamente: showRetailCatalog = false (actual)
+
+FUNCIONALIDAD ACTUAL:
+- Botón "Ver Catálogo" redirige a /login (no a /catalogo)
+- Portal Mayorista funciona normalmente
+- Panel de control admin visible solo en desarrollo
+
+PERSONALIZACIÓN:
+- Modificar los gradientes de color de las tarjetas
+- Cambiar textos descriptivos
+- Ajustar animaciones y efectos hover
+- Cambiar rutas de redirección según necesidades
+*/
