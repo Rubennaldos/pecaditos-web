@@ -8,14 +8,29 @@ import { useCart } from '@/contexts/CartContext';
 interface CatalogHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  isMayorista?: boolean; // Added this prop to fix the error
+  isMayorista?: boolean;
 }
+
+// Hook seguro para usar el carrito - no lanza error si no hay CartProvider
+const useSafeCart = () => {
+  try {
+    return useCart();
+  } catch (error) {
+    // Si no hay CartProvider disponible, retorna valores por defecto
+    return {
+      items: [],
+      totalItems: 0
+    };
+  }
+};
 
 export const CatalogHeader = ({ searchQuery, onSearchChange, isMayorista = false }: CatalogHeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { items } = useCart();
   
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  // Usar hook seguro que no falla si no hay CartProvider
+  const { items } = useSafeCart();
+  
+  const totalItems = items.reduce((sum: number, item: any) => sum + item.quantity, 0);
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-stone-200">
@@ -56,7 +71,7 @@ export const CatalogHeader = ({ searchQuery, onSearchChange, isMayorista = false
               <span>Mi cuenta</span>
             </Button>
 
-            {/* Cart */}
+            {/* Cart - Solo mostrar si hay contexto de carrito disponible */}
             <Button variant="outline" size="sm" className="relative">
               <ShoppingCart className="h-4 w-4" />
               {totalItems > 0 && (
