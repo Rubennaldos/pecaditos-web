@@ -1,199 +1,97 @@
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
-/**
- * SECCIÓN DE PREGUNTAS FRECUENTES
- * 
- * Accordion con información sobre:
- * - Condiciones de envío
- * - Métodos de pago
- * - Soporte al cliente
- * - Políticas de devolución
- * 
- * PARA PERSONALIZAR:
- * - Modificar preguntas y respuestas
- * - Agregar más categorías de FAQ
- * - Conectar con sistema de soporte
- */
+interface FAQSectionProps {
+  isMayorista?: boolean;
+}
 
-export const FAQSection = () => {
+export const FAQSection = ({ isMayorista = false }: FAQSectionProps) => {
+  const faqs = isMayorista ? [
+    {
+      question: "¿Cuál es el pedido mínimo para mayoristas?",
+      answer: "El pedido mínimo es de S/ 300. Esto nos permite ofrecerte precios especiales y mantener la calidad del servicio."
+    },
+    {
+      question: "¿Por qué debo comprar en múltiplos de 6?",
+      answer: "Nuestros productos se fabrican y empacan en presentaciones de 6 unidades para mantener la frescura y optimizar la logística de entrega."
+    },
+    {
+      question: "¿Cómo funcionan los descuentos por volumen?",
+      answer: "Ofrecemos descuentos automáticos: 10% (6-11 unidades), 15% (12-23 unidades), 25% (24+ unidades). Los descuentos se aplican automáticamente en tu carrito."
+    },
+    {
+      question: "¿Ofrecen crédito comercial?",
+      answer: "Sí, para mayoristas establecidos ofrecemos facilidades de pago. Contacta a tu asesor comercial para conocer las condiciones."
+    },
+    {
+      question: "¿Hacen entregas a domicilio?",
+      answer: "Sí, entregamos directamente a tu negocio. Los pedidos mayores a S/ 500 tienen delivery gratuito en Lima Metropolitana."
+    },
+    {
+      question: "¿Puedo personalizar los productos?",
+      answer: "Para pedidos especiales y personalizaciones, usa el botón 'Solicitar Cotización' en tu dashboard o contacta a tu asesor comercial."
+    }
+  ] : [
+    {
+      question: "¿Los productos son realmente artesanales?",
+      answer: "Sí, todos nuestros productos son elaborados a mano siguiendo recetas tradicionales con ingredientes naturales seleccionados."
+    },
+    {
+      question: "¿Hacen entregas a domicilio?",
+      answer: "Sí, realizamos entregas en Lima Metropolitana. El costo de delivery varía según la zona y se calcula automáticamente al finalizar tu pedido."
+    },
+    {
+      question: "¿Cuál es el tiempo de entrega?",
+      answer: "Las entregas se realizan dentro de las 24-48 horas hábiles. Para pedidos especiales o grandes cantidades, el tiempo puede extenderse."
+    },
+    {
+      question: "¿Los productos contienen gluten?",
+      answer: "Algunos de nuestros productos contienen gluten. Revisa la descripción de cada producto o contáctanos para información específica sobre alérgenos."
+    },
+    {
+      question: "¿Puedo cancelar mi pedido?",
+      answer: "Puedes cancelar tu pedido dentro de las 2 horas siguientes a la confirmación. Pasado este tiempo, contacta nuestro servicio al cliente."
+    },
+    {
+      question: "¿Ofrecen descuentos por cantidad?",
+      answer: "Sí, ofrecemos promociones especiales para pedidos grandes. También tenemos un programa de clientes frecuentes con beneficios exclusivos."
+    }
+  ];
+
   return (
-    <section className="py-12 border-t border-stone-200 mt-12">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <h2 className="text-2xl font-display font-bold text-stone-800 mb-2">
-            Preguntas Frecuentes
+    <section className="py-12 bg-background">
+      <div className="container mx-auto px-4">
+        <div className="max-w-3xl mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-8 text-foreground">
+            {isMayorista ? 'Preguntas Frecuentes - Mayoristas' : 'Preguntas Frecuentes'}
           </h2>
-          <p className="text-stone-600">
-            Todo lo que necesitas saber sobre nuestros productos y servicios
-          </p>
-        </div>
-
-        <Accordion type="single" collapsible className="space-y-4">
-          {/* Envíos */}
-          <AccordionItem value="shipping" className="border border-stone-200 rounded-lg px-4">
-            <AccordionTrigger className="text-left font-semibold text-stone-800">
-              🚚 ¿Cuáles son las condiciones de envío?
-            </AccordionTrigger>
-            <AccordionContent className="text-stone-600 pt-2">
-              <div className="space-y-3">
-                <p>
-                  <strong>Zonas de delivery:</strong> San Borja, Miraflores, San Isidro, Surco, 
-                  La Molina, Barranco, Chorrillos, Magdalena, Pueblo Libre.
-                </p>
-                <p>
-                  <strong>Tiempo de entrega:</strong> 24-48 horas en días laborables.
-                </p>
-                <p>
-                  <strong>Costo de envío:</strong> Varía según la distancia. No hay delivery gratuito.
-                </p>
-                <p>
-                  <strong>Zonas especiales:</strong> Algunas zonas de ciertos distritos requieren 
-                  confirmación previa por WhatsApp debido a restricciones de acceso.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Pagos */}
-          <AccordionItem value="payment" className="border border-stone-200 rounded-lg px-4">
-            <AccordionTrigger className="text-left font-semibold text-stone-800">
-              💳 ¿Qué métodos de pago aceptan?
-            </AccordionTrigger>
-            <AccordionContent className="text-stone-600 pt-2">
-              <div className="space-y-3">
-                <p>
-                  <strong>Pago online:</strong> Tarjetas de crédito/débito a través de Culqi 
-                  (Visa, Mastercard, American Express).
-                </p>
-                <p>
-                  <strong>Transferencias:</strong> BCP, Interbank, BBVA, Scotiabank.
-                </p>
-                <p>
-                  <strong>Pago contra entrega:</strong> Efectivo exacto o tarjeta con POS móvil.
-                </p>
-                <p>
-                  <strong>Comprobantes:</strong> Emitimos boletas y facturas electrónicas.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Productos */}
-          <AccordionItem value="products" className="border border-stone-200 rounded-lg px-4">
-            <AccordionTrigger className="text-left font-semibold text-stone-800">
-              🍪 ¿Qué ingredientes usan en sus galletas?
-            </AccordionTrigger>
-            <AccordionContent className="text-stone-600 pt-2">
-              <div className="space-y-3">
-                <p>
-                  <strong>100% naturales:</strong> Sin preservantes artificiales, colorantes 
-                  ni saborizantes químicos.
-                </p>
-                <p>
-                  <strong>Ingredientes principales:</strong> Harina integral, miel de abeja, 
-                  aceite de coco, ingredientes peruanos como quinua y frutos nativos.
-                </p>
-                <p>
-                  <strong>Vida útil:</strong> 15-20 días desde la fecha de elaboración.
-                </p>
-                <p>
-                  <strong>Conservación:</strong> Lugar fresco y seco, en recipiente hermético.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Descuentos */}
-          <AccordionItem value="discounts" className="border border-stone-200 rounded-lg px-4">
-            <AccordionTrigger className="text-left font-semibold text-stone-800">
-              🏷️ ¿Cómo funcionan los descuentos por cantidad?
-            </AccordionTrigger>
-            <AccordionContent className="text-stone-600 pt-2">
-              <div className="space-y-3">
-                <p>
-                  <strong>6+ unidades:</strong> 5% de descuento automático sobre el total.
-                </p>
-                <p>
-                  <strong>12+ unidades:</strong> 10% de descuento automático sobre el total.
-                </p>
-                <p>
-                  <strong>Pedido mínimo:</strong> S/ 70 para procesar la compra.
-                </p>
-                <p>
-                  <strong>Códigos promocionales:</strong> Ocasionalmente enviamos códigos 
-                  especiales por redes sociales.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Soporte */}
-          <AccordionItem value="support" className="border border-stone-200 rounded-lg px-4">
-            <AccordionTrigger className="text-left font-semibold text-stone-800">
-              🙋‍♀️ ¿Cómo puedo contactar al soporte?
-            </AccordionTrigger>
-            <AccordionContent className="text-stone-600 pt-2">
-              <div className="space-y-3">
-                <p>
-                  <strong>WhatsApp:</strong> +51 999 123 456 (Lun-Sáb 8am-8pm)
-                </p>
-                <p>
-                  <strong>Email:</strong> contacto@pecaditosintegrales.com.pe
-                </p>
-                <p>
-                  <strong>Instagram:</strong> @pecaditosintegrales (respuesta rápida)
-                </p>
-                <p>
-                  <strong>Tiempo de respuesta:</strong> Máximo 2 horas en horario laboral.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Devoluciones */}
-          <AccordionItem value="returns" className="border border-stone-200 rounded-lg px-4">
-            <AccordionTrigger className="text-left font-semibold text-stone-800">
-              🔄 ¿Cuál es su política de devoluciones?
-            </AccordionTrigger>
-            <AccordionContent className="text-stone-600 pt-2">
-              <div className="space-y-3">
-                <p>
-                  <strong>Productos defectuosos:</strong> Reemplazo inmediato sin costo adicional.
-                </p>
-                <p>
-                  <strong>Error en el pedido:</strong> Corrección sin cargo si es responsabilidad nuestra.
-                </p>
-                <p>
-                  <strong>Cambio de opinión:</strong> No aceptamos devoluciones por productos alimenticios.
-                </p>
-                <p>
-                  <strong>Reclamos:</strong> Contactar dentro de las 24 horas posteriores a la entrega.
-                </p>
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
-
-        {/* Contacto adicional */}
-        <div className="text-center mt-8 p-6 bg-stone-50 rounded-lg">
-          <h3 className="font-semibold text-stone-800 mb-2">
-            ¿No encontraste respuesta a tu pregunta?
-          </h3>
-          <p className="text-stone-600 text-sm mb-4">
-            Nuestro equipo está listo para ayudarte
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 justify-center">
-            <button className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-              WhatsApp: +51 999 123 456
-            </button>
-            <button className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium text-sm">
-              Email: contacto@pecaditosintegrales.com.pe
+          
+          <Accordion type="single" collapsible className="space-y-4">
+            {faqs.map((faq, index) => (
+              <AccordionItem 
+                key={index} 
+                value={`item-${index}`}
+                className="bg-card rounded-lg border border-border"
+              >
+                <AccordionTrigger className="px-6 py-4 text-left hover:no-underline hover:bg-muted/50 transition-colors">
+                  <span className="font-semibold text-card-foreground">{faq.question}</span>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-4 text-muted-foreground">
+                  {faq.answer}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+          
+          <div className="mt-8 text-center">
+            <p className="text-muted-foreground mb-4">
+              {isMayorista 
+                ? '¿No encuentras la respuesta que buscas? Nuestro equipo comercial está aquí para ayudarte.'
+                : '¿No encuentras la respuesta que buscas? Estamos aquí para ayudarte.'
+              }
+            </p>
+            <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+              Contactar WhatsApp
             </button>
           </div>
         </div>
