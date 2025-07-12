@@ -1,42 +1,72 @@
 
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
-import { HeroSection } from '@/components/sections/HeroSection';
-import { MainCards } from '@/components/sections/MainCards';
-import { OrderTracking } from '@/components/sections/OrderTracking';
-import { SocialMedia } from '@/components/sections/SocialMedia';
+import { HeroBanner } from '@/components/sections/HeroBanner';
+import { CategorySelector } from '@/components/sections/CategorySelector';
+import { PromoBanners } from '@/components/sections/PromoBanners';
+import { DashboardSummary } from '@/components/sections/DashboardSummary';
+import { ProductsOnPromotion } from '@/components/sections/ProductsOnPromotion';
+import { ProductCatalog } from '@/components/sections/ProductCatalog';
+import { StickyCart } from '@/components/cart/StickyCart';
+import { RecommendedProducts } from '@/components/sections/RecommendedProducts';
+import { FAQSection } from '@/components/sections/FAQSection';
+import { PromotionalBanners } from '@/components/sections/PromotionalBanners';
 import { Footer } from '@/components/layout/Footer';
-import { OrderTrackingModal } from '@/components/modals/OrderTrackingModal';
+import { CartProvider } from '@/contexts/CartContext';
 
 const Index = () => {
-  const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('todas');
+  const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
-      {/* Header - Solo para móvil como navegación básica */}
-      <Header />
-      
-      {/* Hero Section - Logo, eslogan y texto de bienvenida */}
-      <HeroSection />
-      
-      {/* Main Cards - Catálogo y Login */}
-      <MainCards />
-      
-      {/* Order Tracking Button */}
-      <OrderTracking onOpenModal={() => setIsTrackingModalOpen(true)} />
-      
-      {/* Social Media */}
-      <SocialMedia />
-      
-      {/* Footer */}
-      <Footer />
-      
-      {/* Order Tracking Modal */}
-      <OrderTrackingModal 
-        isOpen={isTrackingModalOpen} 
-        onClose={() => setIsTrackingModalOpen(false)} 
-      />
-    </div>
+    <CartProvider>
+      <div className="min-h-screen bg-background">
+        {/* Header con logo, buscador, login y carrito */}
+        <Header 
+          searchQuery={searchQuery} 
+          onSearchChange={setSearchQuery}
+        />
+        
+        {/* Banner principal para campañas */}
+        <HeroBanner />
+        
+        {/* Selector de categorías */}
+        <CategorySelector 
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
+        
+        {/* 2 banners promocionales */}
+        <PromoBanners />
+        
+        {/* Dashboard mini-resumen */}
+        <DashboardSummary />
+        
+        {/* Productos en promoción destacados */}
+        <ProductsOnPromotion />
+        
+        {/* Catálogo principal de productos */}
+        <ProductCatalog 
+          selectedCategory={selectedCategory}
+          searchQuery={searchQuery}
+        />
+        
+        {/* Productos recomendados */}
+        <RecommendedProducts />
+        
+        {/* Preguntas frecuentes */}
+        <FAQSection />
+        
+        {/* Banners promocionales finales */}
+        <PromotionalBanners />
+        
+        {/* Footer */}
+        <Footer />
+        
+        {/* Carrito sticky siempre visible */}
+        <StickyCart />
+      </div>
+    </CartProvider>
   );
 };
 
