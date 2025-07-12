@@ -1,110 +1,127 @@
 
-import { Bell, FileText, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Clock, AlertCircle, Gift, MessageSquare } from 'lucide-react';
 
-/**
- * DASHBOARD RESUMEN DEL USUARIO
- * 
- * Mini-dashboard que muestra:
- * - Pedidos recientes del usuario
- * - Avisos de promociones y novedades
- * - Botón para cotización especial
- * 
- * PARA PERSONALIZAR:
- * - Conectar con datos reales del usuario desde Firebase
- * - Modificar avisos y notificaciones
- * - Personalizar formulario de cotización
- */
+interface DashboardSummaryProps {
+  isMayorista?: boolean;
+}
 
-export const DashboardSummary = () => {
-  // TODO: Obtener datos reales del usuario logueado desde Firebase
-  const userOrders = []; // Simular sin pedidos por ahora
-  const hasUnreadNotifications = true;
+export const DashboardSummary = ({ isMayorista = false }: DashboardSummaryProps) => {
+  // Mock data - EDITAR AQUÍ para personalizar los datos del dashboard
+  const mockData = {
+    recentOrders: isMayorista ? [
+      { id: 'ORD-M001', date: '2024-01-15', status: 'En tránsito', total: 450 },
+      { id: 'ORD-M002', date: '2024-01-10', status: 'Entregado', total: 320 }
+    ] : [
+      { id: 'ORD001', date: '2024-01-15', status: 'En tránsito', total: 85 },
+      { id: 'ORD002', date: '2024-01-12', status: 'Entregado', total: 65 }
+    ],
+    notifications: isMayorista ? [
+      { type: 'promo', message: '¡Nuevo descuento por volumen disponible!' },
+      { type: 'product', message: 'Galletas de quinua ahora disponibles' }
+    ] : [
+      { type: 'promo', message: '¡Oferta especial: 15% off en combos familiares!' },
+      { type: 'product', message: 'Nuevo sabor: Galletas de cúrcuma y jengibre' }
+    ]
+  };
+
+  const handleSpecialQuote = () => {
+    // Aquí se abriría un modal o formulario para cotización especial
+    alert('Funcionalidad de cotización especial - Por implementar');
+  };
 
   return (
-    <section className="py-6 bg-stone-50 border-b border-stone-200">
+    <section className="w-full py-8 bg-stone-50">
       <div className="container mx-auto px-4">
-        <div className="grid md:grid-cols-3 gap-4">
-          {/* Pedidos recientes */}
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <FileText className="h-5 w-5 text-blue-600" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Pedidos Recientes */}
+          <Card className="bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Clock className="h-5 w-5 text-amber-600" />
+                Pedidos Recientes
+              </CardTitle>
+              <CardDescription>
+                {isMayorista ? 'Tus últimas compras mayoristas' : 'Tus últimos pedidos'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {mockData.recentOrders.map((order) => (
+                <div key={order.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                  <div>
+                    <p className="font-medium text-sm">{order.id}</p>
+                    <p className="text-xs text-stone-500">{order.date}</p>
+                  </div>
+                  <div className="text-right">
+                    <Badge variant={order.status === 'Entregado' ? 'default' : 'secondary'} className="text-xs">
+                      {order.status}
+                    </Badge>
+                    <p className="text-sm font-medium mt-1">S/ {order.total}</p>
+                  </div>
                 </div>
-                <h3 className="font-semibold text-stone-800">Mis Pedidos</h3>
-              </div>
-              
-              {userOrders.length > 0 ? (
-                <div className="space-y-2">
-                  {/* TODO: Mostrar pedidos reales */}
-                  <p className="text-sm text-stone-600">Pedido #ORD001 - En camino</p>
-                  <p className="text-sm text-stone-600">Pedido #ORD002 - Entregado</p>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Notificaciones y Avisos */}
+          <Card className="bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-blue-600" />
+                Avisos
+              </CardTitle>
+              <CardDescription>
+                Promociones y novedades
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {mockData.notifications.map((notification, index) => (
+                <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                  <div className="flex-shrink-0">
+                    {notification.type === 'promo' ? (
+                      <Gift className="h-4 w-4 text-blue-600 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                    )}
+                  </div>
+                  <p className="text-sm text-stone-700">{notification.message}</p>
                 </div>
-              ) : (
-                <p className="text-sm text-stone-500">
-                  Aún no tienes pedidos. ¡Haz tu primer pedido!
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Cotización Especial */}
+          <Card className="bg-white shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-green-600" />
+                Cotización Especial
+              </CardTitle>
+              <CardDescription>
+                {isMayorista ? 'Pedidos personalizados para tu negocio' : 'Pedidos fuera del catálogo estándar'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <p className="text-sm text-stone-600">
+                  {isMayorista 
+                    ? '¿Necesitas cantidades especiales o productos personalizados?'
+                    : '¿Necesitas grandes cantidades o sabores especiales?'
+                  }
                 </p>
-              )}
-              
-              <Button variant="outline" size="sm" className="w-full mt-3">
-                Ver historial
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Avisos y notificaciones */}
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-amber-100 rounded-lg relative">
-                  <Bell className="h-5 w-5 text-amber-600" />
-                  {hasUnreadNotifications && (
-                    <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full"></span>
-                  )}
-                </div>
-                <h3 className="font-semibold text-stone-800">Avisos</h3>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="p-2 bg-amber-50 rounded-lg">
-                  <p className="text-sm font-medium text-amber-800">¡Nuevo sabor disponible!</p>
-                  <p className="text-xs text-amber-700">Galletas de maracuyá ya disponibles</p>
-                </div>
-                <div className="p-2 bg-green-50 rounded-lg">
-                  <p className="text-sm font-medium text-green-800">Descuento activo</p>
-                  <p className="text-xs text-green-700">10% OFF en combos familiares</p>
-                </div>
+                <Button 
+                  onClick={handleSpecialQuote}
+                  className="w-full bg-green-600 hover:bg-green-700"
+                >
+                  Solicitar Cotización
+                </Button>
               </div>
             </CardContent>
           </Card>
 
-          {/* Cotización especial */}
-          <Card className="bg-white shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <MessageCircle className="h-5 w-5 text-purple-600" />
-                </div>
-                <h3 className="font-semibold text-stone-800">Pedido Especial</h3>
-              </div>
-              
-              <p className="text-sm text-stone-600 mb-3">
-                ¿Necesitas algo personalizado? Solicita una cotización especial.
-              </p>
-              
-              <Button 
-                className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-                onClick={() => {
-                  // TODO: Abrir modal de cotización especial
-                  alert('Próximamente: Formulario de cotización especial');
-                }}
-              >
-                Solicitar cotización
-              </Button>
-            </CardContent>
-          </Card>
         </div>
       </div>
     </section>

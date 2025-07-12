@@ -4,52 +4,43 @@ import { Search, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useCart } from '@/contexts/CartContext';
-import { Link } from 'react-router-dom';
-
-/**
- * HEADER DEL CATÁLOGO
- * 
- * Incluye:
- * - Logo y navegación a home
- * - Buscador de productos
- * - Botón de login
- * - Carrito con contador de productos
- * - Menú hamburguesa para móvil
- */
 
 interface CatalogHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  isMayorista?: boolean; // Added this prop to fix the error
 }
 
-export const CatalogHeader = ({ searchQuery, onSearchChange }: CatalogHeaderProps) => {
-  const { totalItems } = useCart();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+export const CatalogHeader = ({ searchQuery, onSearchChange, isMayorista = false }: CatalogHeaderProps) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { items } = useCart();
+  
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-stone-200 shadow-sm">
+    <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-stone-200">
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3">
+          <div className="flex items-center space-x-3">
             <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
               <span className="text-white font-bold text-lg">P</span>
             </div>
-            <div className="hidden sm:block">
-              <h1 className="font-display text-xl font-bold text-stone-800">
-                Pecaditos Integrales
-              </h1>
-              <p className="text-xs text-stone-600">Catálogo de productos</p>
+            <div>
+              <h1 className="text-xl font-bold text-stone-800">Pecaditos Integrales</h1>
+              {isMayorista && (
+                <span className="text-xs text-amber-600 font-medium">Portal Mayorista</span>
+              )}
             </div>
-          </Link>
+          </div>
 
-          {/* Buscador - Desktop */}
+          {/* Search - Hidden on mobile */}
           <div className="hidden md:flex flex-1 max-w-md mx-8">
             <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 h-4 w-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
               <Input
                 type="text"
-                placeholder="Buscar galletas, combos..."
+                placeholder="Buscar productos..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 className="pl-10 pr-4 w-full"
@@ -57,53 +48,41 @@ export const CatalogHeader = ({ searchQuery, onSearchChange }: CatalogHeaderProp
             </div>
           </div>
 
-          {/* Botones de acción - Desktop */}
-          <div className="hidden md:flex items-center space-x-3">
-            {/* Login */}
-            <Button variant="ghost" size="sm" className="text-stone-700 hover:text-stone-900">
-              <User className="h-4 w-4 mr-2" />
-              Iniciar Sesión
+          {/* Right section */}
+          <div className="flex items-center space-x-4">
+            {/* Login/Profile */}
+            <Button variant="ghost" size="sm" className="hidden md:flex items-center space-x-2">
+              <User className="h-4 w-4" />
+              <span>Mi cuenta</span>
             </Button>
 
-            {/* Carrito */}
+            {/* Cart */}
             <Button variant="outline" size="sm" className="relative">
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Carrito
+              <ShoppingCart className="h-4 w-4" />
               {totalItems > 0 && (
-                <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 bg-amber-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
                   {totalItems}
                 </span>
               )}
-            </Button>
-          </div>
-
-          {/* Botones móvil */}
-          <div className="md:hidden flex items-center space-x-2">
-            {/* Carrito móvil */}
-            <Button variant="ghost" size="sm" className="relative">
-              <ShoppingCart className="h-5 w-5" />
-              {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-amber-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
-                  {totalItems}
-                </span>
-              )}
+              <span className="hidden sm:inline ml-2">Carrito</span>
             </Button>
 
-            {/* Menú hamburguesa */}
+            {/* Mobile menu button */}
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="md:hidden"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
-              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {isMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
             </Button>
           </div>
         </div>
 
-        {/* Buscador móvil */}
+        {/* Mobile search */}
         <div className="md:hidden mt-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-stone-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
             <Input
               type="text"
               placeholder="Buscar productos..."
@@ -114,19 +93,14 @@ export const CatalogHeader = ({ searchQuery, onSearchChange }: CatalogHeaderProp
           </div>
         </div>
 
-        {/* Menú móvil desplegable */}
-        {isMobileMenuOpen && (
-          <div className="md:hidden mt-4 py-4 border-t border-stone-200">
+        {/* Mobile menu */}
+        {isMenuOpen && (
+          <div className="md:hidden mt-4 pb-4 border-t border-stone-200 pt-4">
             <div className="space-y-2">
               <Button variant="ghost" className="w-full justify-start">
                 <User className="h-4 w-4 mr-2" />
-                Iniciar Sesión
+                Mi cuenta
               </Button>
-              <Link to="/" className="block">
-                <Button variant="ghost" className="w-full justify-start">
-                  Volver al Inicio
-                </Button>
-              </Link>
             </div>
           </div>
         )}
