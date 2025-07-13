@@ -16,39 +16,10 @@ import AdminPanel from "./pages/AdminPanel";
 import OrdersPanel from "./pages/OrdersPanel";
 import DeliveryPanel from "./pages/DeliveryPanel";
 import ProductionPanel from "./pages/ProductionPanel";
+import TrackingPanel from "./pages/TrackingPanel";
 import BillingPanel from "./pages/BillingPanel";
 import OrderTracking from "./pages/OrderTracking";
-import WhereToFindUs from "./pages/WhereToFindUs";
 import NotFound from "./pages/NotFound";
-
-/**
- * APLICACIÓN PRINCIPAL - SISTEMA UNIFICADO PECADITOS INTEGRALES
- * 
- * RUTAS ACTIVAS POR PERFIL:
- * 
- * PÚBLICAS:
- * - / → Landing page
- * - /login → Login único para todos los perfiles
- * - /seguimiento → Seguimiento público de pedidos
- * - /donde-nos-ubicamos → Puntos de venta (NUEVA)
- * 
- * PROTEGIDAS POR PERFIL:
- * - /admin → Solo admin general
- * - /pedidos → Solo perfil pedidos + admin
- * - /reparto → Solo perfil reparto + admin  
- * - /produccion → Solo perfil producción + admin
- * - /cobranzas → Solo perfil cobranzas + admin
- * - /mayorista → Solo mayoristas + admin
- * 
- * OCULTAS:
- * - /catalogo → Solo admin (minorista oculto)
- * - /productos → Solo admin (minorista oculto)
- * 
- * ELIMINADAS:
- * - /seguimiento-panel → ELIMINADO (era perfil seguimiento)
- * 
- * EDITAR AQUÍ para agregar nuevas rutas o cambiar configuración
- */
 
 const queryClient = new QueryClient();
 
@@ -58,33 +29,20 @@ const App = () => (
       <Toaster />
       <Sonner />
       
-      {/* CONTEXTOS DE AUTENTICACIÓN UNIFICADOS */}
+      {/* PROVIDERS DE AUTENTICACIÓN - Todos los contextos disponibles */}
       <AuthProvider>
         <WholesaleAuthProvider>
           <AdminProvider>
             <BrowserRouter>
               <Routes>
-                {/* RUTAS PÚBLICAS */}
+                {/* PÁGINA PRINCIPAL - Landing/Bienvenida - Acceso público */}
                 <Route path="/" element={<Index />} />
-                <Route path="/login" element={<Login />} />
-                <Route 
-                  path="/seguimiento" 
-                  element={
-                    <ProtectedRoute routeType="PUBLIC">
-                      <OrderTracking />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/donde-nos-ubicamos" 
-                  element={
-                    <ProtectedRoute routeType="PUBLIC">
-                      <WhereToFindUs />
-                    </ProtectedRoute>
-                  } 
-                />
                 
-                {/* CATÁLOGO MINORISTA - COMPLETAMENTE OCULTO */}
+                {/* LOGIN UNIFICADO - Detecta automáticamente el perfil del usuario */}
+                <Route path="/login" element={<Login />} />
+                
+                {/* CATÁLOGO MINORISTA - *** COMPLETAMENTE OCULTO *** */}
+                {/* Solo admin puede acceder - Para reactivar: cambiar allowedProfiles en ProtectedRoute.tsx */}
                 <Route 
                   path="/catalogo" 
                   element={
@@ -102,7 +60,7 @@ const App = () => (
                   } 
                 />
                 
-                {/* PORTAL MAYORISTA */}
+                {/* PORTAL MAYORISTA - Solo mayoristas y admin */}
                 <Route 
                   path="/mayorista" 
                   element={
@@ -111,16 +69,8 @@ const App = () => (
                     </ProtectedRoute>
                   } 
                 />
-                <Route 
-                  path="/catalogo-mayorista" 
-                  element={
-                    <ProtectedRoute routeType="CATALOG_WHOLESALE">
-                      <WholesalePortal />
-                    </ProtectedRoute>
-                  } 
-                />
                 
-                {/* PANELES POR PERFIL ESPECÍFICO */}
+                {/* PANEL DE ADMINISTRACIÓN GENERAL - Solo admin */}
                 <Route 
                   path="/admin" 
                   element={
@@ -130,6 +80,7 @@ const App = () => (
                   } 
                 />
                 
+                {/* PANEL DE PEDIDOS - Solo perfil pedidos y admin */}
                 <Route 
                   path="/pedidos" 
                   element={
@@ -139,6 +90,7 @@ const App = () => (
                   } 
                 />
                 
+                {/* PANEL DE REPARTO - Solo perfil reparto y admin */}
                 <Route 
                   path="/reparto" 
                   element={
@@ -148,6 +100,7 @@ const App = () => (
                   } 
                 />
                 
+                {/* PANEL DE PRODUCCIÓN - Solo perfil producción y admin */}
                 <Route 
                   path="/produccion" 
                   element={
@@ -157,6 +110,17 @@ const App = () => (
                   } 
                 />
                 
+                {/* PANEL DE SEGUIMIENTO - Solo perfil seguimiento y admin */}
+                <Route 
+                  path="/seguimiento-panel" 
+                  element={
+                    <ProtectedRoute routeType="TRACKING">
+                      <TrackingPanel />
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                {/* PANEL DE COBRANZAS - Solo perfil cobranzas y admin */}
                 <Route 
                   path="/cobranzas" 
                   element={
@@ -166,7 +130,17 @@ const App = () => (
                   } 
                 />
                 
-                {/* RUTA 404 */}
+                {/* SEGUIMIENTO PÚBLICO DE PEDIDOS - Acceso público */}
+                <Route 
+                  path="/seguimiento" 
+                  element={
+                    <ProtectedRoute routeType="PUBLIC">
+                      <OrderTracking />
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                {/* RUTA 404 - Debe ir al final */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
@@ -180,30 +154,42 @@ const App = () => (
 export default App;
 
 /*
-CONFIGURACIÓN ACTUAL DEL SISTEMA:
+CONFIGURACIÓN DE RUTAS POR PERFIL:
 
-PERFILES ACTIVOS:
-✅ admin → /admin (acceso completo + impersonación)
-✅ pedidos → /pedidos (solo gestión de pedidos)
-✅ reparto → /reparto (solo distribución)
-✅ produccion → /produccion (solo stock)
-✅ cobranzas → /cobranzas (solo facturación)
-✅ mayorista → /mayorista (catálogo mayorista)
+RUTAS POR PERFIL ESPECÍFICO:
+1. / - Landing page principal (público)
+2. /login - Login unificado con detección automática (público)
+3. /admin - Panel administrador general (solo admin)
+4. /pedidos - Panel de pedidos (solo pedidos + admin)
+5. /reparto - Panel de reparto (solo reparto + admin)
+6. /produccion - Panel de producción (solo produccion + admin)
+7. /seguimiento-panel - Panel de seguimiento (solo seguimiento + admin)
+8. /cobranzas - Panel de cobranzas (solo cobranzas + admin)
+9. /mayorista - Portal mayorista (solo mayorista + admin)
+10. /seguimiento - Consulta pública de pedidos (público)
 
-CAMBIOS REALIZADOS:
-❌ Eliminado perfil "seguimiento" completamente
-❌ Eliminada ruta /seguimiento-panel
-✅ Agregada ruta /donde-nos-ubicamos
-✅ Catálogo minorista completamente oculto
+RUTAS OCULTAS:
+11. /catalogo y /productos - Catálogo minorista (OCULTO - solo admin)
 
-PARA EDITAR:
-1. Agregar nuevas rutas: Copiar estructura existente
-2. Cambiar permisos: Modificar routeType en ProtectedRoute
-3. Nuevos perfiles: Actualizar ProtectedRoute.tsx también
-4. Rutas públicas: Usar routeType="PUBLIC"
+DETECCIÓN AUTOMÁTICA DE PERFIL:
+- El login detecta automáticamente el perfil por email
+- Cada usuario es redirigido SOLO a su panel correspondiente
+- Solo admin puede acceder a otros paneles (impersonación)
 
-FIREBASE READY:
-- Todos los contextos preparados para Firebase Auth
-- Rutas protegidas con redirección automática
-- Sistema modular y escalable
+PARA REACTIVAR CATÁLOGO MINORISTA:
+1. Ir a src/components/auth/ProtectedRoute.tsx
+2. Cambiar CATALOG_RETAIL.allowedProfiles de ['admin'] a ['retail', 'admin']
+3. Modificar getUserProfile() para detectar usuarios retail correctamente
+
+PARA AGREGAR NUEVAS RUTAS:
+1. Crear la nueva página/componente
+2. Agregar la ruta en este archivo
+3. Configurar ProtectedRoute con el tipo correspondiente
+4. Actualizar ProtectedRoute.tsx con el nuevo perfil/ruta
+
+SEGURIDAD:
+- Cada perfil solo puede acceder a SU ruta específica
+- Intentos de acceso no autorizado son redirigidos automáticamente
+- Solo admin puede impersonar otros perfiles
+- Todos los accesos son registrados en logs
 */

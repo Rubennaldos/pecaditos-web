@@ -7,28 +7,32 @@ import { useAdmin } from '@/contexts/AdminContext';
 /**
  * COMPONENTE DE RUTA PROTEGIDA - CONTROL DE ACCESO POR PERFIL
  * 
- * PERFILES ACTIVOS:
- * - admin: Administrador general con acceso completo
- * - mayorista: Portal mayorista 
- * - pedidos: Panel de pedidos y preparación
- * - reparto: Panel de distribución y entrega
- * - produccion: Panel de producción y stock
- * - cobranzas: Panel de facturación y cobros
+ * Controla el acceso a diferentes rutas según el perfil específico del usuario:
+ * - CATALOG_RETAIL: Catálogo minorista (OCULTO - solo admin puede acceder)
+ * - CATALOG_WHOLESALE: Solo mayoristas y admin
+ * - ADMIN: Solo usuario admin general (perfil "admin")
+ * - ORDERS: Solo perfil de pedidos
+ * - DELIVERY: Solo perfil de reparto
+ * - PRODUCTION: Solo perfil de producción
+ * - TRACKING: Solo perfil de seguimiento
+ * - BILLING: Solo perfil de cobranzas
+ * - PUBLIC: Acceso público (seguimiento de pedidos)
  * 
- * NOTA: El perfil "seguimiento" fue ELIMINADO completamente
+ * DETECCIÓN DE PERFIL:
+ * El perfil se detecta automáticamente por el email del usuario:
+ * - admin@pecaditos.com -> perfil "admin" -> ruta /admin
+ * - pedidos@pecaditos.com -> perfil "pedidos" -> ruta /pedidos
+ * - reparto@pecaditos.com -> perfil "reparto" -> ruta /reparto
+ * - produccion@pecaditos.com -> perfil "produccion" -> ruta /produccion
+ * - seguimiento@pecaditos.com -> perfil "seguimiento" -> ruta /seguimiento
+ * - cobranzas@pecaditos.com -> perfil "cobranzas" -> ruta /cobranzas
+ * - distribuidora@ejemplo.com -> perfil "mayorista" -> ruta /mayorista
  * 
- * DETECCIÓN DE PERFIL POR EMAIL:
- * - admin@pecaditos.com → /admin
- * - pedidos@pecaditos.com → /pedidos  
- * - reparto@pecaditos.com → /reparto
- * - produccion@pecaditos.com → /produccion
- * - cobranzas@pecaditos.com → /cobranzas
- * - mayoristas@ejemplo.com → /mayorista
- * 
- * EDITAR AQUÍ para cambiar detección de perfiles o rutas de redirección
+ * IMPORTANTE: Cada perfil solo puede acceder a SU ruta específica.
+ * Si intenta acceder a otra ruta, será redirigido automáticamente a su panel.
  */
 
-export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'ORDERS' | 'DELIVERY' | 'PRODUCTION' | 'BILLING' | 'PUBLIC';
+export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'ORDERS' | 'DELIVERY' | 'PRODUCTION' | 'TRACKING' | 'BILLING' | 'PUBLIC';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -41,62 +45,63 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
   const { user: wholesaleUser } = useWholesaleAuth();
   const { user: adminUser } = useAdmin();
 
+  // Determinar qué tipo de usuario está logueado
   const currentUser = adminUser || wholesaleUser || retailUser;
   
   // FUNCIÓN PARA DETECTAR PERFIL POR EMAIL
-  // EDITAR AQUÍ para cambiar la lógica de detección de perfiles
+  // Aquí es donde se puede modificar la lógica de detección de perfiles
   const getUserProfile = (user: any): string | null => {
     if (!user) return null;
     
     const email = user.email || '';
     
-    // Perfiles administrativos específicos
+    // Detección por email específico para cada perfil administrativo
     if (email === 'admin@pecaditos.com') return 'admin';
     if (email === 'pedidos@pecaditos.com') return 'pedidos';
     if (email === 'reparto@pecaditos.com') return 'reparto';
     if (email === 'produccion@pecaditos.com') return 'produccion';
+    if (email === 'seguimiento@pecaditos.com') return 'seguimiento';
     if (email === 'cobranzas@pecaditos.com') return 'cobranzas';
     
-    // NOTA: Perfil "seguimiento" ELIMINADO completamente
-    
-    // Mayoristas
+    // Detección de mayoristas por patrones de email
     if (email.includes('@ejemplo.com') || 
-        email.includes('mayorista') || 
         email.includes('distribuidora') || 
-        email.includes('minimarket')) {
+        email.includes('minimarket') ||
+        email.includes('mayorista')) {
       return 'mayorista';
     }
     
-    // Retail (oculto)
+    // Usuarios retail (catálogo oculto)
     return 'retail';
   };
 
   const userProfile = getUserProfile(currentUser);
 
   // FUNCIÓN PARA OBTENER LA RUTA PRINCIPAL DE CADA PERFIL
-  // EDITAR AQUÍ para cambiar rutas de redirección
+  // Aquí es donde se puede modificar las rutas de redirección por perfil
   const getProfileMainRoute = (profile: string): string => {
     switch (profile) {
       case 'admin': return '/admin';
       case 'pedidos': return '/pedidos';
       case 'reparto': return '/reparto';
       case 'produccion': return '/produccion';
+      case 'seguimiento': return '/seguimiento';
       case 'cobranzas': return '/cobranzas';
       case 'mayorista': return '/mayorista';
       case 'retail': return '/login'; // Catálogo oculto
-      default: return '/';
+      default: return '/login';
     }
   };
 
   // CONFIGURACIÓN DE ACCESO POR RUTA
-  // EDITAR AQUÍ para modificar permisos de acceso
+  // Aquí es donde se define qué perfiles pueden acceder a cada ruta
   const routeConfig = {
-    // CATÁLOGO MINORISTA - COMPLETAMENTE OCULTO
+    // CATÁLOGO MINORISTA - SOLO ADMIN PUEDE ACCEDER (OCULTO)
     CATALOG_RETAIL: {
       allowedProfiles: ['admin'],
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Catálogo minorista oculto - Solo admin'
+      message: 'Catálogo minorista temporalmente no disponible'
     },
     
     // CATÁLOGO MAYORISTA - Solo mayoristas y admin
@@ -104,52 +109,60 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
       allowedProfiles: ['mayorista', 'admin'],
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Acceso restringido a mayoristas'
+      message: 'Acceso restringido a mayoristas autorizados'
     },
     
-    // ADMIN - Solo admin general
+    // PANEL ADMIN - Solo perfil admin general
     ADMIN: {
       allowedProfiles: ['admin'],
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Solo administrador general'
+      message: 'Acceso restringido a administrador general'
     },
 
-    // PEDIDOS - Solo perfil pedidos y admin
+    // PANEL PEDIDOS - Solo perfil pedidos
     ORDERS: {
-      allowedProfiles: ['pedidos', 'admin'],
+      allowedProfiles: ['pedidos', 'admin'], // Admin puede impersonar
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Solo área de pedidos'
+      message: 'Acceso restringido al área de pedidos'
     },
 
-    // REPARTO - Solo perfil reparto y admin  
+    // PANEL REPARTO - Solo perfil reparto
     DELIVERY: {
-      allowedProfiles: ['reparto', 'admin'],
+      allowedProfiles: ['reparto', 'admin'], // Admin puede impersonar
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Solo área de reparto'
+      message: 'Acceso restringido al área de reparto'
     },
 
-    // PRODUCCIÓN - Solo perfil producción y admin
+    // PANEL PRODUCCIÓN - Solo perfil producción
     PRODUCTION: {
-      allowedProfiles: ['produccion', 'admin'],
+      allowedProfiles: ['produccion', 'admin'], // Admin puede impersonar
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Solo área de producción'
+      message: 'Acceso restringido al área de producción'
     },
 
-    // COBRANZAS - Solo perfil cobranzas y admin
-    BILLING: {
-      allowedProfiles: ['cobranzas', 'admin'],
+    // PANEL SEGUIMIENTO - Solo perfil seguimiento
+    TRACKING: {
+      allowedProfiles: ['seguimiento', 'admin'], // Admin puede impersonar
       redirectTo: '/login',
       requireAuth: true,
-      message: 'Solo área de cobranzas'
+      message: 'Acceso restringido al área de seguimiento'
+    },
+
+    // PANEL COBRANZAS - Solo perfil cobranzas
+    BILLING: {
+      allowedProfiles: ['cobranzas', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de cobranzas'
     },
     
-    // PÚBLICO - Sin restricción
+    // RUTAS PÚBLICAS - Sin restricción
     PUBLIC: {
-      allowedProfiles: ['admin', 'mayorista', 'pedidos', 'reparto', 'produccion', 'cobranzas', 'retail', 'public'],
+      allowedProfiles: ['admin', 'mayorista', 'pedidos', 'reparto', 'produccion', 'seguimiento', 'cobranzas', 'retail', 'public'],
       redirectTo: '/',
       requireAuth: false,
       message: 'Acceso público'
@@ -158,51 +171,69 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
 
   const config = routeConfig[routeType];
 
+  // Si no requiere autenticación, permitir acceso
   if (!config.requireAuth) {
     return <>{children}</>;
   }
 
+  // Si requiere autenticación pero no hay usuario logueado
   if (config.requireAuth && !currentUser) {
-    console.log(`🔒 Usuario no autenticado para ${routeType}`);
+    console.log(`🔒 Acceso denegado: No hay usuario autenticado para ${routeType}`);
     return <Navigate to={config.redirectTo} state={{ from: location }} replace />;
   }
 
+  // Verificar permisos por perfil específico
   if (!config.allowedProfiles.includes(userProfile || '')) {
-    console.log(`🚫 Acceso denegado: "${userProfile}" intentó acceder a ${routeType}`);
-    console.log(`📋 ${config.message}`);
+    // REGISTRO DE INTENTO DE ACCESO NO AUTORIZADO
+    console.log(`🚫 Acceso denegado: Usuario con perfil "${userProfile}" intentó acceder a ${routeType}`);
+    console.log(`📄 Mensaje: ${config.message}`);
     
+    // REDIRIGIR AL PANEL PRINCIPAL DEL PERFIL DEL USUARIO
     const userMainRoute = getProfileMainRoute(userProfile || '');
     console.log(`🔄 Redirigiendo a: ${userMainRoute}`);
     
     return <Navigate to={userMainRoute} state={{ from: location }} replace />;
   }
 
-  console.log(`✅ Acceso autorizado: "${userProfile}" → ${routeType}`);
+  // Usuario autorizado - permitir acceso
+  console.log(`✅ Acceso autorizado: Usuario con perfil "${userProfile}" accedió a ${routeType}`);
   return <>{children}</>;
 };
 
 /*
-INSTRUCCIONES PARA EDITAR:
+INSTRUCCIONES PARA MODIFICAR EL SISTEMA:
 
-1. CAMBIAR DETECCIÓN DE PERFILES:
-   - Modificar getUserProfile() línea 30-50
-   - Cambiar patrones de email o criterios
+1. PARA AGREGAR NUEVOS PERFILES:
+   - Modificar getUserProfile() para detectar el nuevo perfil por email
+   - Agregar la ruta principal en getProfileMainRoute()
+   - Crear nueva entrada en routeConfig con los perfiles permitidos
+   - Agregar el nuevo RouteType al enum
 
-2. CAMBIAR RUTAS DE REDIRECCIÓN:
-   - Modificar getProfileMainRoute() línea 55-65
-   - Actualizar rutas por perfil
+2. PARA CAMBIAR DETECCIÓN DE PERFILES:
+   - Modificar la función getUserProfile()
+   - Cambiar los patrones de email o criterios de detección
+   - Actualizar los comentarios de documentación
 
-3. MODIFICAR PERMISOS:
-   - Editar routeConfig línea 70-130
-   - Cambiar allowedProfiles según necesidades
+3. PARA MODIFICAR RUTAS DE REDIRECCIÓN:
+   - Cambiar getProfileMainRoute() para nuevas rutas
+   - Actualizar routeConfig según necesidades
 
-4. AGREGAR NUEVOS PERFILES:
-   - Añadir detección en getUserProfile()
-   - Agregar ruta en getProfileMainRoute()
-   - Configurar permisos en routeConfig
+4. PARA PERMITIR IMPERSONACIÓN:
+   - Solo el perfil 'admin' puede acceder a otros paneles
+   - Otros perfiles son redirigidos automáticamente a su panel
 
-PERFILES ACTIVOS:
-✅ admin, pedidos, reparto, produccion, cobranzas, mayorista
-❌ seguimiento (ELIMINADO)
-❌ retail (OCULTO)
+5. LOGS Y DEBUGGING:
+   - Todos los intentos de acceso se registran en console.log
+   - Incluye perfil del usuario, ruta solicitada y resultado
+   - Emojis para fácil identificación: 🔒 🚫 🔄 ✅
+
+PERFILES CONFIGURADOS:
+- admin: Acceso completo + impersonación
+- pedidos: Solo /pedidos  
+- reparto: Solo /reparto
+- produccion: Solo /produccion
+- seguimiento: Solo /seguimiento
+- cobranzas: Solo /cobranzas
+- mayorista: Solo /mayorista
+- retail: Bloqueado (catálogo oculto)
 */
