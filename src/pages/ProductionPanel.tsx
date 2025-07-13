@@ -1,381 +1,514 @@
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { useAdmin } from '@/contexts/AdminContext';
-import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 import { 
-  Factory, 
   Package2, 
-  AlertTriangle, 
   TrendingUp, 
-  TrendingDown,
+  TrendingDown, 
+  AlertTriangle, 
+  CheckCircle,
   Plus,
-  Minus,
-  Search,
-  Filter,
-  LogOut,
-  User
+  Calendar,
+  BarChart3,
+  LogOut
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAdmin } from '@/contexts/AdminContext';
 
 /**
- * PANEL DE PRODUCCIÓN - CONTROL DE STOCK Y FABRICACIÓN
+ * PANEL DE PRODUCCIÓN - CONTROL DE STOCK Y PRODUCCIÓN
  * 
- * Funcionalidades específicas para el perfil de producción:
- * - Ver cantidades a fabricar según pedidos
- * - Control de stock en tiempo real
- * - Sumar y restar stock de productos
- * - Alertas de bajo stock automáticas
- * - Reportes de producción y inventario
- * - Filtros por categoría y estado
- * - Planificación de producción diaria/semanal
+ * Funcionalidades principales:
+ * - Vista de stock por producto/sabor
+ * - Alertas visuales por nivel de stock
+ * - Solo permite agregar stock (con lote obligatorio)
+ * - Parámetros de alertas configurables por admin
+ * - Sistema FIFO (First In, First Out)
+ * - Dashboards visual con colores
  * 
- * ACCESO: Solo usuarios con perfil "produccion" y admin (impersonación)
- * RUTA: /produccion
+ * *** MOCK DATA - INTEGRAR CON FIREBASE REALTIME DATABASE ***
  */
 
+// *** MOCK DATA DE PRODUCTOS Y STOCK ***
+// CAMBIAR POR INTEGRACIÓN CON FIREBASE
+const mockProducts = [
+  {
+    id: "prod_001",
+    name: "Galletas Integrales Avena",
+    flavor: "Avena",
+    currentStock: 45,
+    requiredStock: 80, // Basado en pedidos pendientes
+    optimalStock: 120,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: [
+      { id: "LOTE-2024-001", quantity: 25, productionDate: "2024-01-10", expiryDate: "2024-03-10" },
+      { id: "LOTE-2024-002", quantity: 20, productionDate: "2024-01-12", expiryDate: "2024-03-12" }
+    ]
+  },
+  {
+    id: "prod_002",
+    name: "Galletas Integrales Quinua",
+    flavor: "Quinua",
+    currentStock: 180,
+    requiredStock: 60,
+    optimalStock: 100,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: [
+      { id: "LOTE-2024-003", quantity: 100, productionDate: "2024-01-08", expiryDate: "2024-03-08" },
+      { id: "LOTE-2024-004", quantity: 80, productionDate: "2024-01-14", expiryDate: "2024-03-14" }
+    ]
+  },
+  {
+    id: "prod_003",
+    name: "Galletas Integrales Coco",
+    flavor: "Coco",
+    currentStock: 25,
+    requiredStock: 90,
+    optimalStock: 120,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: [
+      { id: "LOTE-2024-005", quantity: 25, productionDate: "2024-01-13", expiryDate: "2024-03-13" }
+    ]
+  },
+  {
+    id: "prod_004",
+    name: "Galletas Integrales Chía",
+    flavor: "Chía",
+    currentStock: 3,
+    requiredStock: 50,
+    optimalStock: 80,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: [
+      { id: "LOTE-2024-006", quantity: 3, productionDate: "2024-01-05", expiryDate: "2024-03-05" }
+    ]
+  },
+  {
+    id: "prod_005",
+    name: "Galletas Integrales Mix",
+    flavor: "Mix Especial",
+    currentStock: 250,
+    requiredStock: 40,
+    optimalStock: 100,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: [
+      { id: "LOTE-2024-007", quantity: 150, productionDate: "2024-01-11", expiryDate: "2024-03-11" },
+      { id: "LOTE-2024-008", quantity: 100, productionDate: "2024-01-15", expiryDate: "2024-03-15" }
+    ]
+  }
+];
+
 const ProductionPanel = () => {
-  const { user, logout } = useAdmin();
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('todas');
-
-  // Mock data - En producción conectar con Firebase
-  const mockInventory = [
-    {
-      id: 'PROD001',
-      nombre: 'Granola Premium',
-      categoria: 'granolas',
-      stockActual: 15,
-      stockMinimo: 20,
-      stockMaximo: 100,
-      unidadMedida: 'bolsas',
-      costoPorUnidad: 8.50,
-      precioVenta: 15.00,
-      demandaDiaria: 8,
-      tiempoProduccion: '2 horas',
-      ultimaProduccion: '2024-01-10',
-      estado: 'bajo_stock'
-    },
-    {
-      id: 'PROD002', 
-      nombre: 'Mix Frutos Secos',
-      categoria: 'mixes',
-      stockActual: 45,
-      stockMinimo: 30,
-      stockMaximo: 80,
-      unidadMedida: 'bolsas',
-      costoPorUnidad: 12.00,
-      precioVenta: 22.00,
-      demandaDiaria: 12,
-      tiempoProduccion: '1.5 horas',
-      ultimaProduccion: '2024-01-11',
-      estado: 'stock_ok'
-    },
-    {
-      id: 'PROD003',
-      nombre: 'Barras Energéticas',
-      categoria: 'barras',
-      stockActual: 5,
-      stockMinimo: 15,
-      stockMaximo: 60,
-      unidadMedida: 'unidades',
-      costoPorUnidad: 3.50,
-      precioVenta: 8.00,
-      demandaDiaria: 15,
-      tiempoProduccion: '3 horas',
-      ultimaProduccion: '2024-01-09',
-      estado: 'stock_critico'
-    }
-  ];
-
-  const categories = ['todas', 'granolas', 'mixes', 'barras', 'snacks', 'combos'];
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
-
-  const handleStockChange = (productId: string, change: number) => {
-    console.log(`📦 Ajustando stock de ${productId}: ${change > 0 ? '+' : ''}${change}`);
-    // Aquí iría la lógica de actualización en Firebase
-  };
-
-  const handleProduceMore = (productId: string, quantity: number) => {
-    console.log(`🏭 Produciendo ${quantity} unidades de ${productId}`);
-    // Aquí iría la lógica de registro de producción
-  };
-
-  const getStockStatusColor = (estado: string) => {
-    switch (estado) {
-      case 'stock_critico': return 'bg-red-100 text-red-800 border-red-200';
-      case 'bajo_stock': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'stock_ok': return 'bg-green-100 text-green-800 border-green-200';
-      case 'sobre_stock': return 'bg-blue-100 text-blue-800 border-blue-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStockPercentage = (actual: number, minimo: number, maximo: number) => {
-    return ((actual - minimo) / (maximo - minimo)) * 100;
-  };
-
-  const filteredInventory = mockInventory.filter(item => {
-    const matchesSearch = item.nombre.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         item.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'todas' || item.categoria === selectedCategory;
-    return matchesSearch && matchesCategory;
+  const { logout } = useAdmin();
+  const [showAddStock, setShowAddStock] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [newStockData, setNewStockData] = useState({
+    quantity: '',
+    loteId: '',
+    productionDate: '',
+    expiryDate: ''
   });
 
-  const totalProducts = mockInventory.length;
-  const lowStockProducts = mockInventory.filter(item => item.estado === 'bajo_stock' || item.estado === 'stock_critico').length;
-  const criticalStockProducts = mockInventory.filter(item => item.estado === 'stock_critico').length;
+  // *** FUNCIÓN PARA OBTENER COLOR Y ESTADO DEL STOCK ***
+  const getStockStatus = (product: any) => {
+    const { currentStock, alertLevels } = product;
+    
+    if (currentStock <= alertLevels.critical) {
+      return {
+        status: 'critical',
+        color: 'bg-red-100 border-red-500 text-red-800',
+        bgColor: 'bg-red-500',
+        icon: AlertTriangle,
+        pulse: true,
+        text: 'CRÍTICO'
+      };
+    } else if (currentStock <= alertLevels.low) {
+      return {
+        status: 'low',
+        color: 'bg-orange-100 border-orange-500 text-orange-800',
+        bgColor: 'bg-orange-500',
+        icon: TrendingDown,
+        pulse: false,
+        text: 'BAJO'
+      };
+    } else if (currentStock >= alertLevels.excellent) {
+      return {
+        status: 'excellent',
+        color: 'bg-green-100 border-green-500 text-green-800',
+        bgColor: 'bg-green-500',
+        icon: TrendingUp,
+        pulse: true,
+        text: 'EXCELENTE'
+      };
+    } else if (currentStock >= alertLevels.good) {
+      return {
+        status: 'good',
+        color: 'bg-green-100 border-green-400 text-green-700',
+        bgColor: 'bg-green-400',
+        icon: CheckCircle,
+        pulse: false,
+        text: 'BUENO'
+      };
+    } else {
+      return {
+        status: 'normal',
+        color: 'bg-blue-100 border-blue-400 text-blue-700',
+        bgColor: 'bg-blue-400',
+        icon: Package2,
+        pulse: false,
+        text: 'NORMAL'
+      };
+    }
+  };
+
+  // *** FUNCIÓN PARA AGREGAR STOCK ***
+  const handleAddStock = (productId: string) => {
+    const product = mockProducts.find(p => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setShowAddStock(true);
+    }
+  };
+
+  // *** FUNCIÓN PARA CONFIRMAR AGREGAR STOCK ***
+  const confirmAddStock = () => {
+    if (!newStockData.quantity || !newStockData.loteId || !newStockData.productionDate || !newStockData.expiryDate) {
+      alert('Todos los campos son obligatorios');
+      return;
+    }
+
+    console.log('Agregando stock:', {
+      productId: selectedProduct?.id,
+      ...newStockData
+    });
+
+    // TODO: Integrar con Firebase
+    setShowAddStock(false);
+    setSelectedProduct(null);
+    setNewStockData({
+      quantity: '',
+      loteId: '',
+      productionDate: '',
+      expiryDate: ''
+    });
+  };
+
+  // *** CERRAR SESIÓN ***
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/');
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    }
+  };
+
+  // *** ESTADÍSTICAS GENERALES ***
+  const totalProducts = mockProducts.length;
+  const criticalProducts = mockProducts.filter(p => getStockStatus(p).status === 'critical').length;
+  const lowStockProducts = mockProducts.filter(p => getStockStatus(p).status === 'low').length;
+  const goodStockProducts = mockProducts.filter(p => ['good', 'excellent'].includes(getStockStatus(p).status)).length;
 
   return (
-    <div className="min-h-screen bg-stone-50">
-      {/* Header del Panel */}
-      <header className="bg-white border-b border-stone-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-              <Factory className="h-5 w-5 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-stone-800">Panel de Producción</h1>
-              <p className="text-sm text-stone-600">Control de stock y fabricación</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 px-3 py-1 bg-amber-100 rounded-full">
-              <User className="h-4 w-4 text-amber-600" />
-              <span className="text-sm font-medium text-amber-800">
-                {user?.name || 'Usuario Producción'}
-              </span>
-            </div>
-            <Button variant="ghost" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Salir
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="p-6">
-        {/* Alertas críticas */}
-        {criticalStockProducts > 0 && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                <Package2 className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <h3 className="font-bold text-red-800">¡ATENCIÓN! Stock Crítico</h3>
-                <p className="text-red-700 text-sm">
-                  {criticalStockProducts} producto{criticalStockProducts > 1 ? 's tienen' : ' tiene'} stock crítico y requieren producción inmediata.
-                </p>
+                <h1 className="text-2xl font-bold text-stone-800">Panel de Producción</h1>
+                <p className="text-stone-600">Control de stock y producción</p>
               </div>
             </div>
+            <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                onClick={handleLogout}
+                className="text-stone-600 border-stone-300 hover:bg-stone-50"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
+              </Button>
+            </div>
           </div>
-        )}
+        </div>
+      </div>
 
-        {/* Estadísticas rápidas */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      {/* Dashboard de Estadísticas */}
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-stone-600">Total Productos</p>
-                  <p className="text-2xl font-bold text-stone-600">{totalProducts}</p>
-                </div>
-                <Package2 className="h-8 w-8 text-stone-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
+              <Package2 className="h-4 w-4 text-stone-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalProducts}</div>
             </CardContent>
           </Card>
-          
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-stone-600">Stock Bajo</p>
-                  <p className="text-2xl font-bold text-yellow-600">{lowStockProducts}</p>
-                </div>
-                <TrendingDown className="h-8 w-8 text-yellow-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Stock Crítico</CardTitle>
+              <AlertTriangle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">{criticalProducts}</div>
             </CardContent>
           </Card>
-          
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-stone-600">Stock Crítico</p>
-                  <p className="text-2xl font-bold text-red-600">{criticalStockProducts}</p>
-                </div>
-                <AlertTriangle className="h-8 w-8 text-red-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Stock Bajo</CardTitle>
+              <TrendingDown className="h-4 w-4 text-orange-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600">{lowStockProducts}</div>
             </CardContent>
           </Card>
-          
           <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-stone-600">En Producción</p>
-                  <p className="text-2xl font-bold text-blue-600">2</p>
-                </div>
-                <Factory className="h-8 w-8 text-blue-500" />
-              </div>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Stock Bueno</CardTitle>
+              <CheckCircle className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">{goodStockProducts}</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filtros y búsqueda */}
-        <Card className="mb-6">
+        {/* Cuadros de Productos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {mockProducts.map((product) => {
+            const status = getStockStatus(product);
+            const IconComponent = status.icon;
+            
+            return (
+              <Card 
+                key={product.id} 
+                className={`${status.color} border-2 ${status.pulse ? 'animate-pulse' : ''} hover:shadow-lg transition-all`}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg font-bold">
+                        {product.flavor}
+                      </CardTitle>
+                      <CardDescription className="text-stone-600">
+                        {product.name}
+                      </CardDescription>
+                    </div>
+                    <div className={`w-12 h-12 ${status.bgColor} rounded-full flex items-center justify-center`}>
+                      <IconComponent className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  {/* Stock Actual vs Requerido */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium">Stock Actual:</span>
+                      <Badge className={status.color}>
+                        {product.currentStock} unidades
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Requerido:</span>
+                      <span className="text-sm font-medium">{product.requiredStock}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm">Óptimo:</span>
+                      <span className="text-sm font-medium">{product.optimalStock}</span>
+                    </div>
+                  </div>
+
+                  {/* Barra de Progreso Visual */}
+                  <div className="space-y-2">
+                    <div className="w-full bg-stone-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${status.bgColor}`}
+                        style={{ 
+                          width: `${Math.min((product.currentStock / product.optimalStock) * 100, 100)}%` 
+                        }}
+                      ></div>
+                    </div>
+                    <div className="text-center">
+                      <Badge variant="outline" className="text-xs">
+                        {status.text}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  {/* Lotes (FIFO) */}
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Lotes (FIFO):
+                    </div>
+                    {product.batches.slice(0, 2).map((batch, index) => (
+                      <div key={batch.id} className="text-xs bg-white bg-opacity-50 p-2 rounded">
+                        <div className="font-medium">{batch.id}</div>
+                        <div>Cantidad: {batch.quantity} | Vence: {new Date(batch.expiryDate).toLocaleDateString()}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Botón para Agregar Stock */}
+                  <Button
+                    onClick={() => handleAddStock(product.id)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar Stock
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* Información de Alertas */}
+        <Card className="mt-8">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Filtros de Inventario
+              <BarChart3 className="h-5 w-5" />
+              Configuración de Alertas
             </CardTitle>
+            <CardDescription>
+              Los parámetros de alertas solo pueden ser modificados por el administrador general
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-4">
-              <div className="flex-1 min-w-64">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
-                  <Input
-                    placeholder="Buscar producto por nombre o código..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div className="text-center p-3 bg-red-50 border border-red-200 rounded">
+                <AlertTriangle className="h-6 w-6 text-red-600 mx-auto mb-2" />
+                <div className="font-medium text-red-800">Crítico</div>
+                <div className="text-red-600">≤ 5 unidades</div>
+                <div className="text-xs text-red-500 mt-1">Parpadeo rojo</div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {categories.map(category => (
-                  <Button 
-                    key={category}
-                    variant={selectedCategory === category ? 'default' : 'outline'}
-                    onClick={() => setSelectedCategory(category)}
-                    size="sm"
-                    className="capitalize"
-                  >
-                    {category}
-                  </Button>
-                ))}
+              <div className="text-center p-3 bg-orange-50 border border-orange-200 rounded">
+                <TrendingDown className="h-6 w-6 text-orange-600 mx-auto mb-2" />
+                <div className="font-medium text-orange-800">Bajo</div>
+                <div className="text-orange-600">40-70 unidades</div>
+                <div className="text-xs text-orange-500 mt-1">Naranja</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 border border-green-200 rounded">
+                <CheckCircle className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                <div className="font-medium text-green-800">Bueno</div>
+                <div className="text-green-600">+100 unidades</div>
+                <div className="text-xs text-green-500 mt-1">Verde</div>
+              </div>
+              <div className="text-center p-3 bg-green-50 border border-green-300 rounded">
+                <TrendingUp className="h-6 w-6 text-green-700 mx-auto mb-2" />
+                <div className="font-medium text-green-900">Excelente</div>
+                <div className="text-green-700">+200 unidades</div>
+                <div className="text-xs text-green-600 mt-1">Parpadeo verde</div>
               </div>
             </div>
           </CardContent>
         </Card>
-
-        {/* Lista de inventario */}
-        <div className="space-y-4">
-          {filteredInventory.map((item) => (
-            <Card key={item.id} className="overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-bold text-lg">{item.nombre}</h3>
-                      <Badge className={getStockStatusColor(item.estado)}>
-                        {item.estado.replace('_', ' ').toUpperCase()}
-                      </Badge>
-                      <Badge variant="outline" className="capitalize">{item.categoria}</Badge>
-                    </div>
-                    
-                    <div className="grid md:grid-cols-3 gap-4">
-                      <div>
-                        <p className="text-sm text-stone-600">Stock Actual:</p>
-                        <p className="font-bold text-2xl">{item.stockActual} {item.unidadMedida}</p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-stone-600">Rango Óptimo:</p>
-                        <p className="font-medium">{item.stockMinimo} - {item.stockMaximo} {item.unidadMedida}</p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-sm text-stone-600">Demanda Diaria:</p>
-                        <p className="font-medium">{item.demandaDiaria} {item.unidadMedida}</p>
-                      </div>
-                    </div>
-
-                    {/* Barra de progreso de stock */}
-                    <div className="mt-4">
-                      <div className="flex justify-between text-sm text-stone-600 mb-1">
-                        <span>Mínimo: {item.stockMinimo}</span>
-                        <span>Actual: {item.stockActual}</span>
-                        <span>Máximo: {item.stockMaximo}</span>
-                      </div>
-                      <div className="w-full bg-stone-200 rounded-full h-2">
-                        <div 
-                          className={`h-2 rounded-full ${
-                            item.estado === 'stock_critico' ? 'bg-red-500' :
-                            item.estado === 'bajo_stock' ? 'bg-yellow-500' :
-                            item.estado === 'stock_ok' ? 'bg-green-500' : 'bg-blue-500'
-                          }`}
-                          style={{ 
-                            width: `${Math.max(0, Math.min(100, getStockPercentage(item.stockActual, item.stockMinimo, item.stockMaximo)))}%` 
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    <div className="grid md:grid-cols-3 gap-4 mt-4 text-sm">
-                      <div>
-                        <p className="text-stone-600">Tiempo de Producción:</p>
-                        <p className="font-medium">{item.tiempoProduccion}</p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-stone-600">Última Producción:</p>
-                        <p className="font-medium">{item.ultimaProduccion}</p>
-                      </div>
-                      
-                      <div>
-                        <p className="text-stone-600">Costo/Precio:</p>
-                        <p className="font-medium">S/ {item.costoPorUnidad} / S/ {item.precioVenta}</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex flex-col gap-2 ml-4">
-                    {/* Controles de stock */}
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleStockChange(item.id, -1)}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleStockChange(item.id, 1)}
-                      >
-                        <Plus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    {/* Botón de producir más */}
-                    {(item.estado === 'bajo_stock' || item.estado === 'stock_critico') && (
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleProduceMore(item.id, item.stockMaximo - item.stockActual)}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        <Factory className="h-4 w-4 mr-2" />
-                        Producir
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       </div>
+
+      {/* Modal para Agregar Stock */}
+      {showAddStock && selectedProduct && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle>Agregar Stock</CardTitle>
+              <CardDescription>
+                {selectedProduct.name} - {selectedProduct.flavor}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Cantidad *</label>
+                <Input
+                  type="number"
+                  placeholder="Cantidad a agregar"
+                  value={newStockData.quantity}
+                  onChange={(e) => setNewStockData({...newStockData, quantity: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Número de Lote *</label>
+                <Input
+                  placeholder="Ej: LOTE-2024-009"
+                  value={newStockData.loteId}
+                  onChange={(e) => setNewStockData({...newStockData, loteId: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fecha de Producción *</label>
+                <Input
+                  type="date"
+                  value={newStockData.productionDate}
+                  onChange={(e) => setNewStockData({...newStockData, productionDate: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Fecha de Vencimiento *</label>
+                <Input
+                  type="date"
+                  value={newStockData.expiryDate}
+                  onChange={(e) => setNewStockData({...newStockData, expiryDate: e.target.value})}
+                />
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="text-sm text-amber-800">
+                  <strong>Importante:</strong> El sistema usa FIFO (First In, First Out). 
+                  Los lotes con fechas de vencimiento más cercanas se utilizarán primero.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={confirmAddStock}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Agregar Stock
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAddStock(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
@@ -383,34 +516,57 @@ const ProductionPanel = () => {
 export default ProductionPanel;
 
 /*
-INSTRUCCIONES PARA PERSONALIZAR:
+INSTRUCCIONES PARA INTEGRACIÓN CON FIREBASE:
 
-1. CONECTAR CON FIREBASE:
-   - Reemplazar mockInventory con datos de Firebase
-   - Implementar actualizaciones de stock en tiempo real
-   - Sincronizar con sistema de pedidos para calcular demanda
+1. ESTRUCTURA DE DATOS:
+   /products/{productId}: {
+     name: string,
+     flavor: string,
+     currentStock: number,
+     requiredStock: number (calculado automáticamente por pedidos),
+     optimalStock: number,
+     alertLevels: {
+       low: number,
+       critical: number,
+       good: number,
+       excellent: number
+     }
+   }
+
+   /batches/{batchId}: {
+     productId: string,
+     loteId: string,
+     quantity: number,
+     productionDate: timestamp,
+     expiryDate: timestamp,
+     status: 'active' | 'depleted'
+   }
 
 2. FUNCIONALIDADES A IMPLEMENTAR:
-   - Alertas automáticas por email/WhatsApp
-   - Planificación automática de producción
-   - Códigos de barras para control de inventario
-   - Reportes de costos y rentabilidad
-   - Predicción de demanda con IA
+   - Cálculo automático de stock requerido basado en pedidos
+   - Alertas push cuando stock es crítico
+   - Sistema FIFO automático
+   - Reportes de producción
+   - Previsión de demanda
+   - Integración con área de pedidos
 
-3. PERSONALIZACIÓN:
-   - Configurar niveles de stock por producto
-   - Personalizar alertas y notificaciones
-   - Integrar con proveedores y compras
-   - Agregar fotos de productos
+3. CONFIGURACIÓN DE ALERTAS (solo admin puede cambiar):
+   - Crítico: ≤ 5 unidades (rojo parpadeante)
+   - Bajo: 40-70 unidades (naranja)
+   - Normal: 71-99 unidades (azul)
+   - Bueno: 100-199 unidades (verde)
+   - Excelente: ≥ 200 unidades (verde parpadeante)
 
-4. DATOS MOCK:
-   - Actualizar con productos reales
-   - Conectar con costos reales
-   - Implementar historial de producción
+4. MEJORAS SUGERIDAS:
+   - Códigos de barras para lotes
+   - Trazabilidad completa
+   - Control de calidad por lote
+   - Estadísticas de rotación
+   - Predicción de vencimientos
 
-ESTE PANEL ESTÁ DISEÑADO PARA:
-- Personal de producción y cocina
-- Control eficiente de inventario
-- Planificación de producción
-- Optimización de costos
+5. PERSONALIZACIÓN:
+   - Cambiar productos según catálogo real
+   - Modificar parámetros de alertas
+   - Agregar campos personalizados
+   - Configurar unidades de medida
 */

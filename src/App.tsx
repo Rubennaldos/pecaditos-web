@@ -16,9 +16,9 @@ import AdminPanel from "./pages/AdminPanel";
 import OrdersPanel from "./pages/OrdersPanel";
 import DeliveryPanel from "./pages/DeliveryPanel";
 import ProductionPanel from "./pages/ProductionPanel";
-import TrackingPanel from "./pages/TrackingPanel";
 import BillingPanel from "./pages/BillingPanel";
 import OrderTracking from "./pages/OrderTracking";
+import WhereToFindUs from "./pages/WhereToFindUs";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,7 +29,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       
-      {/* PROVIDERS DE AUTENTICACIÓN - Todos los contextos disponibles */}
+      {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado por perfiles */}
       <AuthProvider>
         <WholesaleAuthProvider>
           <AdminProvider>
@@ -63,6 +63,14 @@ const App = () => (
                 {/* PORTAL MAYORISTA - Solo mayoristas y admin */}
                 <Route 
                   path="/mayorista" 
+                  element={
+                    <ProtectedRoute routeType="CATALOG_WHOLESALE">
+                      <WholesalePortal />
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/catalogo-mayorista" 
                   element={
                     <ProtectedRoute routeType="CATALOG_WHOLESALE">
                       <WholesalePortal />
@@ -110,16 +118,6 @@ const App = () => (
                   } 
                 />
                 
-                {/* PANEL DE SEGUIMIENTO - Solo perfil seguimiento y admin */}
-                <Route 
-                  path="/seguimiento-panel" 
-                  element={
-                    <ProtectedRoute routeType="TRACKING">
-                      <TrackingPanel />
-                    </ProtectedRoute>
-                  } 
-                />
-                
                 {/* PANEL DE COBRANZAS - Solo perfil cobranzas y admin */}
                 <Route 
                   path="/cobranzas" 
@@ -140,6 +138,16 @@ const App = () => (
                   } 
                 />
                 
+                {/* DÓNDE NOS UBICAMOS - Nueva ruta pública */}
+                <Route 
+                  path="/donde-nos-ubicamos" 
+                  element={
+                    <ProtectedRoute routeType="PUBLIC">
+                      <WhereToFindUs />
+                    </ProtectedRoute>
+                  } 
+                />
+                
                 {/* RUTA 404 - Debe ir al final */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
@@ -154,7 +162,7 @@ const App = () => (
 export default App;
 
 /*
-CONFIGURACIÓN DE RUTAS POR PERFIL:
+CONFIGURACIÓN DE RUTAS POR PERFIL - SISTEMA UNIFICADO:
 
 RUTAS POR PERFIL ESPECÍFICO:
 1. / - Landing page principal (público)
@@ -163,18 +171,28 @@ RUTAS POR PERFIL ESPECÍFICO:
 4. /pedidos - Panel de pedidos (solo pedidos + admin)
 5. /reparto - Panel de reparto (solo reparto + admin)
 6. /produccion - Panel de producción (solo produccion + admin)
-7. /seguimiento-panel - Panel de seguimiento (solo seguimiento + admin)
-8. /cobranzas - Panel de cobranzas (solo cobranzas + admin)
-9. /mayorista - Portal mayorista (solo mayorista + admin)
-10. /seguimiento - Consulta pública de pedidos (público)
+7. /cobranzas - Panel de cobranzas (solo cobranzas + admin)
+8. /mayorista - Portal mayorista (solo mayorista + admin)
+9. /seguimiento - Consulta pública de pedidos (público)
+10. /donde-nos-ubicamos - Puntos de venta (público)
 
 RUTAS OCULTAS:
 11. /catalogo y /productos - Catálogo minorista (OCULTO - solo admin)
+
+PERFILES ACTIVOS (eliminado perfil "seguimiento"):
+- admin: Acceso completo + impersonación
+- pedidos: Solo /pedidos  
+- reparto: Solo /reparto
+- produccion: Solo /produccion
+- cobranzas: Solo /cobranzas
+- mayorista: Solo /mayorista
+- retail: Bloqueado (catálogo oculto)
 
 DETECCIÓN AUTOMÁTICA DE PERFIL:
 - El login detecta automáticamente el perfil por email
 - Cada usuario es redirigido SOLO a su panel correspondiente
 - Solo admin puede acceder a otros paneles (impersonación)
+- Cerrar sesión siempre lleva a la landing page
 
 PARA REACTIVAR CATÁLOGO MINORISTA:
 1. Ir a src/components/auth/ProtectedRoute.tsx

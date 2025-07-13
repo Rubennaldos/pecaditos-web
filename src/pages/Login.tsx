@@ -13,20 +13,26 @@ import { Eye, EyeOff, User, Lock, AlertCircle } from 'lucide-react';
 /**
  * PÁGINA DE LOGIN UNIFICADA - DETECCIÓN AUTOMÁTICA DE PERFILES
  * 
- * Maneja el login para todos los tipos de usuario:
+ * Sistema unificado para todos los tipos de usuario (eliminado perfil "seguimiento"):
  * - Clientes finales (retail) - OCULTO - Solo admin puede acceder al catálogo
  * - Mayoristas (wholesale) - Activo
- * - Administradores (admin, pedidos, reparto, produccion, seguimiento, cobranzas) - Activo
+ * - Administradores (admin, pedidos, reparto, produccion, cobranzas) - Activo
  * 
  * DETECCIÓN AUTOMÁTICA:
- * - Por dominio de email (@pecaditos.com = admin)
+ * - Por dominio de email (@pecaditos.com = admin/staff)
  * - Por patrón de email (mayoristas = @ejemplo.com, distribuidora, minimarket)
  * - Fallback a retail (OCULTO)
  * 
- * REDIRECCIÓN AUTOMÁTICA:
- * - Admin → /admin (todos los sub-perfiles)
+ * REDIRECCIÓN AUTOMÁTICA POR PERFIL:
+ * - Admin → /admin
+ * - Pedidos → /pedidos  
+ * - Reparto → /reparto
+ * - Producción → /produccion
+ * - Cobranzas → /cobranzas
  * - Mayorista → /mayorista
- * - Retail → /login (catálogo oculto)
+ * - Retail → / (landing - catálogo oculto)
+ * 
+ * *** CAMBIAR CREDENCIALES Y PATRONES DE DETECCIÓN AQUÍ ***
  */
 
 const Login = () => {
@@ -62,18 +68,18 @@ const Login = () => {
 
     try {
       // DETECCIÓN AUTOMÁTICA DEL PERFIL DE USUARIO POR EMAIL
+      // *** CAMBIAR AQUÍ PARA MODIFICAR DETECCIÓN DE PERFILES ***
       let loginSuccess = false;
       let userType = '';
       let redirectPath = '/';
 
-      // 1. PERFILES ADMINISTRATIVOS ESPECÍFICOS
-      // Cada perfil tiene su propia ruta y panel
+      // 1. PERFILES ADMINISTRATIVOS ESPECÍFICOS (eliminado seguimiento)
+      // *** CAMBIAR CREDENCIALES Y RUTAS AQUÍ ***
       const adminProfiles = {
         'admin@pecaditos.com': { type: 'Admin General', path: '/admin' },
         'pedidos@pecaditos.com': { type: 'Pedidos', path: '/pedidos' },
         'reparto@pecaditos.com': { type: 'Reparto', path: '/reparto' },
         'produccion@pecaditos.com': { type: 'Producción', path: '/produccion' },
-        'seguimiento@pecaditos.com': { type: 'Seguimiento', path: '/seguimiento-panel' },
         'cobranzas@pecaditos.com': { type: 'Cobranzas', path: '/cobranzas' }
       };
 
@@ -93,7 +99,7 @@ const Login = () => {
       }
 
       // 2. MAYORISTAS
-      // Detectar por patrones de email mayorista
+      // *** CAMBIAR PATRONES DE DETECCIÓN AQUÍ ***
       if (!loginSuccess && (
         email.includes('@ejemplo.com') || 
         email.includes('distribuidora') || 
@@ -120,8 +126,8 @@ const Login = () => {
           if (user) {
             loginSuccess = true;
             userType = 'Cliente';
-            // Redirigir a login porque el catálogo está oculto
-            redirectPath = '/login';
+            // Redirigir a landing porque el catálogo está oculto
+            redirectPath = '/';
             
             toast({
               title: "Catálogo no disponible",
@@ -134,7 +140,7 @@ const Login = () => {
         }
       }
 
-      if (loginSuccess && redirectPath !== '/login') {
+      if (loginSuccess && redirectPath !== '/') {
         toast({
           title: `Bienvenido`,
           description: `Has iniciado sesión como ${userType}`
@@ -142,7 +148,10 @@ const Login = () => {
         
         // Redirigir a la página solicitada o a la página por defecto del usuario
         navigate(from !== '/' ? from : redirectPath, { replace: true });
-      } else if (!loginSuccess) {
+      } else if (loginSuccess && redirectPath === '/') {
+        // Usuario retail, redirigir a landing
+        navigate('/', { replace: true });
+      } else {
         throw new Error('Credenciales inválidas');
       }
 
@@ -173,7 +182,8 @@ const Login = () => {
         </CardHeader>
         
         <CardContent>
-          {/* CREDENCIALES DE PRUEBA ACTUALIZADAS */}
+          {/* CREDENCIALES DE PRUEBA ACTUALIZADAS (eliminado perfil seguimiento) */}
+          {/* *** CAMBIAR O ELIMINAR EN PRODUCCIÓN *** */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-blue-800 font-medium mb-3">Usuarios de prueba disponibles:</p>
             <div className="space-y-2 text-xs text-blue-700">
@@ -183,7 +193,6 @@ const Login = () => {
                 <p>• <strong>Pedidos:</strong> pedidos@pecaditos.com → /pedidos</p>
                 <p>• <strong>Reparto:</strong> reparto@pecaditos.com → /reparto</p>
                 <p>• <strong>Producción:</strong> produccion@pecaditos.com → /produccion</p>
-                <p>• <strong>Seguimiento:</strong> seguimiento@pecaditos.com → /seguimiento-panel</p>
                 <p>• <strong>Cobranzas:</strong> cobranzas@pecaditos.com → /cobranzas</p>
                 <p className="text-blue-600 font-medium">Contraseña para todos: admin123</p>
               </div>
@@ -287,21 +296,20 @@ const Login = () => {
 export default Login;
 
 /*
-DETECCIÓN AUTOMÁTICA DE PERFILES ACTUALIZADA:
+DETECCIÓN AUTOMÁTICA DE PERFILES ACTUALIZADA (eliminado seguimiento):
 
 PERFILES ADMINISTRATIVOS (cada uno con su ruta específica):
 - admin@pecaditos.com → /admin (Panel completo de administración)
 - pedidos@pecaditos.com → /pedidos (Solo gestión de pedidos)  
 - reparto@pecaditos.com → /reparto (Solo entregas y distribución)
 - produccion@pecaditos.com → /produccion (Solo control de stock)
-- seguimiento@pecaditos.com → /seguimiento-panel (Solo seguimiento de clientes)
 - cobranzas@pecaditos.com → /cobranzas (Solo facturación y cobros)
 
 MAYORISTAS:
 - Cualquier email con @ejemplo.com, distribuidora, minimarket, mayorista → /mayorista
 
 RETAIL (OCULTO):
-- Cualquier otro email → Bloqueado (redirige a /login con mensaje)
+- Cualquier otro email → Redirige a landing (catálogo oculto)
 
 CONTRASEÑAS DE PRUEBA:
 - Administrativos: admin123
@@ -314,7 +322,12 @@ CADA PERFIL TIENE:
 - Redirección automática si intenta acceder a otra área
 
 PARA REACTIVAR CATÁLOGO MINORISTA:
-1. Cambiar redirectPath de retail de '/login' a '/catalogo'
+1. Cambiar redirectPath de retail de '/' a '/catalogo'
 2. Actualizar ProtectedRoute.tsx allowedProfiles de CATALOG_RETAIL
 3. Eliminar mensaje de catálogo no disponible
+
+PARA MODIFICAR CREDENCIALES:
+1. Cambiar adminProfiles object con nuevos emails y rutas
+2. Modificar patrones de detección de mayoristas
+3. Actualizar credenciales de prueba en el formulario
 */

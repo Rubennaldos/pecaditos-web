@@ -1,27 +1,27 @@
 
-import { ShoppingBag, Users, Phone, ArrowRight } from 'lucide-react';
+import { ShoppingBag, Users, Phone, ArrowRight, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 
 /**
- * TARJETAS PRINCIPALES DE LA LANDING
+ * TARJETAS PRINCIPALES DE LA LANDING - DISEÑO UNIFICADO
  * 
- * CONFIGURACIÓN DE ACCESO:
+ * CONFIGURACIÓN DE ACCESO ACTUALIZADA:
  * - Catálogo Minorista: OCULTO - Solo accesible para admin
  * - Portal Mayorista: Visible - Acceso para mayoristas y admin
  * - Seguimiento: Público - Acceso para todos
+ * - Nueva: Dónde nos ubicamos - Público
  * 
- * PARA REACTIVAR CATÁLOGO MINORISTA:
- * 1. Cambiar showRetailCatalog de false a true
- * 2. Modificar allowedRoles en ProtectedRoute.tsx para CATALOG_RETAIL
+ * *** CAMBIAR showRetailCatalog PARA REACTIVAR CATÁLOGO MINORISTA ***
  */
 
 export const MainCards = () => {
   const navigate = useNavigate();
   
-  // CONFIGURACIÓN DE VISIBILIDAD
-  const showRetailCatalog = false; // CAMBIAR A true PARA REACTIVAR CATÁLOGO MINORISTA
+  // *** CONFIGURACIÓN DE VISIBILIDAD DEL CATÁLOGO MINORISTA ***
+  // CAMBIAR A true PARA REACTIVAR CATÁLOGO MINORISTA
+  const showRetailCatalog = false;
 
   const handleCatalogClick = () => {
     // Redirigir a login en lugar del catálogo minorista (OCULTO)
@@ -34,6 +34,10 @@ export const MainCards = () => {
 
   const handleTrackingClick = () => {
     navigate('/seguimiento');
+  };
+
+  const handleLocationsClick = () => {
+    navigate('/donde-nos-ubicamos');
   };
 
   return (
@@ -51,6 +55,7 @@ export const MainCards = () => {
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           
           {/* CATÁLOGO MINORISTA - OCULTO */}
+          {/* *** CAMBIAR showRetailCatalog A true PARA MOSTRAR *** */}
           {showRetailCatalog && (
             <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-amber-200 bg-gradient-to-br from-white to-amber-50">
               <CardHeader className="text-center pb-4">
@@ -112,6 +117,36 @@ export const MainCards = () => {
             </CardContent>
           </Card>
 
+          {/* DÓNDE NOS UBICAMOS - NUEVA SECCIÓN PÚBLICA */}
+          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-purple-200 bg-gradient-to-br from-white to-purple-50">
+            <CardHeader className="text-center pb-4">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <MapPin className="h-8 w-8 text-white" />
+              </div>
+              <CardTitle className="text-xl font-bold text-stone-800">
+                Dónde nos ubicamos
+              </CardTitle>
+              <CardDescription className="text-stone-600">
+                Encuentra nuestros productos cerca de ti
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="text-center">
+              <ul className="text-sm text-stone-600 mb-6 space-y-2">
+                <li>🏪 Puntos de venta autorizados</li>
+                <li>📍 Ubicaciones por distrito</li>
+                <li>🗺️ Mapas y direcciones</li>
+                <li>📞 Contacto directo</li>
+              </ul>
+              <Button 
+                onClick={handleLocationsClick}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white group-hover:shadow-lg transition-all"
+              >
+                Ver Ubicaciones
+                <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* SEGUIMIENTO DE PEDIDOS - PÚBLICO */}
           <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-green-200 bg-gradient-to-br from-white to-green-50">
             <CardHeader className="text-center pb-4">
@@ -166,13 +201,20 @@ INSTRUCCIONES PARA REACTIVAR CATÁLOGO MINORISTA:
    - Cambiar showRetailCatalog de false a true (línea 20)
 
 2. En src/components/auth/ProtectedRoute.tsx:
-   - Cambiar CATALOG_RETAIL.allowedRoles de [] a ['retail', 'admin']
+   - Cambiar CATALOG_RETAIL.allowedProfiles de ['admin'] a ['retail', 'admin']
 
 3. En src/pages/Login.tsx:
-   - Descomentar el bloque de código para cliente final (retail)
+   - Cambiar redirectPath de retail de '/' a '/catalogo'
+   - Eliminar mensaje de "catálogo no disponible"
+
+NUEVAS FUNCIONALIDADES:
+- Agregada tarjeta "Dónde nos ubicamos" que lleva a /donde-nos-ubicamos
+- Diseño unificado y consistente con el resto del sistema
+- Animaciones suaves y efectos hover
 
 PERSONALIZACIÓN:
 - Modificar textos, colores y descripciones según necesidades
 - Cambiar enlaces de WhatsApp y teléfonos de contacto
 - Ajustar precios mínimos mostrados en las descripciones
+- Los colores siguen la paleta elegante: beige, marrón, sin saturación
 */
