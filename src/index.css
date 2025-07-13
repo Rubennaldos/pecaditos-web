@@ -6,91 +6,55 @@
 /* Fuentes personalizadas */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
-/* Variables de diseño para Pecaditos Integrales */
+/* Variables de diseño elegante - Solo modo claro beige/marrón/arena */
 @layer base {
   :root {
-    /* Colores base */
-    --background: 44 16% 98%;
-    --foreground: 30 12% 12%;
+    /* Paleta elegante beige/marrón - sin modo oscuro */
+    --background: 42 39% 97%; /* #F7F1E5 - Fondo principal beige muy claro */
+    --foreground: 28 25% 18%; /* #40352A - Texto marrón oscuro elegante */
 
-    /* Colores de la marca - tonos tierra y amber */
-    --primary: 35 91% 48%; /* Amber-500 */
-    --primary-foreground: 30 12% 98%;
+    /* Colores principales - tonos arena/beige */
+    --primary: 28 25% 18%; /* #40352A - Marrón oscuro para elementos principales */
+    --primary-foreground: 42 39% 97%; /* Texto claro sobre primario */
 
-    --secondary: 37 39% 91%; /* Amber-100 */
-    --secondary-foreground: 30 12% 12%;
+    --secondary: 38 44% 88%; /* #F8EBD8 - Beige claro para elementos secundarios */
+    --secondary-foreground: 28 25% 18%;
 
-    --card: 44 16% 99%;
-    --card-foreground: 30 12% 12%;
+    /* Cards y elementos contenedores */
+    --card: 42 39% 97%; /* #F7F1E5 - Mismo que background para consistencia */
+    --card-foreground: 28 25% 18%;
 
-    --popover: 44 16% 99%;
-    --popover-foreground: 30 12% 12%;
+    --popover: 38 44% 88%; /* #F8EBD8 - Beige para popovers */
+    --popover-foreground: 28 25% 18%;
 
-    --muted: 37 20% 94%;
-    --muted-foreground: 30 6% 46%;
+    /* Elementos silenciados/secundarios */
+    --muted: 35 22% 90%; /* #EEE8DD - Gris beige suave */
+    --muted-foreground: 28 15% 45%; /* Gris marrón para texto secundario */
 
-    --accent: 37 31% 88%;
-    --accent-foreground: 30 12% 12%;
+    /* Acentos suaves */
+    --accent: 35 22% 90%; /* #EEE8DD - Gris beige para hover/focus */
+    --accent-foreground: 28 25% 18%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 30 12% 98%;
+    /* Destructivo mantiene funcionalidad pero suave */
+    --destructive: 0 65% 55%; /* Rojo suave no estridente */
+    --destructive-foreground: 42 39% 97%;
 
-    --border: 37 20% 88%;
-    --input: 37 20% 88%;
-    --ring: 35 91% 48%;
+    /* Bordes e inputs en beige/marrón claro */
+    --border: 35 22% 85%; /* Bordes beige suave */
+    --input: 38 44% 88%; /* #F8EBD8 - Inputs beige claro */
+    --ring: 28 25% 18%; /* Ring marrón oscuro */
 
     --radius: 0.75rem;
 
-    /* Sidebar */
-    --sidebar-background: 44 16% 98%;
-    --sidebar-foreground: 30 12% 26%;
-    --sidebar-primary: 35 91% 48%;
-    --sidebar-primary-foreground: 30 12% 98%;
-    --sidebar-accent: 37 39% 91%;
-    --sidebar-accent-foreground: 30 12% 12%;
-    --sidebar-border: 37 20% 88%;
-    --sidebar-ring: 35 91% 48%;
-  }
-
-  .dark {
-    /* Modo oscuro con tonos tierra */
-    --background: 30 12% 8%;
-    --foreground: 44 16% 94%;
-
-    --primary: 35 91% 52%; /* Amber más claro para contraste */
-    --primary-foreground: 30 12% 8%;
-
-    --secondary: 30 12% 15%;
-    --secondary-foreground: 44 16% 94%;
-
-    --card: 30 12% 10%;
-    --card-foreground: 44 16% 94%;
-
-    --popover: 30 12% 10%;
-    --popover-foreground: 44 16% 94%;
-
-    --muted: 30 12% 15%;
-    --muted-foreground: 30 6% 65%;
-
-    --accent: 30 12% 18%;
-    --accent-foreground: 44 16% 94%;
-
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 44 16% 94%;
-
-    --border: 30 12% 18%;
-    --input: 30 12% 18%;
-    --ring: 35 91% 52%;
-
-    /* Sidebar oscuro */
-    --sidebar-background: 30 12% 6%;
-    --sidebar-foreground: 44 16% 90%;
-    --sidebar-primary: 35 91% 52%;
-    --sidebar-primary-foreground: 30 12% 8%;
-    --sidebar-accent: 30 12% 12%;
-    --sidebar-accent-foreground: 44 16% 90%;
-    --sidebar-border: 30 12% 15%;
-    --sidebar-ring: 35 91% 52%;
+    /* Sidebar en la misma paleta elegante */
+    --sidebar-background: 42 39% 97%; /* #F7F1E5 */
+    --sidebar-foreground: 28 25% 18%; /* #40352A */
+    --sidebar-primary: 28 25% 18%;
+    --sidebar-primary-foreground: 42 39% 97%;
+    --sidebar-accent: 38 44% 88%; /* #F8EBD8 */
+    --sidebar-accent-foreground: 28 25% 18%;
+    --sidebar-border: 35 22% 85%;
+    --sidebar-ring: 28 25% 18%;
   }
 }
 
@@ -114,51 +78,60 @@
     scroll-behavior: smooth;
   }
 
-  /* Personalización de scrollbar */
+  /* Personalización de scrollbar elegante */
   ::-webkit-scrollbar {
     width: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    @apply bg-stone-100 dark:bg-stone-800;
+    background: hsl(35 22% 90%); /* #EEE8DD - Beige suave */
   }
 
   ::-webkit-scrollbar-thumb {
-    @apply bg-amber-400 hover:bg-amber-500 rounded-full;
+    background: hsl(28 25% 18%); /* #40352A - Marrón oscuro */
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(28 25% 25%); /* Marrón ligeramente más claro al hover */
   }
 }
 
 @layer components {
-  /* Gradientes personalizados para la marca */
+  /* Gradientes elegantes en tonos beige/marrón */
   .gradient-primary {
-    @apply bg-gradient-to-r from-amber-400 via-orange-500 to-red-500;
+    background: linear-gradient(135deg, hsl(28 25% 18%), hsl(28 25% 25%));
   }
 
   .gradient-secondary {
-    @apply bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 dark:from-stone-800 dark:via-stone-700 dark:to-stone-600;
+    background: linear-gradient(135deg, hsl(42 39% 97%), hsl(38 44% 88%));
   }
 
-  /* Sombras personalizadas */
+  /* Sombras suaves y elegantes */
   .shadow-soft {
-    box-shadow: 0 4px 6px -1px rgba(251, 191, 36, 0.1), 0 2px 4px -1px rgba(251, 191, 36, 0.06);
+    box-shadow: 0 4px 6px -1px hsl(28 25% 18% / 0.08), 0 2px 4px -1px hsl(28 25% 18% / 0.04);
   }
 
   .shadow-warm {
-    box-shadow: 0 10px 15px -3px rgba(251, 146, 60, 0.1), 0 4px 6px -2px rgba(251, 146, 60, 0.05);
+    box-shadow: 0 10px 15px -3px hsl(28 25% 18% / 0.1), 0 4px 6px -2px hsl(28 25% 18% / 0.05);
   }
 
-  /* Efectos hover personalizados */
+  /* Efectos hover suaves */
   .hover-lift {
     @apply transition-all duration-300 hover:transform hover:-translate-y-1 hover:shadow-warm;
   }
 
   .hover-glow {
-    @apply transition-all duration-300 hover:shadow-lg hover:shadow-amber-200 dark:hover:shadow-amber-900;
+    @apply transition-all duration-300 hover:shadow-lg;
+    box-shadow: 0 10px 25px -5px hsl(28 25% 18% / 0.15);
   }
 
-  /* Textos con gradiente */
+  /* Texto con gradiente elegante */
   .text-gradient {
-    @apply bg-gradient-to-r from-amber-600 via-orange-600 to-red-600 bg-clip-text text-transparent;
+    background: linear-gradient(135deg, hsl(28 25% 18%), hsl(28 15% 35%));
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
   }
 
   /* Bordes redondeados consistentes */
