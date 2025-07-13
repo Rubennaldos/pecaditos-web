@@ -21,6 +21,8 @@ import { useNavigate } from 'react-router-dom';
  */
 
 // *** MOCK DATA - REEMPLAZAR CON FIREBASE REALTIME DATABASE ***
+// EDITAR AQUÍ: Para cambiar las tiendas mostradas, modifica este array
+// INTEGRACIÓN FIREBASE: Reemplazar con useQuery que consulte /stores en Firebase
 const mockStores = [
   {
     id: 1,
@@ -85,6 +87,7 @@ const mockStores = [
 ];
 
 // *** LISTA DE DISTRITOS - CAMBIAR SEGÚN COBERTURA REAL ***
+// EDITAR AQUÍ: Para agregar/quitar distritos disponibles
 const limeDistricts = [
   "Todos los distritos",
   "San Isidro", "Miraflores", "San Borja", "Surco", "La Molina",
@@ -93,7 +96,7 @@ const limeDistricts = [
   "Magdalena", "Pueblo Libre", "Lince", "Cercado de Lima"
 ];
 
-const WhereToFindUs = () => {
+const DondeNosUbicamos = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('Todos los distritos');
@@ -299,7 +302,7 @@ const WhereToFindUs = () => {
   );
 };
 
-export default WhereToFindUs;
+export default DondeNosUbicamos;
 
 /*
 INSTRUCCIONES PARA INTEGRACIÓN CON FIREBASE:

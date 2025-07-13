@@ -18,7 +18,7 @@ import DeliveryPanel from "./pages/DeliveryPanel";
 import ProductionPanel from "./pages/ProductionPanel";
 import BillingPanel from "./pages/BillingPanel";
 import OrderTracking from "./pages/OrderTracking";
-import WhereToFindUs from "./pages/WhereToFindUs";
+import DondeNosUbicamos from "./pages/DondeNosUbicamos";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -143,7 +143,7 @@ const App = () => (
                   path="/donde-nos-ubicamos" 
                   element={
                     <ProtectedRoute routeType="PUBLIC">
-                      <WhereToFindUs />
+                      <DondeNosUbicamos />
                     </ProtectedRoute>
                   } 
                 />
