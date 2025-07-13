@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { HeroSection } from '@/components/sections/HeroSection';
@@ -12,14 +11,15 @@ const Index = () => {
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50 dark:from-stone-900 dark:via-stone-800 dark:to-stone-900">
-      {/* Header - Solo para móvil como navegación básica */}
+    // CAMBIA la clase de fondo y elimina todas las referencias a "dark:"
+    <div className="min-h-screen bg-[#F7F1E5]">
+      {/* Header */}
       <Header />
       
-      {/* Hero Section - Logo, eslogan y texto de bienvenida */}
+      {/* Hero Section */}
       <HeroSection />
       
-      {/* Main Cards - Catálogo y Login */}
+      {/* Main Cards */}
       <MainCards />
       
       {/* Order Tracking Button */}
