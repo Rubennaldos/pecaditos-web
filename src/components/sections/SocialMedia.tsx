@@ -11,7 +11,6 @@ export const SocialMedia = () => {
       icon: MessageCircle,
       url: 'https://wa.me/51999999999?text=Hola, me interesa conocer más sobre Pecaditos Integrales',
       color: 'from-green-400 to-green-600',
-      hoverColor: 'hover:shadow-green-200 dark:hover:shadow-green-900',
       description: 'Consultas y pedidos'
     },
     {
@@ -19,7 +18,6 @@ export const SocialMedia = () => {
       icon: Instagram,
       url: 'https://instagram.com/pecaditos_integrales',
       color: 'from-pink-400 via-purple-500 to-indigo-500',
-      hoverColor: 'hover:shadow-pink-200 dark:hover:shadow-pink-900',
       description: 'Fotos y novedades'
     },
     {
@@ -27,7 +25,6 @@ export const SocialMedia = () => {
       icon: Facebook,
       url: 'https://facebook.com/pecaditos.integrales',
       color: 'from-blue-500 to-blue-700',
-      hoverColor: 'hover:shadow-blue-200 dark:hover:shadow-blue-900',
       description: 'Comunidad y eventos'
     },
     {
@@ -38,8 +35,7 @@ export const SocialMedia = () => {
         </svg>
       ),
       url: 'https://tiktok.com/@pecaditos_integrales',
-      color: 'from-black to-gray-800 dark:from-white dark:to-gray-200',
-      hoverColor: 'hover:shadow-gray-300 dark:hover:shadow-gray-700',
+      color: 'from-primary to-secondary',
       description: 'Videos y recetas'
     }
   ];
@@ -50,15 +46,15 @@ export const SocialMedia = () => {
         
         {/* Título */}
         <div className="space-y-3">
-          <h2 className="text-3xl font-bold text-stone-800 dark:text-stone-200">
+          <h2 className="text-3xl font-bold text-foreground">
             Síguenos en nuestras redes
           </h2>
-          <p className="text-lg text-stone-600 dark:text-stone-400 max-w-2xl mx-auto">
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Mantente conectado para recibir promociones exclusivas, nuevos sabores y contenido delicioso
           </p>
         </div>
 
-        {/* Iconos de redes sociales */}
+        {/* Iconos de redes sociales - centrados */}
         <div className="flex flex-wrap justify-center gap-6">
           {socialLinks.map((social) => {
             const IconComponent = social.icon;
@@ -75,7 +71,7 @@ export const SocialMedia = () => {
                   rel="noopener noreferrer"
                   className={`
                     block p-4 rounded-2xl transition-all duration-300 transform
-                    bg-gradient-to-br ${social.color} ${social.hoverColor}
+                    bg-gradient-to-br ${social.color} hover-glow
                     hover:scale-110 hover:shadow-xl group-hover:-rotate-3
                     shadow-lg
                   `}
@@ -91,37 +87,16 @@ export const SocialMedia = () => {
                   mt-3 transition-all duration-300 transform
                   ${hoveredSocial === social.name ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
                 `}>
-                  <h4 className="font-semibold text-stone-800 dark:text-stone-200">
+                  <h4 className="font-semibold text-foreground">
                     {social.name}
                   </h4>
-                  <p className="text-sm text-stone-600 dark:text-stone-400">
+                  <p className="text-sm text-muted-foreground">
                     {social.description}
                   </p>
                 </div>
               </div>
             );
           })}
-        </div>
-
-        {/* Llamada a la acción */}
-        <div className="mt-8 p-6 bg-gradient-to-r from-amber-50 via-orange-50 to-red-50 dark:from-stone-800 dark:to-stone-700 rounded-2xl border border-amber-200 dark:border-stone-600 max-w-2xl mx-auto">
-          <h3 className="text-xl font-bold text-stone-800 dark:text-stone-200 mb-3">
-            🎉 ¡No te pierdas nuestras promociones!
-          </h3>
-          <p className="text-stone-600 dark:text-stone-400 mb-4">
-            Síguenos para enterarte de descuentos especiales, nuevos sabores y sorteos exclusivos
-          </p>
-          <div className="flex flex-wrap justify-center gap-2 text-sm">
-            <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900 text-amber-800 dark:text-amber-200 rounded-full">
-              #PecaditosIntegrales
-            </span>
-            <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full">
-              #SaludableYDelicioso
-            </span>
-            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full">
-              #GalletasArtesanales
-            </span>
-          </div>
         </div>
       </div>
     </section>

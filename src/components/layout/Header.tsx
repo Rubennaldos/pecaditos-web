@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Menu, X, Moon, Sun, LogOut, User } from 'lucide-react';
+import { Menu, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState(false);
   const navigate = useNavigate();
 
   // Hooks de autenticación
@@ -28,11 +27,6 @@ export const Header = () => {
                    retailUser?.displayName || 
                    retailUser?.email || 
                    '';
-
-  const toggleDarkMode = () => {
-    setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle('dark');
-  };
 
   const handleLogout = async () => {
     try {
@@ -60,39 +54,30 @@ export const Header = () => {
   };
 
   return (
-    <header className="lg:hidden sticky top-0 z-50 bg-white/80 dark:bg-stone-900/80 backdrop-blur-md border-b border-stone-200 dark:border-stone-700">
+    <header className="lg:hidden sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         {/* Logo móvil */}
         <div 
           className="flex items-center space-x-2 cursor-pointer"
           onClick={() => navigate('/')}
         >
-          <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-gradient-primary rounded-full flex items-center justify-center">
             <span className="text-white font-bold text-sm">P</span>
           </div>
-          <span className="font-semibold text-stone-800 dark:text-stone-200">Pecaditos</span>
+          <span className="font-semibold text-foreground">Pecaditos</span>
         </div>
 
         {/* Controles */}
         <div className="flex items-center space-x-2">
           {/* Indicador de usuario logueado */}
           {currentUser && (
-            <div className="hidden sm:flex items-center space-x-2 px-2 py-1 bg-amber-100 dark:bg-amber-900 rounded-full">
-              <User className="h-3 w-3 text-amber-600" />
-              <span className="text-xs text-amber-800 dark:text-amber-200 font-medium">
+            <div className="hidden sm:flex items-center space-x-2 px-2 py-1 bg-secondary rounded-full">
+              <User className="h-3 w-3 text-secondary-foreground" />
+              <span className="text-xs text-secondary-foreground font-medium">
                 {userType}
               </span>
             </div>
           )}
-          
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={toggleDarkMode}
-            className="p-2"
-          >
-            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
           
           <Button
             variant="ghost"
@@ -107,30 +92,30 @@ export const Header = () => {
 
       {/* Menú móvil desplegable */}
       {isMenuOpen && (
-        <div className="bg-white dark:bg-stone-900 border-t border-stone-200 dark:border-stone-700 px-4 py-3">
+        <div className="bg-background border-t border-border px-4 py-3">
           <nav className="space-y-2">
             {/* Usuario logueado */}
             {currentUser ? (
               <>
-                <div className="py-2 px-3 bg-stone-50 dark:bg-stone-800 rounded-lg mb-3">
-                  <p className="text-sm font-medium text-stone-800 dark:text-stone-200">
+                <div className="py-2 px-3 bg-muted rounded-lg mb-3">
+                  <p className="text-sm font-medium text-foreground">
                     {userName}
                   </p>
-                  <p className="text-xs text-stone-600 dark:text-stone-400">
+                  <p className="text-xs text-muted-foreground">
                     {userType}
                   </p>
                 </div>
                 
                 <button 
                   onClick={navigateToProfile}
-                  className="block w-full text-left py-2 text-stone-700 dark:text-stone-300 hover:text-amber-600 transition-colors"
+                  className="block w-full text-left py-2 text-foreground hover:text-primary transition-colors"
                 >
                   Mi Panel
                 </button>
                 
                 <button 
                   onClick={handleLogout}
-                  className="flex items-center w-full py-2 text-red-600 hover:text-red-700 transition-colors"
+                  className="flex items-center w-full py-2 text-destructive hover:text-destructive/80 transition-colors"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
                   Cerrar Sesión
@@ -144,7 +129,7 @@ export const Header = () => {
                     navigate('/login');
                     setIsMenuOpen(false);
                   }}
-                  className="block py-2 text-amber-600 hover:text-amber-700 font-medium transition-colors"
+                  className="block py-2 text-primary hover:text-primary/80 font-medium transition-colors"
                 >
                   Iniciar Sesión
                 </button>
@@ -152,22 +137,22 @@ export const Header = () => {
             )}
             
             {/* Enlaces comunes */}
-            <hr className="border-stone-200 dark:border-stone-700 my-3" />
+            <hr className="border-border my-3" />
             
             <button 
               onClick={() => {
                 navigate('/seguimiento');
                 setIsMenuOpen(false);
               }}
-              className="block py-2 text-stone-700 dark:text-stone-300 hover:text-amber-600 transition-colors"
+              className="block py-2 text-foreground hover:text-primary transition-colors"
             >
               Seguimiento de Pedidos
             </button>
             
-            <a href="#contacto" className="block py-2 text-stone-700 dark:text-stone-300 hover:text-amber-600 transition-colors">
+            <a href="#contacto" className="block py-2 text-foreground hover:text-primary transition-colors">
               Contacto
             </a>
-            <a href="#nosotros" className="block py-2 text-stone-700 dark:text-stone-300 hover:text-amber-600 transition-colors">
+            <a href="#nosotros" className="block py-2 text-foreground hover:text-primary transition-colors">
               Quiénes somos
             </a>
           </nav>

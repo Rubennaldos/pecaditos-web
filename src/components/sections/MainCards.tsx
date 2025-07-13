@@ -44,15 +44,16 @@ export const MainCards = () => {
     <section className="py-16 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-stone-800 mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
             ¿Qué necesitas hoy?
           </h2>
-          <p className="text-stone-600 text-lg max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Elige la opción que mejor se adapte a ti
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {/* Grid centrado para las cards */}
+        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-8 justify-items-center">
           
           {/* CATÁLOGO MINORISTA - OCULTO */}
           {/* *** CAMBIAR showRetailCatalog A true PARA MOSTRAR *** */}
@@ -93,15 +94,15 @@ export const MainCards = () => {
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Users className="h-8 w-8 text-white" />
               </div>
-              <CardTitle className="text-xl font-bold text-stone-800">
+              <CardTitle className="text-xl font-bold text-foreground">
                 Portal Mayorista
               </CardTitle>
-              <CardDescription className="text-stone-600">
+              <CardDescription className="text-muted-foreground">
                 Precios especiales para distribuidores. Mínimo S/ 300
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <ul className="text-sm text-stone-600 mb-6 space-y-2">
+              <ul className="text-sm text-muted-foreground mb-6 space-y-2">
                 <li>💼 Precios mayoristas exclusivos</li>
                 <li>📦 Múltiplos de 6 unidades</li>
                 <li>🚚 Descuentos por volumen</li>
@@ -123,15 +124,15 @@ export const MainCards = () => {
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <MapPin className="h-8 w-8 text-white" />
               </div>
-              <CardTitle className="text-xl font-bold text-stone-800">
+              <CardTitle className="text-xl font-bold text-foreground">
                 Dónde nos ubicamos
               </CardTitle>
-              <CardDescription className="text-stone-600">
+              <CardDescription className="text-muted-foreground">
                 Encuentra nuestros productos cerca de ti
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <ul className="text-sm text-stone-600 mb-6 space-y-2">
+              <ul className="text-sm text-muted-foreground mb-6 space-y-2">
                 <li>🏪 Puntos de venta autorizados</li>
                 <li>📍 Ubicaciones por distrito</li>
                 <li>🗺️ Mapas y direcciones</li>
@@ -153,15 +154,15 @@ export const MainCards = () => {
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Phone className="h-8 w-8 text-white" />
               </div>
-              <CardTitle className="text-xl font-bold text-stone-800">
+              <CardTitle className="text-xl font-bold text-foreground">
                 Seguir mi Pedido
               </CardTitle>
-              <CardDescription className="text-stone-600">
+              <CardDescription className="text-muted-foreground">
                 Rastrea tu pedido en tiempo real
               </CardDescription>
             </CardHeader>
             <CardContent className="text-center">
-              <ul className="text-sm text-stone-600 mb-6 space-y-2">
+              <ul className="text-sm text-muted-foreground mb-6 space-y-2">
                 <li>📍 Ubicación en tiempo real</li>
                 <li>⏰ Estado actualizado</li>
                 <li>📞 Contacto directo</li>
@@ -182,7 +183,7 @@ export const MainCards = () => {
 
         {/* Información adicional */}
         <div className="mt-12 text-center">
-          <p className="text-stone-500 text-sm max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-sm max-w-2xl mx-auto">
             ¿Tienes dudas? Contáctanos por WhatsApp: 
             <a href="https://wa.me/51999888777" className="text-green-600 hover:text-green-700 font-medium ml-1">
                +51 999 888 777
