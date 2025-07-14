@@ -11,14 +11,15 @@ export const HeroSection = () => {
     <section className="container mx-auto px-4 py-8 lg:py-16 flex flex-col items-center justify-center">
       <div className="flex flex-col items-center space-y-6 w-full">
         {/* Logo centrado y grande */}
-        <div className="flex flex-col items-center space-y-4">
-          {/* Cambia el src de abajo por la ruta de tu logo cuando puedas subirlo */}
-          <img
-            src="https://placehold.co/128x128?text=Logo" // ← REEMPLAZA ESTA LÍNEA por tu logo, ejemplo: "/logo-pecaditos.png"
-            alt="Logo Pecaditos"
-            className="w-28 h-28 lg:w-36 lg:h-36 rounded-3xl shadow-lg object-cover"
-          />
-        </div>
+        {/* Logo grande - centrado en móvil, izquierda en desktop */}
+<div className="flex flex-col items-center lg:items-start space-y-4">
+  <img
+    src="https://drive.google.com/uc?export=view&id=1d_-G9fNYgez7vN1u4uXdq5ausARxhJ2c"
+    alt="Logo Pecaditos Integrales"
+    className="w-32 h-32 object-contain rounded-2xl mx-auto shadow-lg"
+  />
+</div>
+
 
         {/* Eslogan principal */}
         <div className="space-y-2 text-center">
