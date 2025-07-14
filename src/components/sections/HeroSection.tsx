@@ -16,9 +16,11 @@ export const HeroSection = () => {
   <img
     src="https://drive.google.com/uc?export=view&id=1d_-G9fNYgez7vN1u4uXdq5ausARxhJ2c"
     alt="Logo Pecaditos Integrales"
-    className="w-32 h-32 object-contain rounded-2xl mx-auto shadow-lg"
+    className="w-32 h-32 lg:w-40 lg:h-40 object-contain rounded-2xl mx-auto shadow-xl bg-white"
+    style={{ background: '#FFF8ED' }} // fondo beige claro si el logo es PNG
   />
 </div>
+
 
 
         {/* Eslogan principal */}
