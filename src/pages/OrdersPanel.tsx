@@ -2,22 +2,22 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Package, 
-  Clock3, 
-  CheckCircle, 
-  AlertTriangle, 
   QrCode, 
-  FileDown,
+  LogOut,
   Search,
-  LogOut
+  BarChart3,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  FileDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
-import OrderCard from '@/components/orders/OrderCard';
+import OrdersDashboard from '@/components/orders/OrdersDashboard';
+import CompactOrderList from '@/components/orders/CompactOrderList';
 
 /**
  * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
@@ -96,8 +96,6 @@ const OrdersPanel = () => {
   const { logout } = useAdmin();
   const [selectedTab, setSelectedTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('todos');
-  const [dateFilter, setDateFilter] = useState('hoy');
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrInput, setQrInput] = useState('');
 
@@ -141,21 +139,6 @@ const OrdersPanel = () => {
       hoursLeft: Math.max(0, hoursLeft)
     };
   };
-
-  // *** FILTRAR PEDIDOS SEGÚN CRITERIOS ***
-  const filteredOrders = mockOrders.filter(order => {
-    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-    let matchesStatus = statusFilter === 'todos' || order.status === statusFilter;
-    
-    // Filtro especial para urgentes/vencidos
-    if (statusFilter === 'urgentes') {
-      const urgency = calculateOrderUrgency(order);
-      matchesStatus = urgency.isExpired || urgency.isUrgent;
-    }
-    
-    return matchesSearch && matchesStatus;
-  });
 
   // *** ESTADÍSTICAS DEL DASHBOARD ACTUALIZADAS ***
   const ordersWithUrgency = getOrdersWithUrgency();
@@ -204,7 +187,7 @@ const OrdersPanel = () => {
       if (foundOrder) {
         // Mostrar el pedido en el dashboard o redirigir a seguimiento
         setSearchTerm(orderId);
-        setStatusFilter('todos');
+        setSelectedTab('dashboard');
         setShowQRReader(false);
         setQrInput('');
       } else {
@@ -214,7 +197,7 @@ const OrdersPanel = () => {
     } else {
       // Tratar como ID directo del pedido
       setSearchTerm(code);
-      setStatusFilter('todos');
+      setSelectedTab('dashboard');
     }
     
     setShowQRReader(false);
@@ -247,7 +230,6 @@ const OrdersPanel = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              {/* Botón QR Global */}
               <Button
                 onClick={() => setShowQRReader(true)}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -268,230 +250,190 @@ const OrdersPanel = () => {
         </div>
       </div>
 
-      {/* Contenido Principal */}
+      {/* Contenido Principal con navegación lateral */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-6 mb-8">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="pendientes">Pendientes ({stats.pendientes})</TabsTrigger>
-            <TabsTrigger value="preparacion">En Preparación ({stats.enPreparacion})</TabsTrigger>
-            <TabsTrigger value="listos">Listos ({stats.listos})</TabsTrigger>
-            <TabsTrigger value="urgentes" className="text-red-600">
-              Urgentes ({stats.alertas})
-            </TabsTrigger>
-            <TabsTrigger value="reportes">Reportes</TabsTrigger>
-          </TabsList>
+        <div className="flex gap-8">
+          {/* Navegación lateral */}
+          <div className="w-64 space-y-2">
+            <nav className="space-y-1">
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: BarChart3, count: null },
+                { id: 'pendientes', label: 'Pendientes', icon: Clock, count: stats.pendientes },
+                { id: 'preparacion', label: 'En Preparación', icon: Package, count: stats.enPreparacion },
+                { id: 'listos', label: 'Listos', icon: CheckCircle, count: stats.listos },
+                { id: 'urgentes', label: 'Urgentes', icon: AlertTriangle, count: stats.alertas },
+                { id: 'reportes', label: 'Reportes', icon: FileDown, count: null }
+              ].map((tab) => (
+                <Button
+                  key={tab.id}
+                  onClick={() => setSelectedTab(tab.id)}
+                  variant={selectedTab === tab.id ? "default" : "ghost"}
+                  className={`w-full justify-start ${
+                    selectedTab === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-sand-100'
+                  } ${tab.id === 'urgentes' && tab.count && tab.count > 0 ? 'ring-2 ring-red-500 ring-opacity-50' : ''}`}
+                >
+                  <tab.icon className="h-4 w-4 mr-3" />
+                  <span className="flex-1 text-left">{tab.label}</span>
+                  {tab.count !== null && (
+                    <Badge 
+                      variant={tab.id === 'urgentes' ? 'destructive' : 'secondary'}
+                      className="ml-2"
+                    >
+                      {tab.count}
+                    </Badge>
+                  )}
+                </Button>
+              ))}
+            </nav>
+          </div>
 
-          {/* Dashboard */}
-          <TabsContent value="dashboard" className="space-y-6">
-            {/* Estadísticas actualizadas */}
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Pedidos</CardTitle>
-                  <Package className="h-4 w-4 text-stone-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{stats.total}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Pendientes</CardTitle>
-                  <Clock3 className="h-4 w-4 text-yellow-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-yellow-600">{stats.pendientes}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">En Preparación</CardTitle>
-                  <Package className="h-4 w-4 text-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{stats.enPreparacion}</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Listos</CardTitle>
-                  <CheckCircle className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{stats.listos}</div>
-                </CardContent>
-              </Card>
-              <Card className="ring-2 ring-red-500">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Alertas Críticas</CardTitle>
-                  <AlertTriangle className="h-4 w-4 text-red-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-red-600">{stats.alertas}</div>
-                  <div className="text-xs text-red-500 mt-1">
-                    {stats.vencidos} vencidos, {stats.urgentes} urgentes
+          {/* Contenido principal */}
+          <div className="flex-1">
+            {/* Filtro de búsqueda para vistas de lista */}
+            {selectedTab !== 'dashboard' && selectedTab !== 'reportes' && (
+              <Card className="mb-6">
+                <CardContent className="p-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
+                    <Input
+                      placeholder="Buscar por ID, cliente o sede..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
                   </div>
                 </CardContent>
               </Card>
-            </div>
+            )}
 
-            {/* Filtros */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Filtros</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
-                      <Input
-                        placeholder="Buscar por ID o cliente..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="md:w-48">
-                      <SelectValue placeholder="Estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="todos">Todos los estados</SelectItem>
-                      <SelectItem value="pendiente">Pendientes</SelectItem>
-                      <SelectItem value="en_preparacion">En Preparación</SelectItem>
-                      <SelectItem value="listo">Listos</SelectItem>
-                      <SelectItem value="urgentes">🚨 Urgentes/Vencidos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger className="md:w-48">
-                      <SelectValue placeholder="Fecha" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hoy">Hoy</SelectItem>
-                      <SelectItem value="ayer">Ayer</SelectItem>
-                      <SelectItem value="semana">Esta semana</SelectItem>
-                      <SelectItem value="mes">Este mes</SelectItem>
-                    </SelectContent>
-                  </Select>
+            {/* Dashboard */}
+            {selectedTab === 'dashboard' && (
+              <OrdersDashboard orders={mockOrders} />
+            )}
+
+            {/* Pendientes */}
+            {selectedTab === 'pendientes' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-brown-900">Pedidos Pendientes</h2>
+                  <Badge className="bg-yellow-100 text-yellow-800">
+                    {mockOrders.filter(o => o.status === 'pendiente').length} pedidos
+                  </Badge>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Lista de Pedidos con nuevos componentes */}
-            <div className="space-y-4">
-              {filteredOrders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
+                <CompactOrderList
+                  orders={mockOrders.filter(order => {
+                    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    return order.status === 'pendiente' && matchesSearch;
+                  })}
+                  showTimer={true}
+                  showActions={true}
                   onStatusUpdate={updateOrderStatus}
                   onPrint={printOrder}
                 />
-              ))}
-            </div>
-          </TabsContent>
+              </div>
+            )}
 
-          {/* Pestaña específica para urgentes */}
-          <TabsContent value="urgentes" className="space-y-6">
-            <Card className="border-red-200 bg-red-50">
-              <CardHeader>
-                <CardTitle className="text-red-800 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5" />
-                  Pedidos Críticos - Requieren Atención Inmediata
-                </CardTitle>
-                <CardDescription className="text-red-700">
-                  {stats.vencidos} pedidos vencidos y {stats.urgentes} próximos a vencer
-                </CardDescription>
-              </CardHeader>
-            </Card>
-            
-            <div className="space-y-4">
-              {ordersWithUrgency
-                .filter(order => order.urgency.isExpired || order.urgency.isUrgent)
-                .sort((a, b) => {
-                  if (a.urgency.isExpired && !b.urgency.isExpired) return -1;
-                  if (!a.urgency.isExpired && b.urgency.isExpired) return 1;
-                  return a.urgency.hoursLeft - b.urgency.hoursLeft;
-                })
-                .map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onStatusUpdate={updateOrderStatus}
-                    onPrint={printOrder}
-                  />
-                ))}
-            </div>
-          </TabsContent>
+            {/* En Preparación */}
+            {selectedTab === 'preparacion' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-brown-900">En Preparación</h2>
+                  <Badge className="bg-blue-100 text-blue-800">
+                    {mockOrders.filter(o => o.status === 'en_preparacion').length} pedidos
+                  </Badge>
+                </div>
+                <CompactOrderList
+                  orders={mockOrders.filter(order => {
+                    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    return order.status === 'en_preparacion' && matchesSearch;
+                  })}
+                  showTimer={true}
+                  onStatusUpdate={updateOrderStatus}
+                  onPrint={printOrder}
+                />
+              </div>
+            )}
 
-          {/* Otras pestañas existentes */}
-          <TabsContent value="pendientes">
-            <div className="space-y-4">
-              {mockOrders
-                .filter(order => order.status === 'pendiente')
-                .map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onStatusUpdate={updateOrderStatus}
-                    onPrint={printOrder}
-                  />
-                ))}
-            </div>
-          </TabsContent>
+            {/* Listos */}
+            {selectedTab === 'listos' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-brown-900">Pedidos Listos</h2>
+                  <Badge className="bg-green-100 text-green-800">
+                    {mockOrders.filter(o => o.status === 'listo').length} pedidos
+                  </Badge>
+                </div>
+                <CompactOrderList
+                  orders={mockOrders.filter(order => {
+                    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    return order.status === 'listo' && matchesSearch;
+                  })}
+                  showTimer={false}
+                  onStatusUpdate={updateOrderStatus}
+                  onPrint={printOrder}
+                />
+              </div>
+            )}
 
-          <TabsContent value="preparacion">
-            <div className="space-y-4">
-              {mockOrders
-                .filter(order => order.status === 'en_preparacion')
-                .map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onStatusUpdate={updateOrderStatus}
-                    onPrint={printOrder}
-                  />
-                ))}
-            </div>
-          </TabsContent>
+            {/* Urgentes */}
+            {selectedTab === 'urgentes' && (
+              <div className="space-y-4">
+                <Card className="border-red-200 bg-red-50">
+                  <CardHeader>
+                    <CardTitle className="text-red-800 flex items-center gap-2">
+                      <AlertTriangle className="h-5 w-5" />
+                      Pedidos Críticos - Requieren Atención Inmediata
+                    </CardTitle>
+                    <CardDescription className="text-red-700">
+                      {stats.vencidos} pedidos vencidos y {stats.urgentes} próximos a vencer
+                    </CardDescription>
+                  </CardHeader>
+                </Card>
+                
+                <CompactOrderList
+                  orders={ordersWithUrgency
+                    .filter(order => {
+                      const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                           order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                      return (order.urgency.isExpired || order.urgency.isUrgent) && matchesSearch;
+                    })
+                    .sort((a, b) => {
+                      if (a.urgency.isExpired && !b.urgency.isExpired) return -1;
+                      if (!a.urgency.isExpired && b.urgency.isExpired) return 1;
+                      return a.urgency.hoursLeft - b.urgency.hoursLeft;
+                    })}
+                  showTimer={true}
+                  showActions={true}
+                  onStatusUpdate={updateOrderStatus}
+                  onPrint={printOrder}
+                />
+              </div>
+            )}
 
-          <TabsContent value="listos">
-            <div className="space-y-4">
-              {mockOrders
-                .filter(order => order.status === 'listo')
-                .map((order) => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    onStatusUpdate={updateOrderStatus}
-                    onPrint={printOrder}
-                  />
-                ))}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="reportes">
-            <div className="text-center py-12">
-              <FileDown className="h-12 w-12 text-stone-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-stone-800 mb-2">
-                Reportes y Exportación
-              </h3>
-              <p className="text-stone-600">
-                Aquí podrás exportar reportes de pedidos en Excel
-              </p>
-              <Button className="mt-4 bg-green-600 hover:bg-green-700 text-white">
-                <FileDown className="h-4 w-4 mr-2" />
-                Exportar a Excel
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+            {/* Reportes */}
+            {selectedTab === 'reportes' && (
+              <div className="text-center py-12">
+                <FileDown className="h-12 w-12 text-stone-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-stone-800 mb-2">
+                  Reportes y Exportación
+                </h3>
+                <p className="text-stone-600 mb-4">
+                  Aquí podrás exportar reportes de pedidos en Excel
+                </p>
+                <Button className="bg-green-600 hover:bg-green-700 text-white">
+                  <FileDown className="h-4 w-4 mr-2" />
+                  Exportar a Excel
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Modal QR Reader mejorado */}
+      {/* Modal QR Reader */}
       {showQRReader && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md mx-4 border-sand-200 bg-white">
