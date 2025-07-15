@@ -1,4 +1,3 @@
-
 import { Package, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -15,11 +14,11 @@ export const OrderTracking = ({ onOpenModal }: OrderTrackingProps) => {
         <div className="space-y-4 mb-8">
           <div className="flex items-center justify-center space-x-3">
             <Package className="w-8 h-8 text-primary" />
-            <h2 className="text-3xl font-bold text-foreground">
+            <h2 className="text-3xl font-bold" style={{ color: "#573813" }}>
               Seguimiento de Pedido
             </h2>
           </div>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-lg" style={{ color: "#573813" }}>
             ¿Ya realizaste tu pedido? Rastrea su estado en tiempo real
           </p>
         </div>
@@ -44,7 +43,7 @@ export const OrderTracking = ({ onOpenModal }: OrderTrackingProps) => {
 
         {/* Información adicional */}
         <div className="mb-8 p-4 bg-secondary rounded-xl border border-border">
-          <p className="text-sm text-secondary-foreground">
+          <p className="text-sm" style={{ color: "#573813" }}>
             💡 <strong>Tip:</strong> Solo necesitas tu número de pedido para hacer el seguimiento
           </p>
         </div>
