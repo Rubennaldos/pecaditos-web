@@ -57,7 +57,6 @@ const PrintModal = ({ order, isOpen, onClose, onPrint }: PrintModalProps) => {
 
   const getOrderTypeText = (type: string) => {
     switch (type) {
-      switch (type) {
       case 'normal': return 'Pedido Normal';
       case 'reposicion': return 'Reposición';
       case 'degustacion': return 'Degustación';
