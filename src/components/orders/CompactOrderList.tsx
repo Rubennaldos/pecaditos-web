@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,8 @@ interface CompactOrderListProps {
   orders: any[];
   showTimer?: boolean;
   showActions?: boolean;
+  showAlerts?: boolean;
+  timeLimit?: number; // 24h para pendientes, 72h para preparación
   onStatusUpdate?: (orderId: string, newStatus: string) => void;
   onPrint?: (order: any, format: string, editedData: any) => void;
 }
@@ -28,48 +30,96 @@ const CompactOrderList = ({
   orders, 
   showTimer = false, 
   showActions = false,
+  showAlerts = true,
+  timeLimit = 24,
   onStatusUpdate,
   onPrint 
 }: CompactOrderListProps) => {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printOrder, setPrintOrder] = useState<any>(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  const getTimerColor = (hours: number, isExpired: boolean) => {
-    if (isExpired) return 'text-red-600';
-    if (hours <= 1) return 'text-red-500';
-    if (hours <= 12) return 'text-yellow-600';
-    return 'text-green-600';
+  // Actualizar tiempo cada minuto
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const getTimerColor = (hours: number, isExpired: boolean, status: string) => {
+    if (isExpired) return 'text-red-600 animate-pulse';
+    
+    if (status === 'en_preparacion') {
+      // 72h límite: Verde >36h, Amarillo 12-36h, Rojo <12h
+      if (hours > 36) return 'text-green-600';
+      if (hours > 12) return 'text-yellow-600';
+      return 'text-red-500';
+    } else {
+      // 24h límite: Verde >12h, Amarillo 6-12h, Rojo <6h
+      if (hours > 12) return 'text-green-600';
+      if (hours > 6) return 'text-yellow-600';
+      return 'text-red-500';
+    }
+  };
+
+  const getCardClasses = (order: any, timeLeft: any) => {
+    let baseClasses = "hover:shadow-md transition-all cursor-pointer border-l-4";
+    
+    if (timeLeft?.isExpired) {
+      baseClasses += " border-l-red-500 bg-red-50 animate-pulse";
+    } else if (timeLeft?.hours !== undefined) {
+      if (order.status === 'en_preparacion') {
+        if (timeLeft.hours <= 12) {
+          baseClasses += " border-l-red-500 bg-red-50";
+        } else if (timeLeft.hours <= 36) {
+          baseClasses += " border-l-yellow-500 bg-yellow-50";
+        } else {
+          baseClasses += " border-l-green-500";
+        }
+      } else {
+        if (timeLeft.hours <= 6) {
+          baseClasses += " border-l-red-500 bg-red-50";
+        } else if (timeLeft.hours <= 12) {
+          baseClasses += " border-l-yellow-500 bg-yellow-50";
+        } else {
+          baseClasses += " border-l-green-500";
+        }
+      }
+    } else {
+      baseClasses += " border-l-blue-500";
+    }
+    
+    return baseClasses;
   };
 
   const calculateTimeLeft = (order: any) => {
-    const now = new Date();
     let referenceDate: Date;
-    let timeLimit: number;
 
     switch (order.status) {
       case 'pendiente':
         referenceDate = new Date(order.createdAt);
-        timeLimit = 24;
         break;
       case 'en_preparacion':
         referenceDate = order.acceptedAt ? new Date(order.acceptedAt) : new Date(order.createdAt);
-        timeLimit = 48;
         break;
       case 'listo':
         referenceDate = order.readyAt ? new Date(order.readyAt) : new Date(order.createdAt);
-        timeLimit = 48;
         break;
       default:
-        return { hours: 0, isExpired: false };
+        referenceDate = new Date(order.createdAt);
     }
 
     const limitDate = new Date(referenceDate.getTime() + (timeLimit * 60 * 60 * 1000));
-    const difference = limitDate.getTime() - now.getTime();
+    const difference = limitDate.getTime() - currentTime.getTime();
     const hours = Math.floor(difference / (1000 * 60 * 60));
+    const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
 
     return {
       hours: Math.max(0, hours),
+      minutes: Math.max(0, minutes),
       isExpired: difference <= 0
     };
   };
@@ -101,11 +151,7 @@ const CompactOrderList = ({
           return (
             <Card 
               key={order.id} 
-              className={`hover:shadow-md transition-all cursor-pointer border-l-4 ${
-                timeLeft?.isExpired ? 'border-l-red-500 bg-red-50' :
-                timeLeft?.hours && timeLeft.hours <= 12 ? 'border-l-yellow-500 bg-yellow-50' :
-                'border-l-blue-500'
-              }`}
+              className={getCardClasses(order, timeLeft)}
               onClick={() => setSelectedOrder(order)}
             >
               <CardContent className="p-4">
@@ -116,7 +162,7 @@ const CompactOrderList = ({
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-lg text-brown-900">{order.id}</span>
                         {getStatusBadge(order.status)}
-                        {timeLeft?.isExpired && (
+                        {showAlerts && timeLeft?.isExpired && (
                           <Badge variant="destructive" className="animate-pulse">
                             <AlertTriangle className="h-3 w-3 mr-1" />
                             VENCIDO
@@ -131,9 +177,9 @@ const CompactOrderList = ({
                             e.stopPropagation();
                             handlePrint(order);
                           }}
-                          className="h-8 w-8 p-0 text-stone-500 hover:text-stone-700"
+                          className="h-6 w-6 p-0 text-stone-500 hover:text-stone-700"
                         >
-                          <Printer className="h-4 w-4" />
+                          <Printer className="h-3 w-3" />
                         </Button>
                         <ChevronRight className="h-4 w-4 text-stone-400" />
                       </div>
@@ -167,16 +213,21 @@ const CompactOrderList = ({
                       )}
                     </div>
 
-                    {/* Timer si corresponde */}
+                    {/* Timer mejorado */}
                     {showTimer && timeLeft && (
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 text-stone-500" />
-                        <span className={`text-sm font-medium ${getTimerColor(timeLeft.hours, timeLeft.isExpired)}`}>
+                        <span className={`text-sm font-medium ${getTimerColor(timeLeft.hours, timeLeft.isExpired, order.status)}`}>
                           {timeLeft.isExpired ? 
                             'TIEMPO VENCIDO' : 
-                            `${timeLeft.hours}h restantes`
+                            `${timeLeft.hours}h ${timeLeft.minutes}m restantes`
                           }
                         </span>
+                        {order.status === 'en_preparacion' && timeLeft.isExpired && (
+                          <Badge variant="destructive" className="animate-pulse ml-2">
+                            CRÍTICO
+                          </Badge>
+                        )}
                       </div>
                     )}
                   </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,12 +12,16 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  FileDown
+  FileDown,
+  Smile,
+  Frown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
 import OrdersDashboard from '@/components/orders/OrdersDashboard';
 import CompactOrderList from '@/components/orders/CompactOrderList';
+import QRReaderModal from '@/components/orders/QRReaderModal';
+import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
 
 /**
  * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
@@ -97,9 +101,9 @@ const OrdersPanel = () => {
   const [selectedTab, setSelectedTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
-  const [qrInput, setQrInput] = useState('');
+  const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
 
-  // Función para obtener pedidos con urgencia
+  // *** FUNCIÓN PARA OBTENER PEDIDOS CON URGENCIA MEJORADA ***
   const getOrdersWithUrgency = () => {
     return mockOrders.map(order => {
       const urgency = calculateOrderUrgency(order);
@@ -119,7 +123,7 @@ const OrdersPanel = () => {
         break;
       case 'en_preparacion':
         referenceDate = order.acceptedAt ? new Date(order.acceptedAt) : new Date(order.createdAt);
-        timeLimit = 48;
+        timeLimit = 72; // 72 horas para preparación
         break;
       case 'listo':
         referenceDate = order.readyAt ? new Date(order.readyAt) : new Date(order.createdAt);
@@ -135,12 +139,13 @@ const OrdersPanel = () => {
 
     return {
       isExpired: difference <= 0,
-      isUrgent: hoursLeft <= 6 && hoursLeft > 0,
+      isUrgent: (order.status === 'en_preparacion' && hoursLeft <= 36) || 
+                (order.status === 'pendiente' && hoursLeft <= 6),
       hoursLeft: Math.max(0, hoursLeft)
     };
   };
 
-  // *** ESTADÍSTICAS DEL DASHBOARD ACTUALIZADAS ***
+  // *** ESTADÍSTICAS ACTUALIZADAS ***
   const ordersWithUrgency = getOrdersWithUrgency();
   const stats = {
     total: mockOrders.length,
@@ -152,56 +157,52 @@ const OrdersPanel = () => {
     alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length
   };
 
+  // *** FUNCIÓN MEJORADA PARA LEER QR ***
+  const handleQRRead = (code: string) => {
+    console.log(`Código QR leído: ${code}`);
+    
+    // Extraer el ID del pedido de la URL del QR
+    const urlMatch = code.match(/\/seguimiento\/(.+)$/);
+    let orderId = urlMatch ? urlMatch[1] : code;
+    
+    // Buscar el pedido en los datos mock
+    const foundOrder = mockOrders.find(order => order.id === orderId);
+    if (foundOrder) {
+      const orderWithUrgency = { ...foundOrder, urgency: calculateOrderUrgency(foundOrder) };
+      setQrScannedOrder(orderWithUrgency);
+      setShowQRReader(false);
+    } else {
+      console.error('Pedido no encontrado:', orderId);
+      setShowQRReader(false);
+    }
+  };
+
+  // *** FUNCIÓN PARA ACTUALIZAR ESTADO DESDE QR ***
+  const updateOrderStatusFromQR = (orderId: string, newStatus: string, reason?: string) => {
+    console.log(`Actualizando pedido ${orderId} a estado: ${newStatus}`, reason ? `Motivo: ${reason}` : '');
+    updateOrderStatus(orderId, newStatus);
+    setQrScannedOrder(null);
+  };
+
   // *** FUNCIÓN PARA CAMBIAR ESTADO DE PEDIDO ***
   const updateOrderStatus = (orderId: string, newStatus: string) => {
     console.log(`Actualizando pedido ${orderId} a estado: ${newStatus}`);
     // TODO: Integrar con Firebase
   };
 
-  // *** FUNCIÓN PARA IMPRIMIR PEDIDO MEJORADA ***
+  // *** FUNCIÓN PARA IMPRIMIR PEDIDO ***
   const printOrder = (order: any, format: 'A4' | 'A5' | 'ticket', editedData: any) => {
     console.log(`Imprimiendo pedido ${order.id} en formato ${format}`, { order, editedData });
     
     // Generar QR único
     const qrData = `PECADITOS-${order.id}-${Date.now()}`;
-    
-    // Aquí iría la lógica de impresión real
-    // Por ahora solo log para demostración
     console.log(`QR generado: ${qrData}`);
-    
-    // TODO: Implementar impresión real con los datos editados
   };
 
-  // *** FUNCIÓN PARA LEER QR MEJORADA ***
-  const handleQRRead = (code: string) => {
-    console.log(`Código QR leído: ${code}`);
-    
-    // Extraer el ID del pedido de la URL del QR
-    const urlMatch = code.match(/\/seguimiento\/(.+)$/);
-    if (urlMatch) {
-      const orderId = urlMatch[1];
-      console.log(`ID del pedido extraído: ${orderId}`);
-      
-      // Buscar el pedido en los datos mock
-      const foundOrder = mockOrders.find(order => order.id === orderId);
-      if (foundOrder) {
-        // Mostrar el pedido en el dashboard o redirigir a seguimiento
-        setSearchTerm(orderId);
-        setSelectedTab('dashboard');
-        setShowQRReader(false);
-        setQrInput('');
-      } else {
-        // Si no se encuentra, abrir la página de seguimiento
-        window.open(`/seguimiento/${orderId}`, '_blank');
-      }
-    } else {
-      // Tratar como ID directo del pedido
-      setSearchTerm(code);
-      setSelectedTab('dashboard');
-    }
-    
-    setShowQRReader(false);
-    setQrInput('');
+  // *** FUNCIÓN PARA EXPORTAR REPORTES ***
+  const exportReport = (reportType: string) => {
+    console.log(`Exportando reporte: ${reportType}`);
+    // TODO: Implementar exportación real
   };
 
   // *** FUNCIÓN PARA CERRAR SESIÓN ***
@@ -260,9 +261,7 @@ const OrdersPanel = () => {
                 { id: 'dashboard', label: 'Dashboard', icon: BarChart3, count: null },
                 { id: 'pendientes', label: 'Pendientes', icon: Clock, count: stats.pendientes },
                 { id: 'preparacion', label: 'En Preparación', icon: Package, count: stats.enPreparacion },
-                { id: 'listos', label: 'Listos', icon: CheckCircle, count: stats.listos },
-                { id: 'urgentes', label: 'Urgentes', icon: AlertTriangle, count: stats.alertas },
-                { id: 'reportes', label: 'Reportes', icon: FileDown, count: null }
+                { id: 'listos', label: 'Listos', icon: CheckCircle, count: stats.listos }
               ].map((tab) => (
                 <Button
                   key={tab.id}
@@ -270,27 +269,50 @@ const OrdersPanel = () => {
                   variant={selectedTab === tab.id ? "default" : "ghost"}
                   className={`w-full justify-start ${
                     selectedTab === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-sand-100'
-                  } ${tab.id === 'urgentes' && tab.count && tab.count > 0 ? 'ring-2 ring-red-500 ring-opacity-50' : ''}`}
+                  }`}
                 >
                   <tab.icon className="h-4 w-4 mr-3" />
                   <span className="flex-1 text-left">{tab.label}</span>
                   {tab.count !== null && (
-                    <Badge 
-                      variant={tab.id === 'urgentes' ? 'destructive' : 'secondary'}
-                      className="ml-2"
-                    >
+                    <Badge variant="secondary" className="ml-2">
                       {tab.count}
                     </Badge>
                   )}
                 </Button>
               ))}
             </nav>
+
+            {/* Botón de Urgentes Especial */}
+            <div className="pt-4 border-t border-sand-200">
+              <Button
+                onClick={() => setSelectedTab('urgentes')}
+                className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all ${
+                  stats.alertas > 0 
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
+              >
+                {stats.alertas > 0 ? (
+                  <>
+                    <Frown className="h-6 w-6" />
+                    <span className="text-xs font-bold">¡Vamos, tú puedes!</span>
+                    <span className="text-xs">Urgentes: {stats.alertas}</span>
+                  </>
+                ) : (
+                  <>
+                    <Smile className="h-6 w-6" />
+                    <span className="text-xs font-bold">¡Muy bien!</span>
+                    <span className="text-xs">Sin urgentes</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
 
           {/* Contenido principal */}
           <div className="flex-1">
             {/* Filtro de búsqueda para vistas de lista */}
-            {selectedTab !== 'dashboard' && selectedTab !== 'reportes' && (
+            {selectedTab !== 'dashboard' && (
               <Card className="mb-6">
                 <CardContent className="p-4">
                   <div className="relative">
@@ -308,7 +330,7 @@ const OrdersPanel = () => {
 
             {/* Dashboard */}
             {selectedTab === 'dashboard' && (
-              <OrdersDashboard orders={mockOrders} />
+              <OrdersDashboard orders={mockOrders} onExportReport={exportReport} />
             )}
 
             {/* Pendientes */}
@@ -350,6 +372,7 @@ const OrdersPanel = () => {
                     return order.status === 'en_preparacion' && matchesSearch;
                   })}
                   showTimer={true}
+                  timeLimit={72}
                   onStatusUpdate={updateOrderStatus}
                   onPrint={printOrder}
                 />
@@ -372,6 +395,7 @@ const OrdersPanel = () => {
                     return order.status === 'listo' && matchesSearch;
                   })}
                   showTimer={false}
+                  showAlerts={false}
                   onStatusUpdate={updateOrderStatus}
                   onPrint={printOrder}
                 />
@@ -412,73 +436,25 @@ const OrdersPanel = () => {
                 />
               </div>
             )}
-
-            {/* Reportes */}
-            {selectedTab === 'reportes' && (
-              <div className="text-center py-12">
-                <FileDown className="h-12 w-12 text-stone-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-stone-800 mb-2">
-                  Reportes y Exportación
-                </h3>
-                <p className="text-stone-600 mb-4">
-                  Aquí podrás exportar reportes de pedidos en Excel
-                </p>
-                <Button className="bg-green-600 hover:bg-green-700 text-white">
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Exportar a Excel
-                </Button>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
       {/* Modal QR Reader */}
-      {showQRReader && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4 border-sand-200 bg-white">
-            <CardHeader>
-              <CardTitle className="text-brown-900">Leer Código QR</CardTitle>
-              <CardDescription className="text-brown-700">
-                Escanea el código QR del pedido o ingresa el código/URL manualmente
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-sand-300 rounded-lg p-8 text-center bg-sand-50">
-                <QrCode className="h-12 w-12 text-sand-500 mx-auto mb-4" />
-                <p className="text-brown-700">Cámara QR aquí</p>
-                <p className="text-xs text-brown-600 mt-2">
-                  (Funcionalidad a implementar)
-                </p>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-brown-900">O ingresa el código/URL:</label>
-                <Input
-                  placeholder="ID del pedido o URL completa"
-                  value={qrInput}
-                  onChange={(e) => setQrInput(e.target.value)}
-                  className="border-sand-300 bg-white focus:border-primary"
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleQRRead(qrInput)}
-                  disabled={!qrInput}
-                  className="bg-purple-600 hover:bg-purple-700 text-white flex-1"
-                >
-                  Buscar Pedido
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowQRReader(false)}
-                  className="border-sand-300 text-brown-700 hover:bg-sand-50"
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <QRReaderModal
+        isOpen={showQRReader}
+        onClose={() => setShowQRReader(false)}
+        onQRRead={handleQRRead}
+      />
+
+      {/* Modal QR Order Detail */}
+      {qrScannedOrder && (
+        <QROrderDetailModal
+          order={qrScannedOrder}
+          isOpen={!!qrScannedOrder}
+          onClose={() => setQrScannedOrder(null)}
+          onStatusUpdate={updateOrderStatusFromQR}
+        />
       )}
     </div>
   );

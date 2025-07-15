@@ -1,8 +1,8 @@
-
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { 
   BarChart, 
   Bar, 
@@ -17,15 +17,17 @@ import {
   LineChart,
   Line
 } from 'recharts';
-import { Calendar, Download, TrendingUp, Package, Clock, CheckCircle } from 'lucide-react';
+import { Calendar, Download, TrendingUp, Package, Clock, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { useState } from 'react';
 
 interface OrdersDashboardProps {
   orders: any[];
+  onExportReport?: (reportType: string) => void;
 }
 
-const OrdersDashboard = ({ orders }: OrdersDashboardProps) => {
+const OrdersDashboard = ({ orders, onExportReport }: OrdersDashboardProps) => {
   const [dateFilter, setDateFilter] = useState('semana');
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   // Procesar datos para gráficos
   const processOrdersData = () => {
@@ -60,14 +62,22 @@ const OrdersDashboard = ({ orders }: OrdersDashboardProps) => {
 
   const { statusCounts, pieData, weeklyData } = processOrdersData();
 
-  const handleExportData = () => {
-    console.log('Exportando datos del dashboard...');
-    // TODO: Implementar exportación real
+  const exportReports = [
+    { id: 'pedidos_mes', name: 'Pedidos del Mes', description: 'Todos los pedidos del mes actual' },
+    { id: 'pedidos_urgentes', name: 'Pedidos Urgentes', description: 'Pedidos vencidos y próximos a vencer' },
+    { id: 'rendimiento_semanal', name: 'Rendimiento Semanal', description: 'Estadísticas de la semana' },
+    { id: 'clientes_frecuentes', name: 'Clientes Frecuentes', description: 'Top 10 clientes con más pedidos' },
+    { id: 'productos_populares', name: 'Productos Populares', description: 'Productos más solicitados' }
+  ];
+
+  const handleExportReport = (reportType: string) => {
+    onExportReport?.(reportType);
+    setShowExportDialog(false);
   };
 
   return (
     <div className="space-y-6">
-      {/* Header con filtros */}
+      {/* Header con filtros y exportación */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-brown-900">Dashboard de Pedidos</h2>
@@ -86,10 +96,44 @@ const OrdersDashboard = ({ orders }: OrdersDashboardProps) => {
               <SelectItem value="trimestre">Este trimestre</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={handleExportData} className="bg-green-600 hover:bg-green-700">
-            <Download className="h-4 w-4 mr-2" />
-            Exportar Datos
-          </Button>
+
+          {/* Botón de exportar reportes */}
+          <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+            <DialogTrigger asChild>
+              <Button className="bg-green-600 hover:bg-green-700">
+                <Download className="h-4 w-4 mr-2" />
+                Exportar Reportes
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                  Exportar Reportes
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <p className="text-sm text-stone-600">
+                  Seleccione el tipo de reporte que desea exportar:
+                </p>
+                <div className="space-y-2">
+                  {exportReports.map((report) => (
+                    <Button
+                      key={report.id}
+                      onClick={() => handleExportReport(report.id)}
+                      variant="outline"
+                      className="w-full justify-start h-auto p-4"
+                    >
+                      <div className="text-left">
+                        <div className="font-medium">{report.name}</div>
+                        <div className="text-xs text-stone-500">{report.description}</div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
