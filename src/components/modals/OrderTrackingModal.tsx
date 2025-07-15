@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { X, Search, Package, Clock, Truck, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -219,4 +220,21 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
                     <div key={step.step} className="flex items-center space-x-4">
                       {getStatusIcon(step.step, searchResult.statusStep)}
                       <div className="flex-1">
-                        <h5
+                        <h5 className={`font-medium ${step.step <= searchResult.statusStep ? 'text-gray-900' : 'text-gray-400'}`}>
+                          {step.title}
+                        </h5>
+                        <p className={`text-sm ${step.step <= searchResult.statusStep ? 'text-gray-600' : 'text-gray-400'}`}>
+                          {step.desc}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
