@@ -16,68 +16,79 @@ import {
   TrendingDown,
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Gift,
+  Search,
+  Smile,
+  Frown,
+  Meh
 } from 'lucide-react';
 
 export const BillingClients = () => {
   const [filterStatus, setFilterStatus] = useState('todos');
-  const [searchClient, setSearchClient] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
 
-  // Mock clients data
+  // Enhanced mock clients data with rating system
   const clients = [
     {
       id: "CLI-001",
       name: "Distribuidora El Sol SAC",
+      comercialName: "El Sol Distribuciones",
       ruc: "20123456789",
       phone: "+51 999 111 222",
       email: "pagos@elsol.com",
       status: "moroso",
-      creditScore: 2.5,
+      rating: 1.5, // 0-5 star rating
       paymentTerms: "credito_30",
       creditLimit: 2000.00,
       currentDebt: 780.00,
       lastPayment: "2023-12-15",
       avgPaymentDays: 35,
+      promotionEligible: false,
       paymentHistory: [
-        { date: "2024-01-10", status: "late", days: 5 },
-        { date: "2023-12-15", status: "very_late", days: 20 },
-        { date: "2023-11-20", status: "on_time", days: 0 }
+        { date: "2024-01-10", status: "very_late", days: 20 },
+        { date: "2023-12-15", status: "very_late", days: 25 },
+        { date: "2023-11-20", status: "late", days: 10 }
       ]
     },
     {
       id: "CLI-002",
       name: "Bodega Don Carlos",
+      comercialName: "Bodega Carlos",
       ruc: "20555666777",
       phone: "+51 999 555 666",
       email: "carlos@bodega.com",
-      status: "activo",
-      creditScore: 5.0,
+      status: "excelente",
+      rating: 5.0,
       paymentTerms: "contado",
       creditLimit: 500.00,
       currentDebt: 0.00,
       lastPayment: "2024-01-16",
       avgPaymentDays: 0,
+      promotionEligible: true,
       paymentHistory: [
         { date: "2024-01-16", status: "on_time", days: 0 },
-        { date: "2024-01-14", status: "on_time", days: 0 },
+        { date: "2024-01-14", status: "early", days: -1 },
         { date: "2024-01-12", status: "on_time", days: 0 }
       ]
     },
     {
       id: "CLI-003",
       name: "Restaurante La Plaza",
+      comercialName: "La Plaza Restaurant",
       ruc: "20777888999",
       phone: "+51 999 777 888",
       email: "admin@laplaza.com",
       status: "puntual",
-      creditScore: 4.5,
+      rating: 4.5,
       paymentTerms: "credito_15",
       creditLimit: 1500.00,
       currentDebt: 450.00,
       lastPayment: "2024-01-12",
       avgPaymentDays: 12,
+      promotionEligible: true,
       paymentHistory: [
         { date: "2024-01-12", status: "on_time", days: 0 },
         { date: "2024-01-05", status: "early", days: -2 },
@@ -86,26 +97,31 @@ export const BillingClients = () => {
     }
   ];
 
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'activo':
-        return { color: 'bg-green-100 text-green-800', text: 'Activo', icon: CheckCircle };
-      case 'moroso':
-        return { color: 'bg-red-100 text-red-800', text: 'Moroso', icon: AlertTriangle };
-      case 'puntual':
-        return { color: 'bg-blue-100 text-blue-800', text: 'Puntual', icon: Clock };
-      default:
-        return { color: 'bg-gray-100 text-gray-800', text: status, icon: User };
+  const getStatusInfo = (status: string, rating: number) => {
+    if (rating >= 4.5) {
+      return { color: 'bg-green-100 text-green-800', text: 'Excelente', icon: CheckCircle };
+    } else if (rating >= 3.5) {
+      return { color: 'bg-blue-100 text-blue-800', text: 'Puntual', icon: Clock };
+    } else if (rating >= 2) {
+      return { color: 'bg-yellow-100 text-yellow-800', text: 'Regular', icon: Meh };
+    } else {
+      return { color: 'bg-red-100 text-red-800', text: 'Moroso', icon: AlertTriangle };
     }
   };
 
-  const renderCreditStars = (score: number) => {
+  const renderCreditStars = (rating: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <Star 
         key={i} 
-        className={`h-4 w-4 ${i < score ? 'text-yellow-500 fill-current' : 'text-gray-300'}`} 
+        className={`h-4 w-4 ${i < rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`} 
       />
     ));
+  };
+
+  const renderPaymentFace = (rating: number) => {
+    if (rating >= 4) return <Smile className="h-6 w-6 text-green-500" />;
+    else if (rating >= 2.5) return <Meh className="h-6 w-6 text-yellow-500" />;
+    else return <Frown className="h-6 w-6 text-red-500" />;
   };
 
   const renderPaymentHistory = (history: any[]) => {
@@ -121,7 +137,7 @@ export const BillingClients = () => {
             <div 
               key={index}
               className={`w-2 h-6 rounded-sm ${color}`}
-              title={`${payment.date} - ${payment.status}`}
+              title={`${payment.date} - ${payment.status} (${payment.days} días)`}
             />
           );
         })}
@@ -129,11 +145,26 @@ export const BillingClients = () => {
     );
   };
 
+  const getPromotionPercentage = (rating: number) => {
+    if (rating >= 5) return 5;
+    else if (rating >= 4) return 3;
+    else if (rating >= 3) return 1;
+    else return 0;
+  };
+
+  const sendPromotion = (client: any) => {
+    const discount = getPromotionPercentage(client.rating);
+    console.log(`Enviando promoción de ${discount}% a ${client.name}...`);
+    // TODO: Send automatic promotion based on rating
+  };
+
+  // Intelligent filtering
   const filteredClients = clients.filter(client => {
     const matchesStatus = filterStatus === 'todos' || client.status === filterStatus;
-    const matchesSearch = !searchClient || 
-      client.name.toLowerCase().includes(searchClient.toLowerCase()) ||
-      client.ruc.includes(searchClient);
+    const matchesSearch = !searchTerm || 
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.comercialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.ruc.includes(searchTerm);
     return matchesStatus && matchesSearch;
   });
 
@@ -141,67 +172,87 @@ export const BillingClients = () => {
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-stone-800 mb-2">Gestión de Clientes</h2>
-        <p className="text-stone-600">Estado financiero y comportamiento de pago</p>
+        <p className="text-stone-600">Estado financiero, comportamiento de pago y sistema de promociones</p>
       </div>
 
-      {/* Filters */}
+      {/* Enhanced Filters */}
       <Card>
         <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              placeholder="Buscar cliente o RUC..."
-              value={searchClient}
-              onChange={(e) => setSearchClient(e.target.value)}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
+              <Input
+                placeholder="RUC, razón social, nombre comercial..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger>
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los estados</SelectItem>
-                <SelectItem value="activo">Activo</SelectItem>
-                <SelectItem value="moroso">Moroso</SelectItem>
-                <SelectItem value="puntual">Puntual</SelectItem>
+                <SelectItem value="excelente">Excelente (5★)</SelectItem>
+                <SelectItem value="puntual">Puntual (4★)</SelectItem>
+                <SelectItem value="regular">Regular (3★)</SelectItem>
+                <SelectItem value="moroso">Moroso (≤2★)</SelectItem>
               </SelectContent>
             </Select>
+            <div className="text-sm text-stone-600 flex items-center">
+              <Star className="h-4 w-4 text-yellow-500 mr-1" />
+              Sistema automático de promociones
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Clients List */}
+      {/* Enhanced Clients List */}
       <div className="space-y-4">
         {filteredClients.map((client) => {
-          const statusInfo = getStatusInfo(client.status);
+          const statusInfo = getStatusInfo(client.status, client.rating);
           const StatusIcon = statusInfo.icon;
+          const promotionDiscount = getPromotionPercentage(client.rating);
           
           return (
             <Card key={client.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center">
-                      <User className="h-6 w-6 text-stone-600" />
+                      {renderPaymentFace(client.rating)}
                     </div>
                     <div>
-                      <CardTitle className="flex items-center gap-2">
+                      <CardTitle className={`flex items-center gap-2 ${client.status === 'moroso' ? 'text-lg' : ''}`}>
                         {client.name}
                         <Badge className={statusInfo.color}>
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {statusInfo.text}
                         </Badge>
+                        {client.promotionEligible && promotionDiscount > 0 && (
+                          <Badge className="bg-green-100 text-green-800">
+                            <Gift className="h-3 w-3 mr-1" />
+                            {promotionDiscount}% Dcto
+                          </Badge>
+                        )}
                       </CardTitle>
-                      <p className="text-stone-600">RUC: {client.ruc}</p>
+                      <p className="text-stone-600 text-sm">Comercial: {client.comercialName}</p>
+                      <p className="text-stone-500 text-xs">RUC: {client.ruc}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="flex items-center gap-1 mb-1">
-                      {renderCreditStars(client.creditScore)}
+                    <div className="flex items-center gap-1 mb-2">
+                      {renderCreditStars(client.rating)}
                       <span className="text-sm text-stone-600 ml-2">
-                        ({client.creditScore}/5.0)
+                        ({client.rating}/5.0)
                       </span>
                     </div>
                     <div className="text-sm text-stone-500">
                       Último pago: {new Date(client.lastPayment).toLocaleDateString()}
+                    </div>
+                    <div className="text-xs text-stone-400">
+                      Promedio: {client.avgPaymentDays} días
                     </div>
                   </div>
                 </div>
@@ -236,21 +287,21 @@ export const BillingClients = () => {
                     </div>
                   </div>
 
-                  {/* Payment Behavior */}
+                  {/* Payment Behavior with Visual History */}
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-medium">Promedio:</span> {client.avgPaymentDays} días
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Historial:</span>
+                      <span className="font-medium">Comportamiento:</span>
                     </div>
                     <div className="flex items-center gap-2">
                       {renderPaymentHistory(client.paymentHistory)}
-                      <span className="text-xs text-stone-500">10 últimos</span>
+                      <span className="text-xs text-stone-500">Últimos 10</span>
+                    </div>
+                    <div className="text-xs text-stone-500">
+                      Verde: Puntual | Amarillo: Tardío | Rojo: Muy tardío
                     </div>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions with Promotion System */}
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
                       <Button
@@ -268,6 +319,18 @@ export const BillingClients = () => {
                         <MessageSquare className="h-4 w-4" />
                       </Button>
                     </div>
+                    
+                    {client.promotionEligible && promotionDiscount > 0 && (
+                      <Button
+                        size="sm"
+                        onClick={() => sendPromotion(client)}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Gift className="h-4 w-4 mr-2" />
+                        Enviar Promoción {promotionDiscount}%
+                      </Button>
+                    )}
+                    
                     <Button
                       size="sm"
                       variant="outline"
@@ -278,54 +341,86 @@ export const BillingClients = () => {
                       className="text-stone-600 border-stone-300 hover:bg-stone-50"
                     >
                       <Edit className="h-4 w-4 mr-2" />
-                      Editar
+                      Editar Condiciones
                     </Button>
                   </div>
                 </div>
+
+                {/* Promotional System Info */}
+                {promotionDiscount === 0 && client.rating < 3 && (
+                  <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800">
+                      <AlertTriangle className="h-4 w-4 inline mr-2" />
+                      Cliente sin promociones. Puede aplicar recargo administrativo por morosidad.
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      {/* Edit Modal */}
+      {/* Enhanced Edit Modal */}
       {showEditModal && selectedClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
+          <Card className="w-full max-w-lg mx-4">
             <CardHeader>
-              <CardTitle>Editar Cliente</CardTitle>
+              <CardTitle>Editar Condiciones del Cliente</CardTitle>
               <p className="text-stone-600">{selectedClient.name}</p>
+              <div className="flex items-center gap-2">
+                {renderCreditStars(selectedClient.rating)}
+                <span className="text-sm">({selectedClient.rating}/5.0)</span>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Términos de Pago</label>
-                <Select defaultValue={selectedClient.paymentTerms}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="contado">Contado</SelectItem>
-                    <SelectItem value="credito_15">Crédito 15 días</SelectItem>
-                    <SelectItem value="credito_30">Crédito 30 días</SelectItem>
-                    <SelectItem value="credito_45">Crédito 45 días</SelectItem>
-                    <SelectItem value="credito_60">Crédito 60 días</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Términos de Pago</label>
+                  <Select defaultValue={selectedClient.paymentTerms}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="contado">Contado</SelectItem>
+                      <SelectItem value="credito_15">Crédito 15 días</SelectItem>
+                      <SelectItem value="credito_30">Crédito 30 días</SelectItem>
+                      <SelectItem value="credito_45">Crédito 45 días</SelectItem>
+                      <SelectItem value="credito_60">Crédito 60 días</SelectItem>
+                      <SelectItem value="contra_entrega">Pago contra entrega</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Límite de Crédito</label>
+                  <Input
+                    type="number"
+                    defaultValue={selectedClient.creditLimit}
+                    placeholder="S/ 0.00"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Límite de Crédito</label>
-                <Input
-                  type="number"
-                  defaultValue={selectedClient.creditLimit}
-                  placeholder="S/ 0.00"
-                />
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800 mb-2">
+                  <Star className="h-4 w-4 inline mr-2" />
+                  Sistema Automático de Promociones:
+                </p>
+                <ul className="text-xs text-blue-700 space-y-1">
+                  <li>• 5 estrellas = 5% descuento automático</li>
+                  <li>• 4 estrellas = 3% descuento automático</li>
+                  <li>• 3 estrellas = 1% descuento automático</li>
+                  <li>• Menos de 3 estrellas = Sin promociones</li>
+                  <li>• 0-1 estrella = Posible recargo administrativo</li>
+                </ul>
               </div>
+
               <div className="flex gap-2">
                 <Button
                   className="bg-green-600 hover:bg-green-700 text-white flex-1"
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Guardar
+                  Guardar Cambios
                 </Button>
                 <Button
                   variant="outline"
