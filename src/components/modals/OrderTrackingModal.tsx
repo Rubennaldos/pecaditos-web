@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { X, Search, Package, Clock, Truck, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -43,8 +42,6 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
     
     setIsSearching(true);
     setNotFound(false);
-    
-    // Simular búsqueda con delay
     setTimeout(() => {
       const result = mockOrders[orderNumber.toUpperCase() as keyof typeof mockOrders];
       if (result) {
@@ -92,19 +89,20 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-         <DialogTitle className="text-2xl font-bold text-center flex items-center justify-center space-x-2" style={{ color: "#573813" }}>
-  <Package className="w-6 h-6 text-amber-600" />
-  <span>Seguimiento de Pedido</span>
-</DialogTitle>
-
+          <DialogTitle
+            className="text-2xl font-bold text-center flex items-center justify-center space-x-2"
+            style={{ color: "#573813" }}
+          >
+            <Package className="w-6 h-6 text-amber-600" />
+            <span>Seguimiento de Pedido</span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
-          
           {/* Formulario de búsqueda */}
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-stone-700 dark:text-stone-300 mb-2">
+              <label className="block text-sm font-medium mb-2" style={{ color: "#573813" }}>
                 Número de Pedido
               </label>
               <div className="flex space-x-2">
@@ -115,6 +113,7 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
                   onChange={(e) => setOrderNumber(e.target.value)}
                   className="flex-1"
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  style={{ color: "#573813" }}
                 />
                 <Button 
                   onClick={handleSearch}
@@ -132,7 +131,7 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
 
             {/* Ejemplos para probar */}
             <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-sm text-blue-800 dark:text-blue-200 mb-2">
+              <p className="text-sm mb-2" style={{ color: "#573813" }}>
                 <strong>💡 Para probar:</strong> Usa uno de estos números de ejemplo:
               </p>
               <div className="flex flex-wrap gap-2">
@@ -156,7 +155,7 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
           {isSearching && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-500 border-t-transparent mx-auto mb-4"></div>
-              <p className="text-stone-600 dark:text-stone-400">Buscando tu pedido...</p>
+              <p className="text-base" style={{ color: "#573813" }}>Buscando tu pedido...</p>
             </div>
           )}
 
@@ -164,10 +163,10 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
             <div className="text-center py-8 space-y-4">
               <div className="text-6xl">😔</div>
               <div>
-                <h3 className="text-lg font-semibold text-stone-800 dark:text-stone-200 mb-2">
+                <h3 className="text-lg font-semibold mb-2" style={{ color: "#573813" }}>
                   Pedido no encontrado
                 </h3>
-                <p className="text-stone-600 dark:text-stone-400">
+                <p className="text-base" style={{ color: "#573813" }}>
                   Verifica que el número de pedido sea correcto o contáctanos por WhatsApp.
                 </p>
               </div>
@@ -181,19 +180,19 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-xl border border-green-200 dark:border-green-800">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                    <h3 className="font-semibold mb-2" style={{ color: "#573813" }}>
                       Pedido #{searchResult.orderNumber}
                     </h3>
-                    <p className="text-sm text-green-700 dark:text-green-300">
+                    <p className="text-sm" style={{ color: "#573813" }}>
                       Fecha: {searchResult.date}
                     </p>
-                    <p className="text-sm text-green-700 dark:text-green-300">
+                    <p className="text-sm" style={{ color: "#573813" }}>
                       Total: {searchResult.total}
                     </p>
                   </div>
                   <div>
-                    <h4 className="font-medium text-green-800 dark:text-green-200 mb-1">Productos:</h4>
-                    <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                    <h4 className="font-medium mb-1" style={{ color: "#573813" }}>Productos:</h4>
+                    <ul className="text-sm space-y-1" style={{ color: "#573813" }}>
                       {searchResult.items.map((item: string, index: number) => (
                         <li key={index}>• {item}</li>
                       ))}
@@ -204,60 +203,20 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
 
               {/* Estado actual destacado */}
               <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200 mb-2">
+                <h3 className="text-xl font-bold mb-2" style={{ color: "#573813" }}>
                   Estado: {searchResult.status}
                 </h3>
-                <p className="text-blue-700 dark:text-blue-300">
+                <p className="text-base" style={{ color: "#573813" }}>
                   {searchResult.estimatedDelivery}
                 </p>
               </div>
 
               {/* Progress de estados */}
               <div className="space-y-4">
-                <h4 className="font-semibold text-stone-800 dark:text-stone-200">Progreso del Pedido:</h4>
+                <h4 className="font-semibold" style={{ color: "#573813" }}>Progreso del Pedido:</h4>
                 <div className="space-y-4">
                   {statusSteps.map((step, index) => (
                     <div key={step.step} className="flex items-center space-x-4">
                       {getStatusIcon(step.step, searchResult.statusStep)}
                       <div className="flex-1">
-                        <h5 className={`font-medium ${
-                          step.step <= searchResult.statusStep 
-                            ? 'text-stone-800 dark:text-stone-200' 
-                            : 'text-stone-400 dark:text-stone-600'
-                        }`}>
-                          {step.title}
-                        </h5>
-                        <p className={`text-sm ${
-                          step.step <= searchResult.statusStep 
-                            ? 'text-stone-600 dark:text-stone-400' 
-                            : 'text-stone-400 dark:text-stone-600'
-                        }`}>
-                          {step.desc}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Botones de acción */}
-          <div className="flex justify-between pt-4 border-t border-stone-200 dark:border-stone-700">
-            <Button variant="outline" onClick={handleClose}>
-              Cerrar
-            </Button>
-            {searchResult && (
-              <Button 
-                onClick={() => window.open('https://wa.me/51999999999?text=Hola, consulta sobre mi pedido ' + searchResult.orderNumber, '_blank')}
-                className="bg-green-500 hover:bg-green-600 text-white"
-              >
-                Contactar por WhatsApp
-              </Button>
-            )}
-          </div>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-};
+                        <h5
