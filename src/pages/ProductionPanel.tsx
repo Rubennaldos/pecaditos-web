@@ -1,9 +1,9 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Package2, 
   TrendingUp, 
@@ -11,26 +11,19 @@ import {
   AlertTriangle, 
   CheckCircle,
   Plus,
-  Calendar,
   BarChart3,
-  LogOut
+  LogOut,
+  Edit3,
+  Eye,
+  EyeOff,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
-
-/**
- * PANEL DE PRODUCCIÓN - CONTROL DE STOCK Y PRODUCCIÓN
- * 
- * Funcionalidades principales:
- * - Vista de stock por producto/sabor
- * - Alertas visuales por nivel de stock
- * - Solo permite agregar stock (con lote obligatorio)
- * - Parámetros de alertas configurables por admin
- * - Sistema FIFO (First In, First Out)
- * - Dashboards visual con colores
- * 
- * *** MOCK DATA - INTEGRAR CON FIREBASE REALTIME DATABASE ***
- */
+import { ProductCard } from '@/components/production/ProductCard';
+import { AlertParametersModal } from '@/components/production/AlertParametersModal';
+import { MovementHistoryModal } from '@/components/production/MovementHistoryModal';
 
 // *** MOCK DATA DE PRODUCTOS Y STOCK ***
 // CAMBIAR POR INTEGRACIÓN CON FIREBASE
@@ -40,8 +33,9 @@ const mockProducts = [
     name: "Galletas Integrales Avena",
     flavor: "Avena",
     currentStock: 45,
-    requiredStock: 80, // Basado en pedidos pendientes
+    requiredStock: 80,
     optimalStock: 120,
+    isFrequent: true,
     alertLevels: {
       low: 40,
       critical: 5,
@@ -49,8 +43,8 @@ const mockProducts = [
       excellent: 200
     },
     batches: [
-      { id: "LOTE-2024-001", quantity: 25, productionDate: "2024-01-10", expiryDate: "2024-03-10" },
-      { id: "LOTE-2024-002", quantity: 20, productionDate: "2024-01-12", expiryDate: "2024-03-12" }
+      { id: "LOTE-2024-001", quantity: 25, productionDate: "2024-01-10" },
+      { id: "LOTE-2024-002", quantity: 20, productionDate: "2024-01-12" }
     ]
   },
   {
@@ -60,6 +54,7 @@ const mockProducts = [
     currentStock: 180,
     requiredStock: 60,
     optimalStock: 100,
+    isFrequent: true,
     alertLevels: {
       low: 40,
       critical: 5,
@@ -67,8 +62,8 @@ const mockProducts = [
       excellent: 200
     },
     batches: [
-      { id: "LOTE-2024-003", quantity: 100, productionDate: "2024-01-08", expiryDate: "2024-03-08" },
-      { id: "LOTE-2024-004", quantity: 80, productionDate: "2024-01-14", expiryDate: "2024-03-14" }
+      { id: "LOTE-2024-003", quantity: 100, productionDate: "2024-01-08" },
+      { id: "LOTE-2024-004", quantity: 80, productionDate: "2024-01-14" }
     ]
   },
   {
@@ -78,6 +73,7 @@ const mockProducts = [
     currentStock: 25,
     requiredStock: 90,
     optimalStock: 120,
+    isFrequent: true,
     alertLevels: {
       low: 40,
       critical: 5,
@@ -85,7 +81,7 @@ const mockProducts = [
       excellent: 200
     },
     batches: [
-      { id: "LOTE-2024-005", quantity: 25, productionDate: "2024-01-13", expiryDate: "2024-03-13" }
+      { id: "LOTE-2024-005", quantity: 25, productionDate: "2024-01-13" }
     ]
   },
   {
@@ -95,6 +91,7 @@ const mockProducts = [
     currentStock: 3,
     requiredStock: 50,
     optimalStock: 80,
+    isFrequent: true,
     alertLevels: {
       low: 40,
       critical: 5,
@@ -102,7 +99,7 @@ const mockProducts = [
       excellent: 200
     },
     batches: [
-      { id: "LOTE-2024-006", quantity: 3, productionDate: "2024-01-05", expiryDate: "2024-03-05" }
+      { id: "LOTE-2024-006", quantity: 3, productionDate: "2024-01-05" }
     ]
   },
   {
@@ -112,6 +109,7 @@ const mockProducts = [
     currentStock: 250,
     requiredStock: 40,
     optimalStock: 100,
+    isFrequent: true,
     alertLevels: {
       low: 40,
       critical: 5,
@@ -119,77 +117,85 @@ const mockProducts = [
       excellent: 200
     },
     batches: [
-      { id: "LOTE-2024-007", quantity: 150, productionDate: "2024-01-11", expiryDate: "2024-03-11" },
-      { id: "LOTE-2024-008", quantity: 100, productionDate: "2024-01-15", expiryDate: "2024-03-15" }
+      { id: "LOTE-2024-007", quantity: 150, productionDate: "2024-01-11" },
+      { id: "LOTE-2024-008", quantity: 100, productionDate: "2024-01-15" }
     ]
+  },
+  // Productos poco frecuentes
+  {
+    id: "prod_006",
+    name: "Galletas Integrales Sésamo",
+    flavor: "Sésamo",
+    currentStock: 0,
+    requiredStock: 10,
+    optimalStock: 50,
+    isFrequent: false,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: []
+  },
+  {
+    id: "prod_007",
+    name: "Galletas Integrales Amaranto",
+    flavor: "Amaranto",
+    currentStock: 5,
+    requiredStock: 15,
+    optimalStock: 40,
+    isFrequent: false,
+    alertLevels: {
+      low: 40,
+      critical: 5,
+      good: 100,
+      excellent: 200
+    },
+    batches: []
   }
 ];
 
 const ProductionPanel = () => {
   const navigate = useNavigate();
-  const { logout } = useAdmin();
+  const { logout, user } = useAdmin();
   const [showAddStock, setShowAddStock] = useState(false);
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showInfrequent, setShowInfrequent] = useState(false);
+  const [alertParameters, setAlertParameters] = useState({
+    critical: 5,
+    low: 40,
+    good: 100,
+    excellent: 200
+  });
   const [newStockData, setNewStockData] = useState({
     quantity: '',
     loteId: '',
-    productionDate: '',
-    expiryDate: ''
+    comment: ''
   });
 
-  // *** FUNCIÓN PARA OBTENER COLOR Y ESTADO DEL STOCK ***
-  const getStockStatus = (product: any) => {
+  // Función para obtener urgencia de stock
+  const getStockUrgency = (product: any) => {
     const { currentStock, alertLevels } = product;
-    
-    if (currentStock <= alertLevels.critical) {
-      return {
-        status: 'critical',
-        color: 'bg-red-100 border-red-500 text-red-800',
-        bgColor: 'bg-red-500',
-        icon: AlertTriangle,
-        pulse: true,
-        text: 'CRÍTICO'
-      };
-    } else if (currentStock <= alertLevels.low) {
-      return {
-        status: 'low',
-        color: 'bg-orange-100 border-orange-500 text-orange-800',
-        bgColor: 'bg-orange-500',
-        icon: TrendingDown,
-        pulse: false,
-        text: 'BAJO'
-      };
-    } else if (currentStock >= alertLevels.excellent) {
-      return {
-        status: 'excellent',
-        color: 'bg-green-100 border-green-500 text-green-800',
-        bgColor: 'bg-green-500',
-        icon: TrendingUp,
-        pulse: true,
-        text: 'EXCELENTE'
-      };
-    } else if (currentStock >= alertLevels.good) {
-      return {
-        status: 'good',
-        color: 'bg-green-100 border-green-400 text-green-700',
-        bgColor: 'bg-green-400',
-        icon: CheckCircle,
-        pulse: false,
-        text: 'BUENO'
-      };
-    } else {
-      return {
-        status: 'normal',
-        color: 'bg-blue-100 border-blue-400 text-blue-700',
-        bgColor: 'bg-blue-400',
-        icon: Package2,
-        pulse: false,
-        text: 'NORMAL'
-      };
-    }
+    if (currentStock <= alertLevels.critical) return 1; // Crítico
+    if (currentStock <= alertLevels.low) return 2; // Bajo
+    if (currentStock >= alertLevels.excellent) return 4; // Excelente
+    if (currentStock >= alertLevels.good) return 3; // Bueno
+    return 3; // Normal
   };
 
-  // *** FUNCIÓN PARA AGREGAR STOCK ***
+  // Separar y ordenar productos por urgencia
+  const frequentProducts = mockProducts
+    .filter(p => p.isFrequent)
+    .sort((a, b) => getStockUrgency(a) - getStockUrgency(b));
+  
+  const infrequentProducts = mockProducts
+    .filter(p => !p.isFrequent)
+    .sort((a, b) => getStockUrgency(a) - getStockUrgency(b));
+
+  // Funciones de manejo
   const handleAddStock = (productId: string) => {
     const product = mockProducts.find(p => p.id === productId);
     if (product) {
@@ -198,10 +204,17 @@ const ProductionPanel = () => {
     }
   };
 
-  // *** FUNCIÓN PARA CONFIRMAR AGREGAR STOCK ***
+  const handleShowHistory = (productId: string) => {
+    const product = mockProducts.find(p => p.id === productId);
+    if (product) {
+      setSelectedProduct(product);
+      setShowHistoryModal(true);
+    }
+  };
+
   const confirmAddStock = () => {
-    if (!newStockData.quantity || !newStockData.loteId || !newStockData.productionDate || !newStockData.expiryDate) {
-      alert('Todos los campos son obligatorios');
+    if (!newStockData.quantity) {
+      alert('La cantidad es obligatoria');
       return;
     }
 
@@ -216,12 +229,10 @@ const ProductionPanel = () => {
     setNewStockData({
       quantity: '',
       loteId: '',
-      productionDate: '',
-      expiryDate: ''
+      comment: ''
     });
   };
 
-  // *** CERRAR SESIÓN ***
   const handleLogout = async () => {
     try {
       await logout();
@@ -231,11 +242,17 @@ const ProductionPanel = () => {
     }
   };
 
-  // *** ESTADÍSTICAS GENERALES ***
-  const totalProducts = mockProducts.length;
-  const criticalProducts = mockProducts.filter(p => getStockStatus(p).status === 'critical').length;
-  const lowStockProducts = mockProducts.filter(p => getStockStatus(p).status === 'low').length;
-  const goodStockProducts = mockProducts.filter(p => ['good', 'excellent'].includes(getStockStatus(p).status)).length;
+  const handleSaveAlertParameters = (parameters: any) => {
+    setAlertParameters(parameters);
+    console.log('Guardando parámetros de alerta:', parameters);
+    // TODO: Integrar con Firebase
+  };
+
+  // Estadísticas generales
+  const totalProducts = frequentProducts.length;
+  const criticalProducts = frequentProducts.filter(p => p.currentStock <= alertParameters.critical).length;
+  const lowStockProducts = frequentProducts.filter(p => p.currentStock > alertParameters.critical && p.currentStock <= alertParameters.low).length;
+  const goodStockProducts = frequentProducts.filter(p => p.currentStock >= alertParameters.good).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
@@ -307,106 +324,104 @@ const ProductionPanel = () => {
           </Card>
         </div>
 
-        {/* Cuadros de Productos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockProducts.map((product) => {
-            const status = getStockStatus(product);
-            const IconComponent = status.icon;
-            
-            return (
-              <Card 
-                key={product.id} 
-                className={`${status.color} border-2 ${status.pulse ? 'animate-pulse' : ''} hover:shadow-lg transition-all`}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-bold">
-                        {product.flavor}
-                      </CardTitle>
-                      <CardDescription className="text-stone-600">
-                        {product.name}
-                      </CardDescription>
-                    </div>
-                    <div className={`w-12 h-12 ${status.bgColor} rounded-full flex items-center justify-center`}>
-                      <IconComponent className="h-6 w-6 text-white" />
-                    </div>
-                  </div>
-                </CardHeader>
-                
-                <CardContent className="space-y-4">
-                  {/* Stock Actual vs Requerido */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Stock Actual:</span>
-                      <Badge className={status.color}>
-                        {product.currentStock} unidades
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Requerido:</span>
-                      <span className="text-sm font-medium">{product.requiredStock}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm">Óptimo:</span>
-                      <span className="text-sm font-medium">{product.optimalStock}</span>
-                    </div>
-                  </div>
-
-                  {/* Barra de Progreso Visual */}
-                  <div className="space-y-2">
-                    <div className="w-full bg-stone-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full ${status.bgColor}`}
-                        style={{ 
-                          width: `${Math.min((product.currentStock / product.optimalStock) * 100, 100)}%` 
-                        }}
-                      ></div>
-                    </div>
-                    <div className="text-center">
-                      <Badge variant="outline" className="text-xs">
-                        {status.text}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  {/* Lotes (FIFO) */}
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium flex items-center gap-2">
-                      <Calendar className="h-4 w-4" />
-                      Lotes (FIFO):
-                    </div>
-                    {product.batches.slice(0, 2).map((batch, index) => (
-                      <div key={batch.id} className="text-xs bg-white bg-opacity-50 p-2 rounded">
-                        <div className="font-medium">{batch.id}</div>
-                        <div>Cantidad: {batch.quantity} | Vence: {new Date(batch.expiryDate).toLocaleDateString()}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Botón para Agregar Stock */}
-                  <Button
-                    onClick={() => handleAddStock(product.id)}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Stock
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
+        {/* Productos Frecuentes - Ordenados por Urgencia */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-bold text-stone-800">Productos Principales</h2>
+            <Badge variant="outline" className="text-sm">
+              Ordenados por urgencia
+            </Badge>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {frequentProducts.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAddStock={handleAddStock}
+                onShowHistory={handleShowHistory}
+              />
+            ))}
+          </div>
         </div>
 
-        {/* Información de Alertas */}
-        <Card className="mt-8">
+        {/* Productos Poco Frecuentes - Sección Colapsable */}
+        <Collapsible open={showInfrequent} onOpenChange={setShowInfrequent}>
+          <Card className="mb-8">
+            <CollapsibleTrigger asChild>
+              <CardHeader className="cursor-pointer hover:bg-stone-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="text-lg font-semibold text-stone-700">
+                      Sabores Poco Frecuentes
+                    </div>
+                    <Badge variant="secondary">
+                      {infrequentProducts.length} productos
+                    </Badge>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {showInfrequent ? (
+                      <>
+                        <EyeOff className="h-4 w-4 text-stone-500" />
+                        <ChevronUp className="h-4 w-4 text-stone-500" />
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="h-4 w-4 text-stone-500" />
+                        <ChevronDown className="h-4 w-4 text-stone-500" />
+                      </>
+                    )}
+                  </div>
+                </div>
+                <CardDescription>
+                  {showInfrequent ? 'Ocultar' : 'Mostrar'} productos de rotación baja o estacional
+                </CardDescription>
+              </CardHeader>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {infrequentProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onAddStock={handleAddStock}
+                      onShowHistory={handleShowHistory}
+                      isInfrequent={true}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+
+        {/* Configuración de Alertas */}
+        <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Configuración de Alertas
-            </CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="h-5 w-5" />
+                <CardTitle>Configuración de Alertas</CardTitle>
+              </div>
+              {user?.profile === 'admin' && (
+                <Button
+                  onClick={() => setShowAlertModal(true)}
+                  variant="outline"
+                  size="sm"
+                  className="text-stone-600 hover:text-stone-800"
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Editar
+                </Button>
+              )}
+            </div>
             <CardDescription>
-              Los parámetros de alertas solo pueden ser modificados por el administrador general
+              {user?.profile === 'admin' 
+                ? 'Puedes modificar los parámetros de alertas' 
+                : 'Los parámetros de alertas solo pueden ser modificados por el administrador general'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -414,26 +429,26 @@ const ProductionPanel = () => {
               <div className="text-center p-3 bg-red-50 border border-red-200 rounded">
                 <AlertTriangle className="h-6 w-6 text-red-600 mx-auto mb-2" />
                 <div className="font-medium text-red-800">Crítico</div>
-                <div className="text-red-600">≤ 5 unidades</div>
+                <div className="text-red-600">≤ {alertParameters.critical} unidades</div>
                 <div className="text-xs text-red-500 mt-1">Parpadeo rojo</div>
               </div>
               <div className="text-center p-3 bg-orange-50 border border-orange-200 rounded">
                 <TrendingDown className="h-6 w-6 text-orange-600 mx-auto mb-2" />
                 <div className="font-medium text-orange-800">Bajo</div>
-                <div className="text-orange-600">40-70 unidades</div>
+                <div className="text-orange-600">{alertParameters.critical + 1}-{alertParameters.low} unidades</div>
                 <div className="text-xs text-orange-500 mt-1">Naranja</div>
               </div>
               <div className="text-center p-3 bg-green-50 border border-green-200 rounded">
                 <CheckCircle className="h-6 w-6 text-green-600 mx-auto mb-2" />
                 <div className="font-medium text-green-800">Bueno</div>
-                <div className="text-green-600">+100 unidades</div>
+                <div className="text-green-600">{alertParameters.good}+ unidades</div>
                 <div className="text-xs text-green-500 mt-1">Verde</div>
               </div>
               <div className="text-center p-3 bg-green-50 border border-green-300 rounded">
                 <TrendingUp className="h-6 w-6 text-green-700 mx-auto mb-2" />
                 <div className="font-medium text-green-900">Excelente</div>
-                <div className="text-green-700">+200 unidades</div>
-                <div className="text-xs text-green-600 mt-1">Parpadeo verde</div>
+                <div className="text-green-700">{alertParameters.excellent}+ unidades</div>
+                <div className="text-xs text-green-600 mt-1">Verde fuerte</div>
               </div>
             </div>
           </CardContent>
@@ -461,7 +476,7 @@ const ProductionPanel = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Número de Lote *</label>
+                <label className="text-sm font-medium">Número de Lote (opcional)</label>
                 <Input
                   placeholder="Ej: LOTE-2024-009"
                   value={newStockData.loteId}
@@ -469,25 +484,16 @@ const ProductionPanel = () => {
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Fecha de Producción *</label>
+                <label className="text-sm font-medium">Comentario (opcional)</label>
                 <Input
-                  type="date"
-                  value={newStockData.productionDate}
-                  onChange={(e) => setNewStockData({...newStockData, productionDate: e.target.value})}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fecha de Vencimiento *</label>
-                <Input
-                  type="date"
-                  value={newStockData.expiryDate}
-                  onChange={(e) => setNewStockData({...newStockData, expiryDate: e.target.value})}
+                  placeholder="Descripción del ingreso"
+                  value={newStockData.comment}
+                  onChange={(e) => setNewStockData({...newStockData, comment: e.target.value})}
                 />
               </div>
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
                 <p className="text-sm text-amber-800">
-                  <strong>Importante:</strong> El sistema usa FIFO (First In, First Out). 
-                  Los lotes con fechas de vencimiento más cercanas se utilizarán primero.
+                  <strong>Nota:</strong> El lote será obligatorio en futuras versiones para mejor trazabilidad.
                 </p>
               </div>
               <div className="flex gap-2">
@@ -509,64 +515,25 @@ const ProductionPanel = () => {
           </Card>
         </div>
       )}
+
+      {/* Modal de Parámetros de Alertas */}
+      {showAlertModal && (
+        <AlertParametersModal
+          onClose={() => setShowAlertModal(false)}
+          onSave={handleSaveAlertParameters}
+          currentParameters={alertParameters}
+        />
+      )}
+
+      {/* Modal de Historial de Movimientos */}
+      {showHistoryModal && selectedProduct && (
+        <MovementHistoryModal
+          product={selectedProduct}
+          onClose={() => setShowHistoryModal(false)}
+        />
+      )}
     </div>
   );
 };
 
 export default ProductionPanel;
-
-/*
-INSTRUCCIONES PARA INTEGRACIÓN CON FIREBASE:
-
-1. ESTRUCTURA DE DATOS:
-   /products/{productId}: {
-     name: string,
-     flavor: string,
-     currentStock: number,
-     requiredStock: number (calculado automáticamente por pedidos),
-     optimalStock: number,
-     alertLevels: {
-       low: number,
-       critical: number,
-       good: number,
-       excellent: number
-     }
-   }
-
-   /batches/{batchId}: {
-     productId: string,
-     loteId: string,
-     quantity: number,
-     productionDate: timestamp,
-     expiryDate: timestamp,
-     status: 'active' | 'depleted'
-   }
-
-2. FUNCIONALIDADES A IMPLEMENTAR:
-   - Cálculo automático de stock requerido basado en pedidos
-   - Alertas push cuando stock es crítico
-   - Sistema FIFO automático
-   - Reportes de producción
-   - Previsión de demanda
-   - Integración con área de pedidos
-
-3. CONFIGURACIÓN DE ALERTAS (solo admin puede cambiar):
-   - Crítico: ≤ 5 unidades (rojo parpadeante)
-   - Bajo: 40-70 unidades (naranja)
-   - Normal: 71-99 unidades (azul)
-   - Bueno: 100-199 unidades (verde)
-   - Excelente: ≥ 200 unidades (verde parpadeante)
-
-4. MEJORAS SUGERIDAS:
-   - Códigos de barras para lotes
-   - Trazabilidad completa
-   - Control de calidad por lote
-   - Estadísticas de rotación
-   - Predicción de vencimientos
-
-5. PERSONALIZACIÓN:
-   - Cambiar productos según catálogo real
-   - Modificar parámetros de alertas
-   - Agregar campos personalizados
-   - Configurar unidades de medida
-*/
