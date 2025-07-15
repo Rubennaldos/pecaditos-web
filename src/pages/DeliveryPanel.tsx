@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -9,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
 import { 
   Truck, 
   Package, 
@@ -21,12 +22,17 @@ import {
   Clock,
   RotateCcw,
   CreditCard,
-  AlertTriangle
+  AlertTriangle,
+  X,
+  Calendar,
+  Printer,
+  FileText
 } from 'lucide-react';
 
 import DeliveryPersonLogin from '@/components/delivery/DeliveryPersonLogin';
 import DeliveryQRReader from '@/components/delivery/DeliveryQRReader';
 import DeliveryTimer from '@/components/delivery/DeliveryTimer';
+import PrintModal from '@/components/orders/PrintModal';
 
 // *** MOCK DATA DE REPARTIDORES CON CÓDIGOS TEMPORALES ***
 const deliveryPersons = [
@@ -113,9 +119,20 @@ const DeliveryPanel = () => {
   const [selectedTab, setSelectedTab] = useState('pendientes');
   const [showQRReader, setShowQRReader] = useState(false);
   const [orders, setOrders] = useState<DeliveryOrder[]>(mockOrders);
-  const [showDeliveryForm, setShowDeliveryForm] = useState<string | null>(null);
+  
+  // New state for delivery actions
+  const [showDeliveryModal, setShowDeliveryModal] = useState<string | null>(null);
+  const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [showPostponeModal, setShowPostponeModal] = useState<string | null>(null);
+  const [showPrintModal, setShowPrintModal] = useState<string | null>(null);
+  
+  // Form states
+  const [invoiceNumber, setInvoiceNumber] = useState('');
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [paymentReceived, setPaymentReceived] = useState<string>('');
+  const [rejectReason, setRejectReason] = useState('');
+  const [customRejectReason, setCustomRejectReason] = useState('');
+  const [postponeDate, setPostponeDate] = useState('');
+  const [postponeReason, setPostponeReason] = useState('');
 
   // *** FILTRAR PEDIDOS SEGÚN ESTADO ***
   const pendingOrders = orders.filter(o => o.status === 'listo' && !o.assignedTo);
@@ -164,11 +181,83 @@ const DeliveryPanel = () => {
   };
 
   // *** MANEJAR ENTREGA ***
-  const handleDelivery = (orderId: string) => {
-    updateOrderStatus(orderId, 'entregado', deliveryNotes);
-    setShowDeliveryForm(null);
+  const handleDeliveryConfirm = (orderId: string) => {
+    if (!invoiceNumber.trim()) {
+      alert('Por favor ingrese el número de factura/boleta');
+      return;
+    }
+
+    setOrders(prev => prev.map(order => 
+      order.id === orderId 
+        ? { 
+            ...order, 
+            status: 'entregado',
+            deliveredAt: new Date().toISOString(),
+            deliveryNotes: `Factura/Boleta: ${invoiceNumber}${deliveryNotes ? ` - ${deliveryNotes}` : ''}`
+          }
+        : order
+    ));
+    
+    // Reset form and close modal
+    setInvoiceNumber('');
     setDeliveryNotes('');
-    setPaymentReceived('');
+    setShowDeliveryModal(null);
+  };
+
+  // *** RECHAZAR PEDIDO ***
+  const handleRejectOrder = (orderId: string) => {
+    const finalReason = rejectReason === 'otro' ? customRejectReason : rejectReason;
+    if (!finalReason.trim()) {
+      alert('Por favor seleccione o ingrese un motivo de rechazo');
+      return;
+    }
+
+    setOrders(prev => prev.map(order => 
+      order.id === orderId 
+        ? { 
+            ...order, 
+            status: 'rechazado',
+            deliveryNotes: `Rechazado: ${finalReason}`,
+            assignedTo: null
+          }
+        : order
+    ));
+    
+    // Reset form and close modal
+    setRejectReason('');
+    setCustomRejectReason('');
+    setShowRejectModal(null);
+  };
+
+  // *** POSTERGAR PEDIDO ***
+  const handlePostponeOrder = (orderId: string) => {
+    if (!postponeDate || !postponeReason.trim()) {
+      alert('Por favor complete la nueva fecha y el motivo');
+      return;
+    }
+
+    setOrders(prev => prev.map(order => 
+      order.id === orderId 
+        ? { 
+            ...order, 
+            status: 'postergado',
+            deliveryNotes: `Postergado para ${postponeDate}: ${postponeReason}`,
+            assignedTo: null
+          }
+        : order
+    ));
+    
+    // Reset form and close modal
+    setPostponeDate('');
+    setPostponeReason('');
+    setShowPostponeModal(null);
+  };
+
+  // *** IMPRIMIR PEDIDO ***
+  const handlePrintOrder = (order: any, format: string, editedData: any) => {
+    // Implementation for printing - can be enhanced based on requirements
+    console.log('Printing order:', order.id, 'in format:', format);
+    window.print(); // Basic print functionality
   };
 
   // *** CERRAR SESIÓN ***
@@ -334,7 +423,7 @@ const DeliveryPanel = () => {
               )}
             </TabsContent>
 
-            {/* PEDIDOS EN RUTA */}
+            {/* PEDIDOS EN RUTA - ENHANCED */}
             <TabsContent value="en_ruta" className="space-y-4">
               <h2 className="text-xl font-semibold text-stone-800 mb-4">
                 Pedidos En Ruta
@@ -364,6 +453,14 @@ const DeliveryPanel = () => {
                               <DeliveryTimer takenAt={order.takenAt} />
                             )}
                           </CardTitle>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowPrintModal(order.id)}
+                            className="text-stone-500 hover:text-stone-700"
+                          >
+                            <Printer className="h-4 w-4" />
+                          </Button>
                         </div>
                       </CardHeader>
                       <CardContent>
@@ -386,8 +483,12 @@ const DeliveryPanel = () => {
                                 <div className="text-stone-500">{order.district}</div>
                               </div>
                             </div>
+                            <div className="text-sm">
+                              <span className="font-medium">Total: S/ {order.total.toFixed(2)}</span>
+                            </div>
                           </div>
                           <div className="space-y-2">
+                            {/* Google Maps Button */}
                             <Button
                               onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${order.coordinates.lat},${order.coordinates.lng}`, '_blank')}
                               variant="outline"
@@ -396,21 +497,44 @@ const DeliveryPanel = () => {
                               <MapPin className="h-4 w-4 mr-2" />
                               Abrir en Google Maps
                             </Button>
-                            <Button
-                              onClick={() => setShowDeliveryForm(order.id)}
-                              className="w-full bg-green-600 hover:bg-green-700 text-white"
-                            >
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Marcar como Entregado
-                            </Button>
-                            <Button
-                              onClick={() => returnOrderToPending(order.id)}
-                              variant="outline"
-                              className="w-full border-orange-500 text-orange-600 hover:bg-orange-50"
-                            >
-                              <RotateCcw className="h-4 w-4 mr-2" />
-                              Devolver a Pendientes
-                            </Button>
+                            
+                            {/* Main Action Buttons */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                onClick={() => setShowDeliveryModal(order.id)}
+                                className="bg-green-600 hover:bg-green-700 text-white"
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1" />
+                                Entregado
+                              </Button>
+                              <Button
+                                onClick={() => setShowRejectModal(order.id)}
+                                variant="destructive"
+                                className="bg-red-600 hover:bg-red-700"
+                              >
+                                <X className="h-4 w-4 mr-1" />
+                                Rechazar
+                              </Button>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                onClick={() => setShowPostponeModal(order.id)}
+                                variant="outline"
+                                className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
+                              >
+                                <Calendar className="h-4 w-4 mr-1" />
+                                Postergar
+                              </Button>
+                              <Button
+                                onClick={() => returnOrderToPending(order.id)}
+                                variant="outline"
+                                className="border-orange-500 text-orange-600 hover:bg-orange-50"
+                              >
+                                <RotateCcw className="h-4 w-4 mr-1" />
+                                Devolver
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </CardContent>
@@ -479,55 +603,160 @@ const DeliveryPanel = () => {
         </div>
       </div>
 
-      {/* Modal de entrega */}
-      {showDeliveryForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
-            <CardHeader>
-              <CardTitle>Confirmar Entrega</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+      {/* DELIVERY CONFIRMATION MODAL */}
+      <Dialog open={!!showDeliveryModal} onOpenChange={() => setShowDeliveryModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Entrega</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="invoice">Número de Factura/Boleta *</Label>
+              <Input
+                id="invoice"
+                placeholder="Ej: F001-12345 o B001-67890"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="notes">Observaciones (opcional)</Label>
+              <Textarea
+                id="notes"
+                placeholder="Ej: Entregado a recepcionista, sin contacto directo..."
+                value={deliveryNotes}
+                onChange={(e) => setDeliveryNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => showDeliveryModal && handleDeliveryConfirm(showDeliveryModal)}
+                className="bg-green-600 hover:bg-green-700 flex-1"
+                disabled={!invoiceNumber.trim()}
+              >
+                Confirmar Entrega
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowDeliveryModal(null)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* REJECT ORDER MODAL */}
+      <Dialog open={!!showRejectModal} onOpenChange={() => setShowRejectModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rechazar Pedido</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Motivo del rechazo</Label>
+              <Select value={rejectReason} onValueChange={setRejectReason}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un motivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cliente_ausente">Cliente ausente</SelectItem>
+                  <SelectItem value="direccion_incorrecta">Dirección incorrecta</SelectItem>
+                  <SelectItem value="cliente_cancelo">Cliente canceló</SelectItem>
+                  <SelectItem value="problemas_acceso">Problemas de acceso</SelectItem>
+                  <SelectItem value="pago_rechazado">Pago rechazado</SelectItem>
+                  <SelectItem value="otro">Otro motivo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {rejectReason === 'otro' && (
               <div className="space-y-2">
-                <label className="text-sm font-medium">Método de pago:</label>
-                <Select value={paymentReceived} onValueChange={setPaymentReceived}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="¿Cómo pagó el cliente?" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="efectivo">Efectivo</SelectItem>
-                    <SelectItem value="transferencia">Transferencia</SelectItem>
-                    <SelectItem value="credito">Crédito</SelectItem>
-                    <SelectItem value="no_pago">No pagó</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Observaciones:</label>
+                <Label htmlFor="custom-reason">Especifica el motivo</Label>
                 <Textarea
-                  placeholder="Ej: Entregado a recepcionista, sin contacto con cliente, etc."
-                  value={deliveryNotes}
-                  onChange={(e) => setDeliveryNotes(e.target.value)}
+                  id="custom-reason"
+                  placeholder="Describe el motivo del rechazo..."
+                  value={customRejectReason}
+                  onChange={(e) => setCustomRejectReason(e.target.value)}
+                  rows={3}
                 />
               </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                onClick={() => showRejectModal && handleRejectOrder(showRejectModal)}
+                variant="destructive"
+                className="flex-1"
+                disabled={!rejectReason || (rejectReason === 'otro' && !customRejectReason.trim())}
+              >
+                Confirmar Rechazo
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowRejectModal(null)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => handleDelivery(showDeliveryForm)}
-                  className="bg-green-600 hover:bg-green-700 flex-1"
-                >
-                  Confirmar Entrega
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeliveryForm(null)}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      {/* POSTPONE ORDER MODAL */}
+      <Dialog open={!!showPostponeModal} onOpenChange={() => setShowPostponeModal(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Postergar Pedido</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="postpone-date">Nueva fecha de entrega</Label>
+              <Input
+                id="postpone-date"
+                type="date"
+                value={postponeDate}
+                onChange={(e) => setPostponeDate(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="postpone-reason">Motivo de la postergación</Label>
+              <Textarea
+                id="postpone-reason"
+                placeholder="Ej: Cliente solicitó nueva fecha, problemas de tráfico..."
+                value={postponeReason}
+                onChange={(e) => setPostponeReason(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => showPostponeModal && handlePostponeOrder(showPostponeModal)}
+                className="bg-yellow-600 hover:bg-yellow-700 flex-1"
+                disabled={!postponeDate || !postponeReason.trim()}
+              >
+                Confirmar Postergación
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowPostponeModal(null)}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* PRINT MODAL */}
+      {showPrintModal && (
+        <PrintModal
+          order={orders.find(o => o.id === showPrintModal)}
+          isOpen={!!showPrintModal}
+          onClose={() => setShowPrintModal(null)}
+          onPrint={handlePrintOrder}
+        />
       )}
 
       {/* QR Reader */}
