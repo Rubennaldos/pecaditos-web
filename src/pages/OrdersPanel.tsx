@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,18 +11,13 @@ import {
   CheckCircle, 
   AlertTriangle, 
   QrCode, 
-  Printer, 
   FileDown,
   Search,
-  Filter,
-  Calendar,
-  User,
-  Phone,
-  MapPin,
   LogOut
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
+import OrderCard from '@/components/orders/OrderCard';
 
 /**
  * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
@@ -107,21 +101,72 @@ const OrdersPanel = () => {
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrInput, setQrInput] = useState('');
 
+  // Función para obtener pedidos con urgencia
+  const getOrdersWithUrgency = () => {
+    return mockOrders.map(order => {
+      const urgency = calculateOrderUrgency(order);
+      return { ...order, urgency };
+    });
+  };
+
+  const calculateOrderUrgency = (order: any) => {
+    const now = new Date();
+    let referenceDate: Date;
+    let timeLimit: number;
+
+    switch (order.status) {
+      case 'pendiente':
+        referenceDate = new Date(order.createdAt);
+        timeLimit = 24;
+        break;
+      case 'en_preparacion':
+        referenceDate = order.acceptedAt ? new Date(order.acceptedAt) : new Date(order.createdAt);
+        timeLimit = 48;
+        break;
+      case 'listo':
+        referenceDate = order.readyAt ? new Date(order.readyAt) : new Date(order.createdAt);
+        timeLimit = 48;
+        break;
+      default:
+        return { isExpired: false, isUrgent: false, hoursLeft: 0 };
+    }
+
+    const limitDate = new Date(referenceDate.getTime() + (timeLimit * 60 * 60 * 1000));
+    const difference = limitDate.getTime() - now.getTime();
+    const hoursLeft = Math.floor(difference / (1000 * 60 * 60));
+
+    return {
+      isExpired: difference <= 0,
+      isUrgent: hoursLeft <= 6 && hoursLeft > 0,
+      hoursLeft: Math.max(0, hoursLeft)
+    };
+  };
+
   // *** FILTRAR PEDIDOS SEGÚN CRITERIOS ***
   const filteredOrders = mockOrders.filter(order => {
     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'todos' || order.status === statusFilter;
+    let matchesStatus = statusFilter === 'todos' || order.status === statusFilter;
+    
+    // Filtro especial para urgentes/vencidos
+    if (statusFilter === 'urgentes') {
+      const urgency = calculateOrderUrgency(order);
+      matchesStatus = urgency.isExpired || urgency.isUrgent;
+    }
+    
     return matchesSearch && matchesStatus;
   });
 
-  // *** ESTADÍSTICAS DEL DASHBOARD ***
+  // *** ESTADÍSTICAS DEL DASHBOARD ACTUALIZADAS ***
+  const ordersWithUrgency = getOrdersWithUrgency();
   const stats = {
     total: mockOrders.length,
     pendientes: mockOrders.filter(o => o.status === 'pendiente').length,
     enPreparacion: mockOrders.filter(o => o.status === 'en_preparacion').length,
     listos: mockOrders.filter(o => o.status === 'listo').length,
-    alertas: mockOrders.filter(o => o.preparationAlert).length
+    vencidos: ordersWithUrgency.filter(o => o.urgency.isExpired).length,
+    urgentes: ordersWithUrgency.filter(o => o.urgency.isUrgent && !o.urgency.isExpired).length,
+    alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length
   };
 
   // *** FUNCIÓN PARA CAMBIAR ESTADO DE PEDIDO ***
@@ -130,10 +175,18 @@ const OrdersPanel = () => {
     // TODO: Integrar con Firebase
   };
 
-  // *** FUNCIÓN PARA IMPRIMIR PEDIDO ***
-  const printOrder = (order: any, format: 'A4' | 'A5' | 'ticket') => {
-    console.log(`Imprimiendo pedido ${order.id} en formato ${format}`);
-    // TODO: Implementar impresión
+  // *** FUNCIÓN PARA IMPRIMIR PEDIDO MEJORADA ***
+  const printOrder = (order: any, format: 'A4' | 'A5' | 'ticket', editedData: any) => {
+    console.log(`Imprimiendo pedido ${order.id} en formato ${format}`, { order, editedData });
+    
+    // Generar QR único
+    const qrData = `PECADITOS-${order.id}-${Date.now()}`;
+    
+    // Aquí iría la lógica de impresión real
+    // Por ahora solo log para demostración
+    console.log(`QR generado: ${qrData}`);
+    
+    // TODO: Implementar impresión real con los datos editados
   };
 
   // *** FUNCIÓN PARA LEER QR ***
@@ -151,20 +204,6 @@ const OrdersPanel = () => {
       navigate('/');
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
-    }
-  };
-
-  // *** OBTENER COLOR Y TEXTO DEL ESTADO ***
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'pendiente':
-        return { color: 'bg-yellow-100 text-yellow-800', text: 'Pendiente' };
-      case 'en_preparacion':
-        return { color: 'bg-blue-100 text-blue-800', text: 'En Preparación' };
-      case 'listo':
-        return { color: 'bg-green-100 text-green-800', text: 'Listo' };
-      default:
-        return { color: 'bg-gray-100 text-gray-800', text: status };
     }
   };
 
@@ -208,18 +247,21 @@ const OrdersPanel = () => {
       {/* Contenido Principal */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-8">
+          <TabsList className="grid w-full grid-cols-6 mb-8">
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="pendientes">Pendientes ({stats.pendientes})</TabsTrigger>
             <TabsTrigger value="preparacion">En Preparación ({stats.enPreparacion})</TabsTrigger>
             <TabsTrigger value="listos">Listos ({stats.listos})</TabsTrigger>
+            <TabsTrigger value="urgentes" className="text-red-600">
+              Urgentes ({stats.alertas})
+            </TabsTrigger>
             <TabsTrigger value="reportes">Reportes</TabsTrigger>
           </TabsList>
 
           {/* Dashboard */}
           <TabsContent value="dashboard" className="space-y-6">
-            {/* Estadísticas */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {/* Estadísticas actualizadas */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Total Pedidos</CardTitle>
@@ -249,11 +291,23 @@ const OrdersPanel = () => {
               </Card>
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Alertas</CardTitle>
+                  <CardTitle className="text-sm font-medium">Listos</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{stats.listos}</div>
+                </CardContent>
+              </Card>
+              <Card className="ring-2 ring-red-500">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Alertas Críticas</CardTitle>
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-red-600">{stats.alertas}</div>
+                  <div className="text-xs text-red-500 mt-1">
+                    {stats.vencidos} vencidos, {stats.urgentes} urgentes
+                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -285,6 +339,7 @@ const OrdersPanel = () => {
                       <SelectItem value="pendiente">Pendientes</SelectItem>
                       <SelectItem value="en_preparacion">En Preparación</SelectItem>
                       <SelectItem value="listo">Listos</SelectItem>
+                      <SelectItem value="urgentes">🚨 Urgentes/Vencidos</SelectItem>
                     </SelectContent>
                   </Select>
                   <Select value={dateFilter} onValueChange={setDateFilter}>
@@ -302,127 +357,95 @@ const OrdersPanel = () => {
               </CardContent>
             </Card>
 
-            {/* Lista de Pedidos */}
+            {/* Lista de Pedidos con nuevos componentes */}
             <div className="space-y-4">
-              {filteredOrders.map((order) => {
-                const statusInfo = getStatusInfo(order.status);
-                return (
-                  <Card key={order.id} className="hover:shadow-lg transition-all">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div>
-                            <CardTitle className="flex items-center gap-2">
-                              {order.id}
-                              {order.preparationAlert && (
-                                <AlertTriangle className="h-4 w-4 text-red-500" />
-                              )}
-                            </CardTitle>
-                            <CardDescription>{order.customerName}</CardDescription>
-                          </div>
-                        </div>
-                        <Badge className={statusInfo.color}>
-                          {statusInfo.text}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <User className="h-4 w-4 text-stone-400" />
-                            <span>{order.customerName}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <Phone className="h-4 w-4 text-stone-400" />
-                            <span>{order.customerPhone}</span>
-                          </div>
-                          <div className="flex items-start gap-2 text-sm">
-                            <MapPin className="h-4 w-4 text-stone-400 mt-0.5" />
-                            <span>{order.customerAddress}</span>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Calendar className="h-4 w-4 text-stone-400" />
-                            <span>{new Date(order.createdAt).toLocaleString()}</span>
-                          </div>
-                          <div className="text-sm">
-                            <span className="font-medium">Total: S/ {order.total.toFixed(2)}</span>
-                          </div>
-                          <div className="text-sm">
-                            <span>Tipo: {order.orderType}</span>
-                          </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => printOrder(order, 'A4')}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
-                            <Printer className="h-4 w-4 mr-2" />
-                            Imprimir
-                          </Button>
-                          <Select onValueChange={(value) => updateOrderStatus(order.id, value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Cambiar estado" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="pendiente">Pendiente</SelectItem>
-                              <SelectItem value="en_preparacion">En Preparación</SelectItem>
-                              <SelectItem value="listo">Listo</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      {order.notes && (
-                        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-md">
-                          <p className="text-sm text-amber-800">
-                            <strong>Observaciones:</strong> {order.notes}
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                );
-              })}
+              {filteredOrders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  onStatusUpdate={updateOrderStatus}
+                  onPrint={printOrder}
+                />
+              ))}
             </div>
           </TabsContent>
 
-          {/* Otras pestañas (Pendientes, En Preparación, etc.) */}
+          {/* Pestaña específica para urgentes */}
+          <TabsContent value="urgentes" className="space-y-6">
+            <Card className="border-red-200 bg-red-50">
+              <CardHeader>
+                <CardTitle className="text-red-800 flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Pedidos Críticos - Requieren Atención Inmediata
+                </CardTitle>
+                <CardDescription className="text-red-700">
+                  {stats.vencidos} pedidos vencidos y {stats.urgentes} próximos a vencer
+                </CardDescription>
+              </CardHeader>
+            </Card>
+            
+            <div className="space-y-4">
+              {ordersWithUrgency
+                .filter(order => order.urgency.isExpired || order.urgency.isUrgent)
+                .sort((a, b) => {
+                  if (a.urgency.isExpired && !b.urgency.isExpired) return -1;
+                  if (!a.urgency.isExpired && b.urgency.isExpired) return 1;
+                  return a.urgency.hoursLeft - b.urgency.hoursLeft;
+                })
+                .map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    onStatusUpdate={updateOrderStatus}
+                    onPrint={printOrder}
+                  />
+                ))}
+            </div>
+          </TabsContent>
+
+          {/* Otras pestañas existentes */}
           <TabsContent value="pendientes">
-            <div className="text-center py-12">
-              <Package className="h-12 w-12 text-stone-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-stone-800 mb-2">
-                Vista de Pedidos Pendientes
-              </h3>
-              <p className="text-stone-600">
-                Aquí se mostrarán solo los pedidos pendientes de aceptar
-              </p>
+            <div className="space-y-4">
+              {mockOrders
+                .filter(order => order.status === 'pendiente')
+                .map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    onStatusUpdate={updateOrderStatus}
+                    onPrint={printOrder}
+                  />
+                ))}
             </div>
           </TabsContent>
 
           <TabsContent value="preparacion">
-            <div className="text-center py-12">
-              <Clock3 className="h-12 w-12 text-stone-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-stone-800 mb-2">
-                Vista de Pedidos en Preparación
-              </h3>
-              <p className="text-stone-600">
-                Aquí se mostrarán solo los pedidos en preparación
-              </p>
+            <div className="space-y-4">
+              {mockOrders
+                .filter(order => order.status === 'en_preparacion')
+                .map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    onStatusUpdate={updateOrderStatus}
+                    onPrint={printOrder}
+                  />
+                ))}
             </div>
           </TabsContent>
 
           <TabsContent value="listos">
-            <div className="text-center py-12">
-              <CheckCircle className="h-12 w-12 text-stone-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-stone-800 mb-2">
-                Vista de Pedidos Listos
-              </h3>
-              <p className="text-stone-600">
-                Aquí se mostrarán solo los pedidos listos para entrega
-              </p>
+            <div className="space-y-4">
+              {mockOrders
+                .filter(order => order.status === 'listo')
+                .map((order) => (
+                  <OrderCard
+                    key={order.id}
+                    order={order}
+                    onStatusUpdate={updateOrderStatus}
+                    onPrint={printOrder}
+                  />
+                ))}
             </div>
           </TabsContent>
 
@@ -444,7 +467,7 @@ const OrdersPanel = () => {
         </Tabs>
       </div>
 
-      {/* Modal QR Reader */}
+      {/* Modal QR Reader (mantenido igual) */}
       {showQRReader && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md mx-4">
@@ -494,43 +517,3 @@ const OrdersPanel = () => {
 };
 
 export default OrdersPanel;
-
-/*
-INSTRUCCIONES PARA INTEGRACIÓN CON FIREBASE:
-
-1. ESTRUCTURA DE DATOS:
-   /orders/{orderId}: {
-     customerName: string,
-     customerPhone: string,
-     customerAddress: string,
-     status: 'pendiente' | 'en_preparacion' | 'listo' | 'entregado',
-     createdAt: timestamp,
-     acceptedAt?: timestamp,
-     readyAt?: timestamp,
-     items: [{ product: string, quantity: number, price: number }],
-     total: number,
-     paymentMethod: string,
-     orderType: string,
-     notes: string,
-     qrCode: string
-   }
-
-2. FUNCIONALIDADES A IMPLEMENTAR:
-   - Actualización en tiempo real de estados
-   - Notificaciones push para nuevos pedidos
-   - Impresión PDF con formato personalizable
-   - Lector QR con cámara
-   - Exportación a Excel
-   - Alertas automáticas por tiempo
-
-3. ALERTAS DE TIEMPO:
-   - 1 día para aceptar/registrar (amarillo)
-   - 2 días para preparar (naranja)
-   - 2 días para entregar (rojo)
-
-4. PERSONALIZACIÓN:
-   - Cambiar colores y estilos según brand
-   - Modificar estados de pedidos según flujo
-   - Agregar campos personalizados
-   - Configurar formatos de impresión
-*/
