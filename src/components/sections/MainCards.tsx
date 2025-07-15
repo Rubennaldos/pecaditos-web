@@ -26,10 +26,10 @@ export const MainCards = () => {
           </p>
         </div>
 
-        {/* Grid centrado para las cards (solo dos cards) */}
+        {/* Grid centrado para las cards (solo dos cards, mismo ancho) */}
         <div className="grid md:grid-cols-2 gap-8 justify-items-center">
           {/* PORTAL MAYORISTA */}
-          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-blue-200 bg-gradient-to-br from-white to-blue-50">
+          <Card className="group w-96 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-blue-200 bg-gradient-to-br from-white to-blue-50">
             <CardHeader className="text-center pb-4">
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <Users className="h-8 w-8 text-white" />
@@ -59,7 +59,7 @@ export const MainCards = () => {
           </Card>
 
           {/* DÓNDE NOS UBICAMOS */}
-          <Card className="group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-purple-200 bg-gradient-to-br from-white to-purple-50">
+          <Card className="group w-96 hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 hover:border-purple-200 bg-gradient-to-br from-white to-purple-50">
             <CardHeader className="text-center pb-4">
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <MapPin className="h-8 w-8 text-white" />
