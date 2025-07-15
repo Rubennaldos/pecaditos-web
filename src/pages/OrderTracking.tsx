@@ -1,32 +1,11 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { Search, Download, RotateCcw, MessageCircle, CheckCircle, Clock, Truck, Package, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-
-/**
- * PÁGINA DE SEGUIMIENTO DE PEDIDOS
- * 
- * Ruta: /seguimiento
- * 
- * Permite a los clientes consultar el estado de sus pedidos
- * usando solo el número de orden (no DNI/RUC)
- * 
- * CARACTERÍSTICAS:
- * - Búsqueda por número de pedido
- * - Línea de tiempo animada con estados
- * - Descarga de orden en PDF
- * - Botón "Repetir pedido"
- * - Contacto directo con soporte
- * 
- * PARA PERSONALIZAR:
- * - Conectar con Firebase para datos reales
- * - Modificar estados de pedido
- * - Personalizar diseño de la línea de tiempo
- */
 
 interface OrderStatus {
   id: string;
@@ -52,7 +31,8 @@ interface OrderDetails {
 }
 
 const OrderTracking = () => {
-  const [orderNumber, setOrderNumber] = useState('');
+  const { orderId } = useParams();
+  const [orderNumber, setOrderNumber] = useState(orderId || '');
   const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
@@ -60,7 +40,7 @@ const OrderTracking = () => {
   // Mock data - EDITAR AQUÍ para conectar con Firebase
   const mockOrders: OrderDetails[] = [
     {
-      orderNumber: 'ORD-001',
+      orderNumber: 'PEC-2024-001',
       items: [
         { name: 'Galletas Chocochips Integrales', quantity: 6 },
         { name: 'Galletas de Avena y Pasas', quantity: 3 }
@@ -72,7 +52,7 @@ const OrderTracking = () => {
       createdAt: '2024-01-15T10:30:00Z'
     },
     {
-      orderNumber: 'ORD-002',
+      orderNumber: 'PEC-2024-002',
       items: [
         { name: 'Combo Familiar', quantity: 2 }
       ],
@@ -83,7 +63,7 @@ const OrderTracking = () => {
       createdAt: '2024-01-14T15:00:00Z'
     },
     {
-      orderNumber: 'ORD-003',
+      orderNumber: 'PEC-2024-003',
       items: [
         { name: 'Galletas de Maracuyá', quantity: 4 },
         { name: 'Galletas de Higo', quantity: 2 }
@@ -96,6 +76,13 @@ const OrderTracking = () => {
       createdAt: '2024-01-15T08:15:00Z'
     }
   ];
+
+  // Efecto para buscar automáticamente si hay orderId en la URL
+  useEffect(() => {
+    if (orderId) {
+      handleSearch();
+    }
+  }, [orderId]);
 
   const getOrderStatuses = (currentStatus: string): OrderStatus[] => {
     const allStatuses = [
@@ -222,31 +209,34 @@ const OrderTracking = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-stone-50 to-amber-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-sand-50 to-sand-100 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
-            <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-lg">P</span>
+            <div className="w-12 h-12 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center mr-3">
+              <span className="text-primary-foreground font-bold text-lg">P</span>
             </div>
-            <h1 className="text-3xl font-bold text-stone-800">Seguimiento de Pedido</h1>
+            <h1 className="text-3xl font-bold text-brown-900">Seguimiento de Pedido</h1>
           </div>
-          <p className="text-stone-600 max-w-2xl mx-auto">
+          <p className="text-brown-700 max-w-2xl mx-auto">
             Ingresa tu número de pedido para conocer el estado actual de tu orden
           </p>
         </div>
 
         {/* Búsqueda */}
-        <Card className="mb-8">
+        <Card className="mb-8 border-sand-200 bg-white/80">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-brown-900">
               <Search className="h-5 w-5" />
               Buscar Pedido
             </CardTitle>
-            <CardDescription>
-              Ingresa el número de pedido que recibiste al confirmar tu compra
+            <CardDescription className="text-brown-700">
+              {orderId ? 
+                `Buscando información del pedido: ${orderId}` :
+                'Ingresa el número de pedido que recibiste al confirmar tu compra'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -254,17 +244,17 @@ const OrderTracking = () => {
               <div className="flex-1">
                 <Input
                   type="text"
-                  placeholder="Ej: ORD-001, ORD-002..."
+                  placeholder="Ej: PEC-2024-001, PEC-2024-002..."
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
-                  className="h-12"
+                  className="h-12 border-sand-300 bg-white focus:border-primary"
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
               <Button 
                 onClick={handleSearch}
                 disabled={isLoading}
-                className="h-12 px-8 bg-amber-500 hover:bg-amber-600"
+                className="h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 {isLoading ? 'Buscando...' : 'Buscar'}
               </Button>
@@ -274,7 +264,7 @@ const OrderTracking = () => {
 
         {/* Pedido no encontrado */}
         {notFound && (
-          <Card className="border-red-200 bg-red-50">
+          <Card className="border-red-200 bg-red-50/80">
             <CardContent className="pt-6">
               <div className="text-center">
                 <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
@@ -285,7 +275,7 @@ const OrderTracking = () => {
                   No encontramos ningún pedido con el número ingresado.
                   Verifica que esté correctamente escrito.
                 </p>
-                <Button onClick={handleContactSupport} variant="outline" className="border-red-300 text-red-700">
+                <Button onClick={handleContactSupport} variant="outline" className="border-red-300 text-red-700 hover:bg-red-100">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   Contactar Soporte
                 </Button>
@@ -299,16 +289,16 @@ const OrderTracking = () => {
           <div className="space-y-6">
             
             {/* Información general */}
-            <Card>
+            <Card className="border-sand-200 bg-white/80">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle>Pedido {orderDetails.orderNumber}</CardTitle>
-                    <CardDescription>
+                    <CardTitle className="text-brown-900">Pedido {orderDetails.orderNumber}</CardTitle>
+                    <CardDescription className="text-brown-700">
                       Realizado el {new Date(orderDetails.createdAt).toLocaleDateString()}
                     </CardDescription>
                   </div>
-                  <Badge variant="outline" className="text-sm">
+                  <Badge variant="outline" className="text-sm border-primary/20 text-primary">
                     Total: S/ {orderDetails.total}
                   </Badge>
                 </div>
@@ -316,10 +306,10 @@ const OrderTracking = () => {
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <h4 className="font-semibold text-stone-800 mb-2">Productos:</h4>
+                    <h4 className="font-semibold text-brown-900 mb-2">Productos:</h4>
                     <div className="space-y-2">
                       {orderDetails.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm">
+                        <div key={index} className="flex justify-between text-sm text-brown-700">
                           <span>{item.name}</span>
                           <span className="font-medium">x{item.quantity}</span>
                         </div>
@@ -327,19 +317,19 @@ const OrderTracking = () => {
                     </div>
                   </div>
                   <div>
-                    <h4 className="font-semibold text-stone-800 mb-2">Entrega:</h4>
-                    <p className="text-sm text-stone-600">{orderDetails.deliveryAddress}</p>
-                    <p className="text-sm text-stone-600 mt-1">Cliente: {orderDetails.customerName}</p>
+                    <h4 className="font-semibold text-brown-900 mb-2">Entrega:</h4>
+                    <p className="text-sm text-brown-700">{orderDetails.deliveryAddress}</p>
+                    <p className="text-sm text-brown-700 mt-1">Cliente: {orderDetails.customerName}</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
             {/* Estado del pedido */}
-            <Card>
+            <Card className="border-sand-200 bg-white/80">
               <CardHeader>
-                <CardTitle>Estado del Pedido</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-brown-900">Estado del Pedido</CardTitle>
+                <CardDescription className="text-brown-700">
                   Sigue el progreso de tu pedido en tiempo real
                 </CardDescription>
               </CardHeader>
@@ -353,33 +343,33 @@ const OrderTracking = () => {
                           status.completed 
                             ? 'bg-green-100 border-green-500 text-green-600'
                             : status.current
-                            ? 'bg-amber-100 border-amber-500 text-amber-600'
-                            : 'bg-stone-100 border-stone-300 text-stone-400'
+                            ? 'bg-primary/10 border-primary text-primary'
+                            : 'bg-sand-100 border-sand-300 text-sand-500'
                         }`}>
                           <Icon className="h-5 w-5" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <h4 className={`font-semibold ${
-                              status.completed || status.current ? 'text-stone-800' : 'text-stone-400'
+                              status.completed || status.current ? 'text-brown-900' : 'text-sand-500'
                             }`}>
                               {status.name}
                             </h4>
                             {status.current && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
                                 Actual
                               </Badge>
                             )}
                           </div>
                           <p className={`text-sm ${
-                            status.completed || status.current ? 'text-stone-600' : 'text-stone-400'
+                            status.completed || status.current ? 'text-brown-700' : 'text-sand-500'
                           }`}>
                             {status.description}
                           </p>
                         </div>
                         {index < getOrderStatuses(orderDetails.status).length - 1 && (
                           <div className={`absolute left-9 mt-10 w-0.5 h-6 ${
-                            status.completed ? 'bg-green-300' : 'bg-stone-200'
+                            status.completed ? 'bg-green-300' : 'bg-sand-200'
                           }`} />
                         )}
                       </div>
@@ -404,17 +394,17 @@ const OrderTracking = () => {
 
             {/* Acciones */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button onClick={handleDownloadPDF} variant="outline" className="h-12">
+              <Button onClick={handleDownloadPDF} variant="outline" className="h-12 border-sand-300 text-brown-700 hover:bg-sand-50">
                 <Download className="h-4 w-4 mr-2" />
                 Descargar Orden
               </Button>
               
-              <Button onClick={handleRepeatOrder} className="h-12 bg-green-600 hover:bg-green-700">
+              <Button onClick={handleRepeatOrder} className="h-12 bg-green-600 hover:bg-green-700 text-white">
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Repetir Pedido
               </Button>
               
-              <Button onClick={handleContactSupport} variant="outline" className="h-12">
+              <Button onClick={handleContactSupport} variant="outline" className="h-12 border-sand-300 text-brown-700 hover:bg-sand-50">
                 <MessageCircle className="h-4 w-4 mr-2" />
                 Contactar Soporte
               </Button>
@@ -424,7 +414,7 @@ const OrderTracking = () => {
         )}
 
         {/* Información adicional */}
-        <Card className="mt-8 bg-blue-50 border-blue-200">
+        <Card className="mt-8 bg-blue-50/80 border-blue-200">
           <CardContent className="pt-6">
             <div className="text-center">
               <h3 className="font-semibold text-blue-800 mb-2">¿Necesitas ayuda?</h3>
@@ -432,11 +422,11 @@ const OrderTracking = () => {
                 Nuestro equipo de soporte está disponible para ayudarte con cualquier consulta
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button onClick={handleContactSupport} size="sm" variant="outline" className="border-blue-300 text-blue-700">
+                <Button onClick={handleContactSupport} size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
                   <MessageCircle className="h-4 w-4 mr-2" />
                   WhatsApp: +51 999 888 777
                 </Button>
-                <Button size="sm" variant="outline" className="border-blue-300 text-blue-700">
+                <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
                   Email: soporte@pecaditos.com
                 </Button>
               </div>

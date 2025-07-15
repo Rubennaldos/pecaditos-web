@@ -189,10 +189,34 @@ const OrdersPanel = () => {
     // TODO: Implementar impresión real con los datos editados
   };
 
-  // *** FUNCIÓN PARA LEER QR ***
+  // *** FUNCIÓN PARA LEER QR MEJORADA ***
   const handleQRRead = (code: string) => {
     console.log(`Código QR leído: ${code}`);
-    // TODO: Buscar pedido por código QR
+    
+    // Extraer el ID del pedido de la URL del QR
+    const urlMatch = code.match(/\/seguimiento\/(.+)$/);
+    if (urlMatch) {
+      const orderId = urlMatch[1];
+      console.log(`ID del pedido extraído: ${orderId}`);
+      
+      // Buscar el pedido en los datos mock
+      const foundOrder = mockOrders.find(order => order.id === orderId);
+      if (foundOrder) {
+        // Mostrar el pedido en el dashboard o redirigir a seguimiento
+        setSearchTerm(orderId);
+        setStatusFilter('todos');
+        setShowQRReader(false);
+        setQrInput('');
+      } else {
+        // Si no se encuentra, abrir la página de seguimiento
+        window.open(`/seguimiento/${orderId}`, '_blank');
+      }
+    } else {
+      // Tratar como ID directo del pedido
+      setSearchTerm(code);
+      setStatusFilter('todos');
+    }
+    
     setShowQRReader(false);
     setQrInput('');
   };
@@ -208,18 +232,18 @@ const OrdersPanel = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
+    <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white shadow-sm border-b border-sand-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
-                <Package className="h-5 w-5 text-white" />
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center">
+                <Package className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-stone-800">Panel de Pedidos</h1>
-                <p className="text-stone-600">Gestión y preparación de pedidos</p>
+                <h1 className="text-2xl font-bold text-brown-900">Panel de Pedidos</h1>
+                <p className="text-brown-700">Gestión y preparación de pedidos</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
@@ -234,7 +258,7 @@ const OrdersPanel = () => {
               <Button
                 variant="outline"
                 onClick={handleLogout}
-                className="text-stone-600 border-stone-300 hover:bg-stone-50"
+                className="text-brown-700 border-sand-300 hover:bg-sand-50"
               >
                 <LogOut className="h-4 w-4 mr-2" />
                 Cerrar Sesión
@@ -467,30 +491,31 @@ const OrdersPanel = () => {
         </Tabs>
       </div>
 
-      {/* Modal QR Reader (mantenido igual) */}
+      {/* Modal QR Reader mejorado */}
       {showQRReader && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md mx-4">
+          <Card className="w-full max-w-md mx-4 border-sand-200 bg-white">
             <CardHeader>
-              <CardTitle>Leer Código QR</CardTitle>
-              <CardDescription>
-                Escanea el código QR del pedido o ingresa el código manualmente
+              <CardTitle className="text-brown-900">Leer Código QR</CardTitle>
+              <CardDescription className="text-brown-700">
+                Escanea el código QR del pedido o ingresa el código/URL manualmente
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="border-2 border-dashed border-stone-300 rounded-lg p-8 text-center">
-                <QrCode className="h-12 w-12 text-stone-400 mx-auto mb-4" />
-                <p className="text-stone-600">Cámara QR aquí</p>
-                <p className="text-xs text-stone-500 mt-2">
+              <div className="border-2 border-dashed border-sand-300 rounded-lg p-8 text-center bg-sand-50">
+                <QrCode className="h-12 w-12 text-sand-500 mx-auto mb-4" />
+                <p className="text-brown-700">Cámara QR aquí</p>
+                <p className="text-xs text-brown-600 mt-2">
                   (Funcionalidad a implementar)
                 </p>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">O ingresa el código:</label>
+                <label className="text-sm font-medium text-brown-900">O ingresa el código/URL:</label>
                 <Input
-                  placeholder="Código del pedido"
+                  placeholder="ID del pedido o URL completa"
                   value={qrInput}
                   onChange={(e) => setQrInput(e.target.value)}
+                  className="border-sand-300 bg-white focus:border-primary"
                 />
               </div>
               <div className="flex gap-2">
@@ -504,6 +529,7 @@ const OrdersPanel = () => {
                 <Button
                   variant="outline"
                   onClick={() => setShowQRReader(false)}
+                  className="border-sand-300 text-brown-700 hover:bg-sand-50"
                 >
                   Cancelar
                 </Button>

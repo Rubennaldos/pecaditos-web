@@ -1,13 +1,13 @@
 
 import { useState } from 'react';
-import { Printer, QrCode, Eye, X } from 'lucide-react';
+import { Printer, Eye, X } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface PrintModalProps {
   order: any;
@@ -32,8 +32,9 @@ const PrintModal = ({ order, isOpen, onClose, onPrint }: PrintModalProps) => {
     deliveryCost: '0.00'
   });
 
-  const generateQRData = () => {
-    return `PECADITOS-${order?.id}-${Date.now()}`;
+  const generateTrackingURL = () => {
+    const baseURL = window.location.origin;
+    return `${baseURL}/seguimiento/${order?.id}`;
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -56,6 +57,7 @@ const PrintModal = ({ order, isOpen, onClose, onPrint }: PrintModalProps) => {
 
   const getOrderTypeText = (type: string) => {
     switch (type) {
+      switch (type) {
       case 'normal': return 'Pedido Normal';
       case 'reposicion': return 'Reposición';
       case 'degustacion': return 'Degustación';
@@ -211,7 +213,7 @@ const PrintModal = ({ order, isOpen, onClose, onPrint }: PrintModalProps) => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className={`border-2 border-dashed border-stone-300 p-4 ${
+                <div className={`border-2 border-dashed border-sand-300 p-4 ${
                   format === 'A4' ? 'aspect-[21/29.7]' : 
                   format === 'A5' ? 'aspect-[14.8/21]' : 'w-80 mx-auto'
                 } bg-white text-black text-sm`}>
@@ -255,8 +257,14 @@ const PrintModal = ({ order, isOpen, onClose, onPrint }: PrintModalProps) => {
                         <div><strong>Tipo:</strong> {getOrderTypeText(editedData.orderType)}</div>
                       </div>
                       <div className="flex flex-col items-center">
-                        <QrCode className="h-12 w-12 text-stone-400" />
-                        <span className="text-xs mt-1">{generateQRData()}</span>
+                        <div className="bg-white p-2 rounded">
+                          <QRCode
+                            value={generateTrackingURL()}
+                            size={format === 'ticket' ? 64 : 80}
+                            level="M"
+                          />
+                        </div>
+                        <span className="text-xs mt-1">Seguimiento</span>
                       </div>
                     </div>
                     
@@ -288,7 +296,7 @@ const PrintModal = ({ order, isOpen, onClose, onPrint }: PrintModalProps) => {
             </Button>
             <Button
               onClick={handlePrint}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground"
             >
               <Printer className="h-4 w-4 mr-2" />
               Imprimir {format.toUpperCase()}
