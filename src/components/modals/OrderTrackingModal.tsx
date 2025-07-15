@@ -92,10 +92,11 @@ export const OrderTrackingModal = ({ isOpen, onClose }: OrderTrackingModalProps)
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-center text-stone-800 dark:text-stone-200 flex items-center justify-center space-x-2">
-            <Package className="w-6 h-6 text-amber-600" />
-            <span>Seguimiento de Pedido</span>
-          </DialogTitle>
+         <DialogTitle className="text-2xl font-bold text-center flex items-center justify-center space-x-2" style={{ color: "#573813" }}>
+  <Package className="w-6 h-6 text-amber-600" />
+  <span>Seguimiento de Pedido</span>
+</DialogTitle>
+
         </DialogHeader>
 
         <div className="space-y-6">
