@@ -36,8 +36,27 @@ const deliveryPersons = [
   { id: "4", name: "Ana Torres", phone: "+51 999 444 444", tempCode: "3456" }
 ];
 
+// *** DEFINIR TIPOS DE PEDIDOS ***
+interface DeliveryOrder {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  customerAddress: string;
+  district: string;
+  coordinates: { lat: number; lng: number };
+  status: string;
+  readyAt: string;
+  total: number;
+  paymentMethod: string;
+  notes?: string;
+  assignedTo?: string | null;
+  takenAt?: string | null;
+  deliveredAt?: string;
+  deliveryNotes?: string;
+}
+
 // *** MOCK DATA DE PEDIDOS ***
-const mockOrders = [
+const mockOrders: DeliveryOrder[] = [
   {
     id: "PEC-2024-003",
     customerName: "Bodega Don Carlos",
@@ -93,7 +112,7 @@ const DeliveryPanel = () => {
   const [showLogin, setShowLogin] = useState(true);
   const [selectedTab, setSelectedTab] = useState('pendientes');
   const [showQRReader, setShowQRReader] = useState(false);
-  const [orders, setOrders] = useState(mockOrders);
+  const [orders, setOrders] = useState<DeliveryOrder[]>(mockOrders);
   const [showDeliveryForm, setShowDeliveryForm] = useState<string | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
   const [paymentReceived, setPaymentReceived] = useState<string>('');

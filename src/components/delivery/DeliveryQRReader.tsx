@@ -137,7 +137,6 @@ const DeliveryQRReader = ({ isOpen, onClose, availableOrders, onOrderUpdate }: D
           }}
           order={selectedOrder}
           onStatusUpdate={handleOrderAction}
-          allowedActions={['en_ruta', 'postergado', 'rechazado']}
         />
       )}
     </>

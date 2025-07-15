@@ -7,8 +7,22 @@ interface DeliveryTimerProps {
   orderType?: 'normal' | 'urgente';
 }
 
+interface TimeInfo {
+  hoursLeft: number;
+  minutesLeft: number;
+  totalMinutesLeft: number;
+  isExpired: boolean;
+  isUrgent: boolean;
+}
+
 const DeliveryTimer = ({ takenAt, orderType = 'normal' }: DeliveryTimerProps) => {
-  const [timeInfo, setTimeInfo] = useState({ hoursLeft: 0, isExpired: false, isUrgent: false });
+  const [timeInfo, setTimeInfo] = useState<TimeInfo>({ 
+    hoursLeft: 0, 
+    minutesLeft: 0,
+    totalMinutesLeft: 0,
+    isExpired: false, 
+    isUrgent: false 
+  });
 
   useEffect(() => {
     const updateTimer = () => {
