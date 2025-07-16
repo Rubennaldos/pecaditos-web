@@ -16,10 +16,11 @@ interface OrderEditModalProps {
 
 export const OrderEditModal = ({ order, isOpen, onClose }: OrderEditModalProps) => {
   const { editOrder } = useAdminOrders();
-  const [editedOrder, setEditedOrder] = useState(order);
+  const [editedOrder, setEditedOrder] = useState(order || {});
   const [changes, setChanges] = useState<any>({});
 
-  if (!isOpen) return null;
+  // Don't render if modal is not open or order is null
+  if (!isOpen || !order) return null;
 
   const handleSave = () => {
     editOrder(order.id, {
@@ -74,7 +75,7 @@ export const OrderEditModal = ({ order, isOpen, onClose }: OrderEditModalProps) 
             <div>
               <label className="text-sm font-medium">Estado</label>
               <Select
-                value={editedOrder.status}
+                value={editedOrder.status || 'pendiente'}
                 onValueChange={(value) => handleFieldChange('status', value)}
               >
                 <SelectTrigger>
