@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -371,7 +372,7 @@ export const BillingReports = () => {
                 <FileText className="h-12 w-12 mx-auto mb-2 text-stone-400" />
                 <p>Vista previa del reporte seleccionado</p>
                 <p className="text-sm mt-1">
-                  {reportTypes.find(r => r.id === selectedReport)?.name}
+                  {availableReports.find(r => r.id === selectedReport)?.name}
                 </p>
               </div>
             </div>
