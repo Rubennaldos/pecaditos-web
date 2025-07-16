@@ -18,6 +18,7 @@ interface AdminOrdersContextType {
   setIsAdminMode: (mode: boolean) => void;
   deleteOrder: (orderId: string, reason: string) => void;
   editOrder: (orderId: string, changes: any) => void;
+  changeOrderStatus: (orderId: string, newStatus: string) => void;
   getOrderHistory: (orderId: string) => OrderHistoryEntry[];
   getAllOrderHistory: () => OrderHistoryEntry[];
   deletedOrders: any[];
@@ -97,7 +98,6 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     });
 
     // Move to deleted orders (mock implementation)
-    // In real app, this would update the database
     const deletedOrder = { id: orderId, deletedAt: new Date().toISOString(), reason };
     setDeletedOrders(prev => [...prev, deletedOrder]);
   };
@@ -115,6 +115,23 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
       previousValue: changes.previous,
       newValue: changes.new
     });
+  };
+
+  const changeOrderStatus = (orderId: string, newStatus: string) => {
+    console.log(`[ORDERS] Cambiando estado del pedido ${orderId} a ${newStatus}`);
+    
+    // Add to history
+    addHistoryEntry({
+      orderId,
+      user: "Usuario Pedidos",
+      profile: "pedidos",
+      action: "cambiar_estado",
+      details: `Estado cambiado a ${newStatus}`,
+      newValue: newStatus
+    });
+
+    // Aquí se actualizaría el estado real del pedido en la base de datos
+    // Por ahora solo logueamos la acción
   };
 
   const getOrderHistory = (orderId: string) => {
@@ -145,6 +162,7 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
       setIsAdminMode,
       deleteOrder,
       editOrder,
+      changeOrderStatus,
       getOrderHistory,
       getAllOrderHistory,
       deletedOrders,

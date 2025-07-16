@@ -6,10 +6,17 @@ import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useAdminOrders } from '@/contexts/AdminOrdersContext';
+import { useAdmin } from '@/contexts/AdminContext';
 
 export const AdminModeToggle = () => {
+  const { user } = useAdmin();
   const { isAdminMode, setIsAdminMode, deletedOrders } = useAdminOrders();
   const [showControls, setShowControls] = useState(false);
+
+  // Solo mostrar el toggle si el usuario es Admin General
+  if (!user || user.profile !== 'admin') {
+    return null;
+  }
 
   return (
     <div className="fixed top-4 right-4 z-50 space-y-2">

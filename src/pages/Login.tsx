@@ -11,9 +11,9 @@ import { toast } from '@/components/ui/use-toast';
 import { Eye, EyeOff, User, Lock, AlertCircle } from 'lucide-react';
 
 /**
- * PÁGINA DE LOGIN UNIFICADA - DETECCIÓN AUTOMÁTICA DE PERFILES
+ * PÁGINA DE LOGIN ÚNICA - DETECCIÓN AUTOMÁTICA DE PERFILES
  * 
- * Sistema unificado para todos los tipos de usuario (eliminado perfil "seguimiento"):
+ * Sistema unificado para todos los tipos de usuario:
  * - Clientes finales (retail) - OCULTO - Solo admin puede acceder al catálogo
  * - Mayoristas (wholesale) - Activo
  * - Administradores (admin, pedidos, reparto, produccion, cobranzas) - Activo
@@ -31,8 +31,6 @@ import { Eye, EyeOff, User, Lock, AlertCircle } from 'lucide-react';
  * - Cobranzas → /cobranzas
  * - Mayorista → /mayorista
  * - Retail → / (landing - catálogo oculto)
- * 
- * *** CAMBIAR CREDENCIALES Y PATRONES DE DETECCIÓN AQUÍ ***
  */
 
 const Login = () => {
@@ -68,13 +66,11 @@ const Login = () => {
 
     try {
       // DETECCIÓN AUTOMÁTICA DEL PERFIL DE USUARIO POR EMAIL
-      // *** CAMBIAR AQUÍ PARA MODIFICAR DETECCIÓN DE PERFILES ***
       let loginSuccess = false;
       let userType = '';
       let redirectPath = '/';
 
-      // 1. PERFILES ADMINISTRATIVOS ESPECÍFICOS (eliminado seguimiento)
-      // *** CAMBIAR CREDENCIALES Y RUTAS AQUÍ ***
+      // 1. PERFILES ADMINISTRATIVOS ESPECÍFICOS
       const adminProfiles = {
         'admin@pecaditos.com': { type: 'Admin General', path: '/admin' },
         'pedidos@pecaditos.com': { type: 'Pedidos', path: '/pedidos' },
@@ -99,7 +95,6 @@ const Login = () => {
       }
 
       // 2. MAYORISTAS
-      // *** CAMBIAR PATRONES DE DETECCIÓN AQUÍ ***
       if (!loginSuccess && (
         email.includes('@ejemplo.com') || 
         email.includes('distribuidora') || 
@@ -119,14 +114,12 @@ const Login = () => {
       }
 
       // 3. CLIENTE FINAL (RETAIL) - OCULTO
-      // El catálogo minorista está oculto, pero el código permanece para reactivación futura
       if (!loginSuccess) {
         try {
           const user = await retailLogin(email, password);
           if (user) {
             loginSuccess = true;
             userType = 'Cliente';
-            // Redirigir a landing porque el catálogo está oculto
             redirectPath = '/';
             
             toast({
@@ -182,8 +175,7 @@ const Login = () => {
         </CardHeader>
         
         <CardContent>
-          {/* CREDENCIALES DE PRUEBA ACTUALIZADAS (eliminado perfil seguimiento) */}
-          {/* *** CAMBIAR O ELIMINAR EN PRODUCCIÓN *** */}
+          {/* CREDENCIALES DE PRUEBA ACTUALIZADAS */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-blue-800 font-medium mb-3">Usuarios de prueba disponibles:</p>
             <div className="space-y-2 text-xs text-blue-700">
@@ -294,40 +286,3 @@ const Login = () => {
 };
 
 export default Login;
-
-/*
-DETECCIÓN AUTOMÁTICA DE PERFILES ACTUALIZADA (eliminado seguimiento):
-
-PERFILES ADMINISTRATIVOS (cada uno con su ruta específica):
-- admin@pecaditos.com → /admin (Panel completo de administración)
-- pedidos@pecaditos.com → /pedidos (Solo gestión de pedidos)  
-- reparto@pecaditos.com → /reparto (Solo entregas y distribución)
-- produccion@pecaditos.com → /produccion (Solo control de stock)
-- cobranzas@pecaditos.com → /cobranzas (Solo facturación y cobros)
-
-MAYORISTAS:
-- Cualquier email con @ejemplo.com, distribuidora, minimarket, mayorista → /mayorista
-
-RETAIL (OCULTO):
-- Cualquier otro email → Redirige a landing (catálogo oculto)
-
-CONTRASEÑAS DE PRUEBA:
-- Administrativos: admin123
-- Mayoristas: password123
-
-CADA PERFIL TIENE:
-- Su propia ruta protegida
-- Su panel específico con funcionalidades limitadas
-- Acceso SOLO a su área (excepto admin que puede impersonar)
-- Redirección automática si intenta acceder a otra área
-
-PARA REACTIVAR CATÁLOGO MINORISTA:
-1. Cambiar redirectPath de retail de '/' a '/catalogo'
-2. Actualizar ProtectedRoute.tsx allowedProfiles de CATALOG_RETAIL
-3. Eliminar mensaje de catálogo no disponible
-
-PARA MODIFICAR CREDENCIALES:
-1. Cambiar adminProfiles object con nuevos emails y rutas
-2. Modificar patrones de detección de mayoristas
-3. Actualizar credenciales de prueba en el formulario
-*/
