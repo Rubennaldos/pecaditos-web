@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { 
   BarChart3, 
@@ -8,12 +9,12 @@ import {
   AlertTriangle,
   TrendingUp,
   TrendingDown,
-  Calendar,
   Star,
   ShoppingCart,
   Building,
   CreditCard,
-  Award
+  Award,
+  ChevronRight
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +26,10 @@ export const GlobalDashboard = () => {
     from: new Date(),
     to: new Date()
   });
+
+  const [showMorePayers, setShowMorePayers] = useState(false);
+  const [showMoreDebtors, setShowMoreDebtors] = useState(false);
+  const [showMoreProducts, setShowMoreProducts] = useState(false);
 
   // Mock global data - integrar con base de datos real
   const globalKPIs = {
@@ -44,32 +49,50 @@ export const GlobalDashboard = () => {
     topPayers: [
       { name: 'Corporación ABC', score: 5, amount: 8500 },
       { name: 'Distribuidora XYZ', score: 5, amount: 7200 },
-      { name: 'Comercial 123', score: 4, amount: 6800 }
+      { name: 'Comercial 123', score: 4, amount: 6800 },
+      { name: 'Empresa Delta', score: 5, amount: 6200 },
+      { name: 'Negocio Alpha', score: 4, amount: 5800 },
+      { name: 'Comercial Beta', score: 4, amount: 5400 },
+      { name: 'Distribuidora Gamma', score: 5, amount: 5100 },
+      { name: 'Empresa Theta', score: 4, amount: 4900 },
+      { name: 'Negocio Omega', score: 3, amount: 4600 },
+      { name: 'Comercial Sigma', score: 4, amount: 4300 },
+      { name: 'Extra Cliente 1', score: 3, amount: 4000 },
+      { name: 'Extra Cliente 2', score: 4, amount: 3800 }
     ],
     topDebtors: [
       { name: 'Cliente Moroso 1', debt: 2500, days: 45 },
       { name: 'Cliente Moroso 2', debt: 1800, days: 32 },
-      { name: 'Cliente Moroso 3', debt: 1200, days: 28 }
+      { name: 'Cliente Moroso 3', debt: 1200, days: 28 },
+      { name: 'Cliente Moroso 4', debt: 1100, days: 25 },
+      { name: 'Cliente Moroso 5', debt: 980, days: 22 },
+      { name: 'Cliente Moroso 6', debt: 850, days: 20 },
+      { name: 'Cliente Moroso 7', debt: 750, days: 18 },
+      { name: 'Cliente Moroso 8', debt: 650, days: 15 },
+      { name: 'Cliente Moroso 9', debt: 580, days: 12 },
+      { name: 'Cliente Moroso 10', debt: 520, days: 10 },
+      { name: 'Extra Moroso 1', debt: 450, days: 8 },
+      { name: 'Extra Moroso 2', debt: 380, days: 6 }
     ],
     topProducts: [
       { name: 'Galletas Chocochips', sold: 245, revenue: 3675 },
       { name: 'Combo Familiar', sold: 89, revenue: 5785 },
-      { name: 'Galletas de Avena', sold: 178, revenue: 2314 }
+      { name: 'Galletas de Avena', sold: 178, revenue: 2314 },
+      { name: 'Pack Premium', sold: 156, revenue: 4680 },
+      { name: 'Galletas Integrales', sold: 134, revenue: 2010 },
+      { name: 'Mix Especial', sold: 112, revenue: 3360 },
+      { name: 'Galletas Clásicas', sold: 98, revenue: 1470 },
+      { name: 'Combo Infantil', sold: 87, revenue: 2610 },
+      { name: 'Pack Ejecutivo', sold: 76, revenue: 2280 },
+      { name: 'Galletas Artesanales', sold: 65, revenue: 1950 },
+      { name: 'Extra Producto 1', sold: 54, revenue: 1620 },
+      { name: 'Extra Producto 2', sold: 43, revenue: 1290 }
     ]
   };
 
-  const chartData = {
-    monthlyRevenue: [
-      { month: 'Ene', revenue: 32000, orders: 120 },
-      { month: 'Feb', revenue: 38000, orders: 145 },
-      { month: 'Mar', revenue: 45680, orders: 156 }
-    ],
-    paymentStatus: [
-      { status: 'Pagado', value: 75, color: '#22c55e' },
-      { status: 'Pendiente', value: 20, color: '#f59e0b' },
-      { status: 'Vencido', value: 5, color: '#ef4444' }
-    ]
-  };
+  const getDisplayedPayers = () => showMorePayers ? rankings.topPayers : rankings.topPayers.slice(0, 10);
+  const getDisplayedDebtors = () => showMoreDebtors ? rankings.topDebtors : rankings.topDebtors.slice(0, 10);
+  const getDisplayedProducts = () => showMoreProducts ? rankings.topProducts : rankings.topProducts.slice(0, 10);
 
   return (
     <div className="space-y-6">
@@ -91,6 +114,32 @@ export const GlobalDashboard = () => {
           </Button>
         </div>
       </div>
+
+      {/* Alertas Críticas */}
+      {(globalKPIs.overdueInvoices > 0 || globalKPIs.stockAlerts > 0) && (
+        <Card className="border-red-200 bg-red-50">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-red-800 flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Alertas Críticas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {globalKPIs.overdueInvoices > 0 && (
+                <p className="text-sm text-red-700">
+                  • {globalKPIs.overdueInvoices} facturas vencidas requieren atención inmediata
+                </p>
+              )}
+              {globalKPIs.stockAlerts > 0 && (
+                <p className="text-sm text-red-700">
+                  • {globalKPIs.stockAlerts} productos con stock crítico
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* KPIs Globales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -169,32 +218,6 @@ export const GlobalDashboard = () => {
         </Card>
       </div>
 
-      {/* Alertas Críticas */}
-      {(globalKPIs.overdueInvoices > 0 || globalKPIs.stockAlerts > 0) && (
-        <Card className="border-red-200 bg-red-50 animate-pulse">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-red-800 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Alertas Críticas
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {globalKPIs.overdueInvoices > 0 && (
-                <p className="text-sm text-red-700">
-                  • {globalKPIs.overdueInvoices} facturas vencidas requieren atención inmediata
-                </p>
-              )}
-              {globalKPIs.stockAlerts > 0 && (
-                <p className="text-sm text-red-700">
-                  • {globalKPIs.stockAlerts} productos con stock crítico
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Rankings */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Top Buenos Pagadores */}
@@ -204,11 +227,11 @@ export const GlobalDashboard = () => {
               <Award className="h-5 w-5 text-green-600" />
               Top Buenos Pagadores
             </CardTitle>
-            <CardDescription>Clientes más puntuales</CardDescription>
+            <CardDescription>Los {getDisplayedPayers().length} mejores clientes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {rankings.topPayers.map((payer, index) => (
+              {getDisplayedPayers().map((payer, index) => (
                 <div key={payer.name} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -228,6 +251,17 @@ export const GlobalDashboard = () => {
                   </div>
                 </div>
               ))}
+              {rankings.topPayers.length > 10 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => setShowMorePayers(!showMorePayers)}
+                >
+                  {showMorePayers ? 'Ver menos' : 'Ver más'}
+                  <ChevronRight className={`h-4 w-4 ml-1 transition-transform ${showMorePayers ? 'rotate-90' : ''}`} />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -239,11 +273,11 @@ export const GlobalDashboard = () => {
               <AlertTriangle className="h-5 w-5 text-red-600" />
               Top Morosos
             </CardTitle>
-            <CardDescription>Requieren seguimiento</CardDescription>
+            <CardDescription>Los {getDisplayedDebtors().length} que más deben</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {rankings.topDebtors.map((debtor, index) => (
+              {getDisplayedDebtors().map((debtor, index) => (
                 <div key={debtor.name} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
@@ -259,6 +293,17 @@ export const GlobalDashboard = () => {
                   </div>
                 </div>
               ))}
+              {rankings.topDebtors.length > 10 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => setShowMoreDebtors(!showMoreDebtors)}
+                >
+                  {showMoreDebtors ? 'Ver menos' : 'Ver más'}
+                  <ChevronRight className={`h-4 w-4 ml-1 transition-transform ${showMoreDebtors ? 'rotate-90' : ''}`} />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -270,11 +315,11 @@ export const GlobalDashboard = () => {
               <ShoppingCart className="h-5 w-5 text-blue-600" />
               Top Productos
             </CardTitle>
-            <CardDescription>Más vendidos del mes</CardDescription>
+            <CardDescription>Los {getDisplayedProducts().length} más vendidos</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {rankings.topProducts.map((product, index) => (
+              {getDisplayedProducts().map((product, index) => (
                 <div key={product.name} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -290,6 +335,17 @@ export const GlobalDashboard = () => {
                   </div>
                 </div>
               ))}
+              {rankings.topProducts.length > 10 && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => setShowMoreProducts(!showMoreProducts)}
+                >
+                  {showMoreProducts ? 'Ver menos' : 'Ver más'}
+                  <ChevronRight className={`h-4 w-4 ml-1 transition-transform ${showMoreProducts ? 'rotate-90' : ''}`} />
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

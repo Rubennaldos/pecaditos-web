@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { AdminProvider, useAdmin } from '@/contexts/AdminContext';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
+import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
 import { Button } from '@/components/ui/button';
 import { 
   LogOut, 
@@ -87,7 +88,21 @@ const AdminPanelContent = () => {
       name: 'Configuración',
       icon: Settings,
       section: 'users',
-      description: 'Configuración del sistema'
+      description: 'Sistema, usuarios y parámetros'
+    },
+    {
+      id: 'promotions',
+      name: 'Promociones',
+      icon: Gift,
+      section: 'promotions',
+      description: 'Campañas y ofertas'
+    },
+    {
+      id: 'locations',
+      name: 'Ubicaciones',
+      icon: MapPin,
+      section: 'locations',
+      description: 'Sedes y puntos de venta'
     },
     {
       id: 'audit',
@@ -117,6 +132,50 @@ const AdminPanelContent = () => {
     switch (activeSection) {
       case 'dashboard':
         return <AdminDashboard />;
+      case 'system-config':
+        return <SystemConfiguration />;
+      case 'promotions':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-stone-800">Gestión de Promociones</h1>
+              <p className="text-stone-600 mt-1">Administra campañas y promociones mayoristas</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-6 bg-blue-50 rounded-lg">
+                <h3 className="font-medium mb-2">Campañas Activas</h3>
+                <p className="text-sm text-stone-500 mb-4">0 campañas en curso</p>
+                <Button>Crear Nueva Campaña</Button>
+              </div>
+              <div className="p-6 bg-green-50 rounded-lg">
+                <h3 className="font-medium mb-2">Promociones Programadas</h3>
+                <p className="text-sm text-stone-500 mb-4">0 promociones pendientes</p>
+                <Button variant="outline">Ver Programadas</Button>
+              </div>
+            </div>
+          </div>
+        );
+      case 'locations':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-stone-800">Gestión de Ubicaciones</h1>
+              <p className="text-stone-600 mt-1">Administra puntos de venta y sedes</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-6 bg-amber-50 rounded-lg">
+                <h3 className="font-medium mb-2">Sede Principal</h3>
+                <p className="text-sm text-stone-500 mb-4">Av. Principal 123, Lima</p>
+                <Button>Editar Sede</Button>
+              </div>
+              <div className="p-6 bg-purple-50 rounded-lg">
+                <h3 className="font-medium mb-2">Puntos de Venta</h3>
+                <p className="text-sm text-stone-500 mb-4">3 ubicaciones activas</p>
+                <Button variant="outline">Gestionar Puntos</Button>
+              </div>
+            </div>
+          </div>
+        );
       case 'orders-admin':
         return (
           <div className="p-6">
