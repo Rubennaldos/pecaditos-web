@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { 
   BarChart3, 
@@ -19,9 +18,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/ui/date-picker';
+import { DateRange } from 'react-day-picker';
 
 export const GlobalDashboard = () => {
-  const [dateRange, setDateRange] = useState({ from: new Date(), to: new Date() });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date()
+  });
 
   // Mock global data - integrar con base de datos real
   const globalKPIs = {
