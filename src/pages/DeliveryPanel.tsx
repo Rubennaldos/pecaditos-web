@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
+import { AdminDeliveryProvider, useAdminDelivery } from '@/contexts/AdminDeliveryContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,13 +27,24 @@ import {
   X,
   Calendar,
   Printer,
-  FileText
+  FileText,
+  Edit,
+  History,
+  Trash2
 } from 'lucide-react';
 
 import DeliveryPersonLogin from '@/components/delivery/DeliveryPersonLogin';
 import DeliveryQRReader from '@/components/delivery/DeliveryQRReader';
 import DeliveryTimer from '@/components/delivery/DeliveryTimer';
 import PrintModal from '@/components/orders/PrintModal';
+
+// Import admin components
+import { AdminModeToggle } from '@/components/delivery/AdminModeToggle';
+import { DeliveryEditModal } from '@/components/delivery/DeliveryEditModal';
+import { DeliveryHistoryModal } from '@/components/delivery/DeliveryHistoryModal';
+import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
+import { DeliveryPersonsModal } from '@/components/delivery/DeliveryPersonsModal';
+import { SendMessageModal } from '@/components/delivery/SendMessageModal';
 
 // *** MOCK DATA DE REPARTIDORES CON CÓDIGOS TEMPORALES ***
 const deliveryPersons = [
@@ -111,20 +123,22 @@ const mockOrders: DeliveryOrder[] = [
   }
 ];
 
-const DeliveryPanel = () => {
+const DeliveryPanelContent = () => {
   const navigate = useNavigate();
   const { logout } = useAdmin();
+  const { isAdminMode } = useAdminDelivery();
   const [currentUser, setCurrentUser] = useState<string>('');
   const [showLogin, setShowLogin] = useState(true);
   const [selectedTab, setSelectedTab] = useState('pendientes');
   const [showQRReader, setShowQRReader] = useState(false);
   const [orders, setOrders] = useState<DeliveryOrder[]>(mockOrders);
   
-  // New state for delivery actions
-  const [showDeliveryModal, setShowDeliveryModal] = useState<string | null>(null);
-  const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
-  const [showPostponeModal, setShowPostponeModal] = useState<string | null>(null);
-  const [showPrintModal, setShowPrintModal] = useState<string | null>(null);
+  // Admin modals state
+  const [showEditModal, setShowEditModal] = useState<string | null>(null);
+  const [showHistoryModal, setShowHistoryModal] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
+  const [showPersonsModal, setShowPersonsModal] = useState(false);
+  const [showMessageModal, setShowMessageModal] = useState(false);
   
   // Form states
   const [invoiceNumber, setInvoiceNumber] = useState('');
@@ -138,6 +152,34 @@ const DeliveryPanel = () => {
   const pendingOrders = orders.filter(o => o.status === 'listo' && !o.assignedTo);
   const inRouteOrders = orders.filter(o => o.status === 'en_ruta' && o.assignedTo === currentUser);
   const deliveredOrders = orders.filter(o => o.status === 'entregado' && o.assignedTo === currentUser);
+
+  // Admin can see all orders if in admin mode
+  const adminPendingOrders = isAdminMode ? orders.filter(o => o.status === 'listo') : pendingOrders;
+  const adminInRouteOrders = isAdminMode ? orders.filter(o => o.status === 'en_ruta') : inRouteOrders;
+  const adminDeliveredOrders = isAdminMode ? orders.filter(o => o.status === 'entregado') : deliveredOrders;
+
+  // Listen for admin events
+  useEffect(() => {
+    const handleAdminEdit = (event: any) => {
+      const { orderId, updates } = event.detail;
+      setOrders(prev => prev.map(order => 
+        order.id === orderId ? { ...order, ...updates } : order
+      ));
+    };
+
+    const handleAdminDelete = (event: any) => {
+      const { orderId } = event.detail;
+      setOrders(prev => prev.filter(order => order.id !== orderId));
+    };
+
+    window.addEventListener('adminEditDelivery', handleAdminEdit);
+    window.addEventListener('adminDeleteDelivery', handleAdminDelete);
+
+    return () => {
+      window.removeEventListener('adminEditDelivery', handleAdminEdit);
+      window.removeEventListener('adminDeleteDelivery', handleAdminDelete);
+    };
+  }, []);
 
   // *** MANEJAR LOGIN ***
   const handleLogin = (personId: string) => {
@@ -201,7 +243,7 @@ const DeliveryPanel = () => {
     // Reset form and close modal
     setInvoiceNumber('');
     setDeliveryNotes('');
-    setShowDeliveryModal(null);
+    setShowEditModal(null);
   };
 
   // *** RECHAZAR PEDIDO ***
@@ -226,7 +268,7 @@ const DeliveryPanel = () => {
     // Reset form and close modal
     setRejectReason('');
     setCustomRejectReason('');
-    setShowRejectModal(null);
+    setShowDeleteModal(null);
   };
 
   // *** POSTERGAR PEDIDO ***
@@ -250,7 +292,7 @@ const DeliveryPanel = () => {
     // Reset form and close modal
     setPostponeDate('');
     setPostponeReason('');
-    setShowPostponeModal(null);
+    setShowDeleteModal(null);
   };
 
   // *** IMPRIMIR PEDIDO ***
@@ -279,6 +321,97 @@ const DeliveryPanel = () => {
       />
     );
   }
+
+  const renderOrderCard = (order: any, showAdminActions = false) => (
+    <Card key={order.id} className={`hover:shadow-lg transition-all ${showAdminActions ? 'relative' : ''}`}>
+      {showAdminActions && isAdminMode && (
+        <div className="absolute top-2 right-2 flex gap-1 z-10">
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowEditModal(order.id);
+            }}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 bg-blue-100 hover:bg-blue-200 text-blue-600"
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowHistoryModal(order.id);
+            }}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 bg-green-100 hover:bg-green-200 text-green-600"
+          >
+            <History className="h-3 w-3" />
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteModal(order.id);
+            }}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 bg-red-100 hover:bg-red-200 text-red-600"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+      
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            {order.id}
+            <Badge className="bg-green-100 text-green-800">
+              {order.status === 'listo' ? 'Listo para entrega' : order.status === 'en_ruta' ? 'En Ruta' : 'Entregado'}
+            </Badge>
+          </CardTitle>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 text-sm">
+              <User className="h-4 w-4 text-stone-400" />
+              <span className="font-medium">{order.customerName}</span>
+            </div>
+            <div className="flex items-center gap-2 text-sm">
+              <Phone className="h-4 w-4 text-stone-400" />
+              <a href={`tel:${order.customerPhone}`} className="text-blue-600 hover:text-blue-700">
+                {order.customerPhone}
+              </a>
+            </div>
+            <div className="flex items-start gap-2 text-sm">
+              <MapPin className="h-4 w-4 text-stone-400 mt-0.5" />
+              <div>
+                <div>{order.customerAddress}</div>
+                <div className="text-stone-500">{order.district}</div>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="text-sm">
+              <span className="font-medium">Total: S/ {order.total.toFixed(2)}</span>
+            </div>
+            <div className="text-sm">
+              <span>Pago: {order.paymentMethod}</span>
+            </div>
+            <Button
+              onClick={() => takeOrder(order.id)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <Truck className="h-4 w-4 mr-2" />
+              Tomar Pedido
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
@@ -332,15 +465,15 @@ const DeliveryPanel = () => {
               <TabsList className="grid w-full grid-rows-3 h-auto">
                 <TabsTrigger value="pendientes" className="justify-start">
                   <Package className="h-4 w-4 mr-2" />
-                  Pedidos Listos ({pendingOrders.length})
+                  Pedidos Listos ({adminPendingOrders.length})
                 </TabsTrigger>
                 <TabsTrigger value="en_ruta" className="justify-start">
                   <Truck className="h-4 w-4 mr-2" />
-                  En Ruta ({inRouteOrders.length})
+                  En Ruta ({adminInRouteOrders.length})
                 </TabsTrigger>
                 <TabsTrigger value="entregados" className="justify-start">
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Entregados ({deliveredOrders.length})
+                  Entregados ({adminDeliveredOrders.length})
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -355,7 +488,7 @@ const DeliveryPanel = () => {
               <h2 className="text-xl font-semibold text-stone-800 mb-4">
                 Pedidos Listos para Entrega
               </h2>
-              {pendingOrders.length === 0 ? (
+              {adminPendingOrders.length === 0 ? (
                 <div className="text-center py-12">
                   <Package className="h-12 w-12 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-stone-800 mb-2">
@@ -367,72 +500,21 @@ const DeliveryPanel = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {pendingOrders.map((order) => (
-                    <Card key={order.id} className="hover:shadow-lg transition-all">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2">
-                            {order.id}
-                            <Badge className="bg-green-100 text-green-800">
-                              Listo para entrega
-                            </Badge>
-                          </CardTitle>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-4 w-4 text-stone-400" />
-                              <span className="font-medium">{order.customerName}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-4 w-4 text-stone-400" />
-                              <a href={`tel:${order.customerPhone}`} className="text-blue-600 hover:text-blue-700">
-                                {order.customerPhone}
-                              </a>
-                            </div>
-                            <div className="flex items-start gap-2 text-sm">
-                              <MapPin className="h-4 w-4 text-stone-400 mt-0.5" />
-                              <div>
-                                <div>{order.customerAddress}</div>
-                                <div className="text-stone-500">{order.district}</div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="space-y-3">
-                            <div className="text-sm">
-                              <span className="font-medium">Total: S/ {order.total.toFixed(2)}</span>
-                            </div>
-                            <div className="text-sm">
-                              <span>Pago: {order.paymentMethod}</span>
-                            </div>
-                            <Button
-                              onClick={() => takeOrder(order.id)}
-                              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                            >
-                              <Truck className="h-4 w-4 mr-2" />
-                              Tomar Pedido
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {adminPendingOrders.map((order) => renderOrderCard(order, true))}
                 </div>
               )}
             </TabsContent>
 
-            {/* PEDIDOS EN RUTA - ENHANCED */}
+            {/* PEDIDOS EN RUTA */}
             <TabsContent value="en_ruta" className="space-y-4">
               <h2 className="text-xl font-semibold text-stone-800 mb-4">
                 Pedidos En Ruta
               </h2>
-              {inRouteOrders.length === 0 ? (
+              {adminInRouteOrders.length === 0 ? (
                 <div className="text-center py-12">
                   <Truck className="h-12 w-12 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-stone-800 mb-2">
-                    No tienes pedidos en ruta
+                    No hay pedidos en ruta
                   </h3>
                   <p className="text-stone-600">
                     Toma pedidos de la lista de "Pedidos Listos"
@@ -440,106 +522,7 @@ const DeliveryPanel = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {inRouteOrders.map((order) => (
-                    <Card key={order.id} className="border-blue-200 hover:shadow-lg transition-all">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2">
-                            {order.id}
-                            <Badge className="bg-blue-100 text-blue-800">
-                              En Ruta
-                            </Badge>
-                            {order.takenAt && (
-                              <DeliveryTimer takenAt={order.takenAt} />
-                            )}
-                          </CardTitle>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowPrintModal(order.id)}
-                            className="text-stone-500 hover:text-stone-700"
-                          >
-                            <Printer className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-4 w-4 text-stone-400" />
-                              <span className="font-medium">{order.customerName}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Phone className="h-4 w-4 text-stone-400" />
-                              <a href={`tel:${order.customerPhone}`} className="text-blue-600 hover:text-blue-700">
-                                {order.customerPhone}
-                              </a>
-                            </div>
-                            <div className="flex items-start gap-2 text-sm">
-                              <MapPin className="h-4 w-4 text-stone-400 mt-0.5" />
-                              <div>
-                                <div>{order.customerAddress}</div>
-                                <div className="text-stone-500">{order.district}</div>
-                              </div>
-                            </div>
-                            <div className="text-sm">
-                              <span className="font-medium">Total: S/ {order.total.toFixed(2)}</span>
-                            </div>
-                          </div>
-                          <div className="space-y-2">
-                            {/* Google Maps Button */}
-                            <Button
-                              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${order.coordinates.lat},${order.coordinates.lng}`, '_blank')}
-                              variant="outline"
-                              className="w-full border-green-500 text-green-600 hover:bg-green-50"
-                            >
-                              <MapPin className="h-4 w-4 mr-2" />
-                              Abrir en Google Maps
-                            </Button>
-                            
-                            {/* Main Action Buttons */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <Button
-                                onClick={() => setShowDeliveryModal(order.id)}
-                                className="bg-green-600 hover:bg-green-700 text-white"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                Entregado
-                              </Button>
-                              <Button
-                                onClick={() => setShowRejectModal(order.id)}
-                                variant="destructive"
-                                className="bg-red-600 hover:bg-red-700"
-                              >
-                                <X className="h-4 w-4 mr-1" />
-                                Rechazar
-                              </Button>
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-2">
-                              <Button
-                                onClick={() => setShowPostponeModal(order.id)}
-                                variant="outline"
-                                className="border-yellow-500 text-yellow-600 hover:bg-yellow-50"
-                              >
-                                <Calendar className="h-4 w-4 mr-1" />
-                                Postergar
-                              </Button>
-                              <Button
-                                onClick={() => returnOrderToPending(order.id)}
-                                variant="outline"
-                                className="border-orange-500 text-orange-600 hover:bg-orange-50"
-                              >
-                                <RotateCcw className="h-4 w-4 mr-1" />
-                                Devolver
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {adminInRouteOrders.map((order) => renderOrderCard(order, true))}
                 </div>
               )}
             </TabsContent>
@@ -549,7 +532,7 @@ const DeliveryPanel = () => {
               <h2 className="text-xl font-semibold text-stone-800 mb-4">
                 Pedidos Entregados
               </h2>
-              {deliveredOrders.length === 0 ? (
+              {adminDeliveredOrders.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle className="h-12 w-12 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-stone-800 mb-2">
@@ -561,41 +544,7 @@ const DeliveryPanel = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {deliveredOrders.map((order) => (
-                    <Card key={order.id} className="border-green-200">
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          {order.id}
-                          <Badge className="bg-green-100 text-green-800">
-                            Entregado
-                          </Badge>
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid md:grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <div className="flex items-center gap-2 text-sm">
-                              <User className="h-4 w-4 text-stone-400" />
-                              <span className="font-medium">{order.customerName}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-sm">
-                              <Clock className="h-4 w-4 text-stone-400" />
-                              <span>Entregado: {new Date(order.deliveredAt || '').toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <div>
-                            {order.deliveryNotes && (
-                              <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-                                <p className="text-sm text-green-800">
-                                  <strong>Observaciones:</strong> {order.deliveryNotes}
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  {adminDeliveredOrders.map((order) => renderOrderCard(order, true))}
                 </div>
               )}
             </TabsContent>
@@ -603,161 +552,53 @@ const DeliveryPanel = () => {
         </div>
       </div>
 
-      {/* DELIVERY CONFIRMATION MODAL */}
-      <Dialog open={!!showDeliveryModal} onOpenChange={() => setShowDeliveryModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirmar Entrega</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="invoice">Número de Factura/Boleta *</Label>
-              <Input
-                id="invoice"
-                placeholder="Ej: F001-12345 o B001-67890"
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Observaciones (opcional)</Label>
-              <Textarea
-                id="notes"
-                placeholder="Ej: Entregado a recepcionista, sin contacto directo..."
-                value={deliveryNotes}
-                onChange={(e) => setDeliveryNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => showDeliveryModal && handleDeliveryConfirm(showDeliveryModal)}
-                className="bg-green-600 hover:bg-green-700 flex-1"
-                disabled={!invoiceNumber.trim()}
-              >
-                Confirmar Entrega
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowDeliveryModal(null)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Admin Mode Toggle */}
+      <AdminModeToggle
+        onEditDelivery={(orderId) => setShowEditModal(orderId)}
+        onViewHistory={(orderId) => setShowHistoryModal(orderId)}
+        onDeleteDelivery={(orderId) => setShowDeleteModal(orderId)}
+        onManagePersons={() => setShowPersonsModal(true)}
+        onSendMessage={() => setShowMessageModal(true)}
+        totalDeliveries={orders.length}
+        totalPersons={deliveryPersons.length}
+      />
 
-      {/* REJECT ORDER MODAL */}
-      <Dialog open={!!showRejectModal} onOpenChange={() => setShowRejectModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rechazar Pedido</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Motivo del rechazo</Label>
-              <Select value={rejectReason} onValueChange={setRejectReason}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un motivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cliente_ausente">Cliente ausente</SelectItem>
-                  <SelectItem value="direccion_incorrecta">Dirección incorrecta</SelectItem>
-                  <SelectItem value="cliente_cancelo">Cliente canceló</SelectItem>
-                  <SelectItem value="problemas_acceso">Problemas de acceso</SelectItem>
-                  <SelectItem value="pago_rechazado">Pago rechazado</SelectItem>
-                  <SelectItem value="otro">Otro motivo</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            {rejectReason === 'otro' && (
-              <div className="space-y-2">
-                <Label htmlFor="custom-reason">Especifica el motivo</Label>
-                <Textarea
-                  id="custom-reason"
-                  placeholder="Describe el motivo del rechazo..."
-                  value={customRejectReason}
-                  onChange={(e) => setCustomRejectReason(e.target.value)}
-                  rows={3}
-                />
-              </div>
-            )}
-            <div className="flex gap-2">
-              <Button
-                onClick={() => showRejectModal && handleRejectOrder(showRejectModal)}
-                variant="destructive"
-                className="flex-1"
-                disabled={!rejectReason || (rejectReason === 'otro' && !customRejectReason.trim())}
-              >
-                Confirmar Rechazo
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowRejectModal(null)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* POSTPONE ORDER MODAL */}
-      <Dialog open={!!showPostponeModal} onOpenChange={() => setShowPostponeModal(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Postergar Pedido</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="postpone-date">Nueva fecha de entrega</Label>
-              <Input
-                id="postpone-date"
-                type="date"
-                value={postponeDate}
-                onChange={(e) => setPostponeDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="postpone-reason">Motivo de la postergación</Label>
-              <Textarea
-                id="postpone-reason"
-                placeholder="Ej: Cliente solicitó nueva fecha, problemas de tráfico..."
-                value={postponeReason}
-                onChange={(e) => setPostponeReason(e.target.value)}
-                rows={3}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => showPostponeModal && handlePostponeOrder(showPostponeModal)}
-                className="bg-yellow-600 hover:bg-yellow-700 flex-1"
-                disabled={!postponeDate || !postponeReason.trim()}
-              >
-                Confirmar Postergación
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowPostponeModal(null)}
-              >
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* PRINT MODAL */}
-      {showPrintModal && (
-        <PrintModal
-          order={orders.find(o => o.id === showPrintModal)}
-          isOpen={!!showPrintModal}
-          onClose={() => setShowPrintModal(null)}
-          onPrint={handlePrintOrder}
+      {/* Admin Modals */}
+      {showEditModal && (
+        <DeliveryEditModal
+          delivery={orders.find(o => o.id === showEditModal)}
+          isOpen={!!showEditModal}
+          onClose={() => setShowEditModal(null)}
         />
       )}
+
+      {showHistoryModal && (
+        <DeliveryHistoryModal
+          delivery={orders.find(o => o.id === showHistoryModal)}
+          isOpen={!!showHistoryModal}
+          onClose={() => setShowHistoryModal(null)}
+        />
+      )}
+
+      {showDeleteModal && (
+        <DeliveryDeleteModal
+          delivery={orders.find(o => o.id === showDeleteModal)}
+          isOpen={!!showDeleteModal}
+          onClose={() => setShowDeleteModal(null)}
+        />
+      )}
+
+      <DeliveryPersonsModal
+        persons={deliveryPersons}
+        isOpen={showPersonsModal}
+        onClose={() => setShowPersonsModal(false)}
+      />
+
+      <SendMessageModal
+        persons={deliveryPersons}
+        isOpen={showMessageModal}
+        onClose={() => setShowMessageModal(false)}
+      />
 
       {/* QR Reader */}
       <DeliveryQRReader
@@ -767,6 +608,14 @@ const DeliveryPanel = () => {
         onOrderUpdate={updateOrderStatus}
       />
     </div>
+  );
+};
+
+const DeliveryPanel = () => {
+  return (
+    <AdminDeliveryProvider>
+      <DeliveryPanelContent />
+    </AdminDeliveryProvider>
   );
 };
 
