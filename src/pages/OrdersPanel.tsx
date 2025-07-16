@@ -14,7 +14,10 @@ import {
   AlertTriangle,
   FileDown,
   Smile,
-  Frown
+  Frown,
+  Edit,
+  Trash2,
+  History
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -22,6 +25,11 @@ import OrdersDashboard from '@/components/orders/OrdersDashboard';
 import CompactOrderList from '@/components/orders/CompactOrderList';
 import QRReaderModal from '@/components/orders/QRReaderModal';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
+import { AdminOrdersProvider, useAdminOrders } from '@/contexts/AdminOrdersContext';
+import { AdminModeToggle } from '@/components/orders/AdminModeToggle';
+import { OrderEditModal } from '@/components/orders/OrderEditModal';
+import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
+import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 
 /**
  * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
@@ -95,13 +103,21 @@ const mockOrders = [
   }
 ];
 
-const OrdersPanel = () => {
+const OrdersPanelContent = () => {
   const navigate = useNavigate();
   const { logout } = useAdmin();
+  const { isAdminMode } = useAdminOrders();
   const [selectedTab, setSelectedTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
+  
+  // Admin modals state
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
 
   // *** FUNCIÓN PARA OBTENER PEDIDOS CON URGENCIA MEJORADA ***
   const getOrdersWithUrgency = () => {
@@ -215,8 +231,88 @@ const OrdersPanel = () => {
     }
   };
 
+  // Admin action handlers
+  const handleEditOrder = (order: any) => {
+    setSelectedOrder(order);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteOrder = (order: any) => {
+    setSelectedOrder(order);
+    setShowDeleteModal(true);
+  };
+
+  const handleViewHistory = (orderId?: string) => {
+    setHistoryOrderId(orderId);
+    setShowHistoryModal(true);
+  };
+
+  // Enhanced CompactOrderList with admin actions
+  const renderOrderList = (orders: any[], showTimer = true, timeLimit?: number) => {
+    return (
+      <div className="space-y-4">
+        {orders.map((order) => (
+          <Card key={order.id} className="hover:shadow-lg transition-all">
+            <CardContent className="p-4">
+              {/* Order content */}
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="font-semibold">{order.id}</h3>
+                  <p className="text-stone-600">{order.customerName}</p>
+                  <p className="text-sm text-stone-500">{order.customerPhone}</p>
+                </div>
+                <div className="text-right">
+                  <Badge>{order.status}</Badge>
+                  <p className="font-bold">S/ {order.total?.toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* Admin actions */}
+              {isAdminMode && (
+                <div className="border-t pt-3 mt-3">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEditOrder(order)}
+                      className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                    >
+                      <Edit className="h-3 w-3 mr-1" />
+                      Editar
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleViewHistory(order.id)}
+                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      Historial
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDeleteOrder(order)}
+                      className="text-red-600 border-red-300 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Eliminar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
+      {/* Admin Mode Toggle */}
+      <AdminModeToggle />
+
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-sand-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -226,11 +322,27 @@ const OrdersPanel = () => {
                 <Package className="h-5 w-5 text-primary-foreground" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-brown-900">Panel de Pedidos</h1>
+                <h1 className="text-2xl font-bold text-brown-900">
+                  Panel de Pedidos
+                  {isAdminMode && (
+                    <Badge className="ml-2 bg-purple-600 text-white">
+                      MODO ADMIN
+                    </Badge>
+                  )}
+                </h1>
                 <p className="text-brown-700">Gestión y preparación de pedidos</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
+              {isAdminMode && (
+                <Button
+                  onClick={() => handleViewHistory()}
+                  className="bg-amber-600 hover:bg-amber-700 text-white"
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  Historial Global
+                </Button>
+              )}
               <Button
                 onClick={() => setShowQRReader(true)}
                 className="bg-purple-600 hover:bg-purple-700 text-white"
@@ -342,17 +454,14 @@ const OrdersPanel = () => {
                     {mockOrders.filter(o => o.status === 'pendiente').length} pedidos
                   </Badge>
                 </div>
-                <CompactOrderList
-                  orders={mockOrders.filter(order => {
+                {renderOrderList(
+                  mockOrders.filter(order => {
                     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'pendiente' && matchesSearch;
-                  })}
-                  showTimer={true}
-                  showActions={true}
-                  onStatusUpdate={updateOrderStatus}
-                  onPrint={printOrder}
-                />
+                  }),
+                  true
+                )}
               </div>
             )}
 
@@ -365,17 +474,15 @@ const OrdersPanel = () => {
                     {mockOrders.filter(o => o.status === 'en_preparacion').length} pedidos
                   </Badge>
                 </div>
-                <CompactOrderList
-                  orders={mockOrders.filter(order => {
+                {renderOrderList(
+                  mockOrders.filter(order => {
                     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'en_preparacion' && matchesSearch;
-                  })}
-                  showTimer={true}
-                  timeLimit={72}
-                  onStatusUpdate={updateOrderStatus}
-                  onPrint={printOrder}
-                />
+                  }),
+                  true,
+                  72
+                )}
               </div>
             )}
 
@@ -388,17 +495,15 @@ const OrdersPanel = () => {
                     {mockOrders.filter(o => o.status === 'listo').length} pedidos
                   </Badge>
                 </div>
-                <CompactOrderList
-                  orders={mockOrders.filter(order => {
+                {renderOrderList(
+                  mockOrders.filter(order => {
                     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'listo' && matchesSearch;
-                  })}
-                  showTimer={false}
-                  showAlerts={false}
-                  onStatusUpdate={updateOrderStatus}
-                  onPrint={printOrder}
-                />
+                  }),
+                  false,
+                  undefined
+                )}
               </div>
             )}
 
@@ -417,8 +522,8 @@ const OrdersPanel = () => {
                   </CardHeader>
                 </Card>
                 
-                <CompactOrderList
-                  orders={ordersWithUrgency
+                {renderOrderList(
+                  ordersWithUrgency
                     .filter(order => {
                       const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                            order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -428,17 +533,42 @@ const OrdersPanel = () => {
                       if (a.urgency.isExpired && !b.urgency.isExpired) return -1;
                       if (!a.urgency.isExpired && b.urgency.isExpired) return 1;
                       return a.urgency.hoursLeft - b.urgency.hoursLeft;
-                    })}
-                  showTimer={true}
-                  showActions={true}
-                  onStatusUpdate={updateOrderStatus}
-                  onPrint={printOrder}
-                />
+                    }),
+                  true
+                )}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Admin Modals */}
+      <OrderEditModal
+        order={selectedOrder}
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false);
+          setSelectedOrder(null);
+        }}
+      />
+
+      <OrderHistoryModal
+        orderId={historyOrderId}
+        isOpen={showHistoryModal}
+        onClose={() => {
+          setShowHistoryModal(false);
+          setHistoryOrderId(undefined);
+        }}
+      />
+
+      <OrderDeleteModal
+        order={selectedOrder}
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setSelectedOrder(null);
+        }}
+      />
 
       {/* Modal QR Reader */}
       <QRReaderModal
@@ -457,6 +587,14 @@ const OrdersPanel = () => {
         />
       )}
     </div>
+  );
+};
+
+const OrdersPanel = () => {
+  return (
+    <AdminOrdersProvider>
+      <OrdersPanelContent />
+    </AdminOrdersProvider>
   );
 };
 
