@@ -17,13 +17,21 @@ import {
   Eye,
   EyeOff,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Edit,
+  History,
+  Trash2
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
+import { AdminProductionProvider, useAdminProduction } from '@/contexts/AdminProductionContext';
 import { ProductCard } from '@/components/production/ProductCard';
 import { AlertParametersModal } from '@/components/production/AlertParametersModal';
 import { MovementHistoryModal } from '@/components/production/MovementHistoryModal';
+import { AdminModeToggle } from '@/components/production/AdminModeToggle';
+import { ProductionEditModal } from '@/components/production/ProductionEditModal';
+import { ProductionHistoryModal } from '@/components/production/ProductionHistoryModal';
+import { ProductionDeleteModal } from '@/components/production/ProductionDeleteModal';
 
 // *** MOCK DATA DE PRODUCTOS Y STOCK ***
 // CAMBIAR POR INTEGRACIÓN CON FIREBASE
@@ -156,14 +164,21 @@ const mockProducts = [
   }
 ];
 
-const ProductionPanel = () => {
+const ProductionPanelContent = () => {
   const navigate = useNavigate();
   const { logout, user } = useAdmin();
+  const { isAdminMode } = useAdminProduction();
   const [showAddStock, setShowAddStock] = useState(false);
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showInfrequent, setShowInfrequent] = useState(false);
+  
+  // Admin modals state
+  const [showEditModal, setShowEditModal] = useState<string | null>(null);
+  const [showAdminHistoryModal, setShowAdminHistoryModal] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
+  
   const [alertParameters, setAlertParameters] = useState({
     critical: 5,
     low: 40,
@@ -195,7 +210,55 @@ const ProductionPanel = () => {
     .filter(p => !p.isFrequent)
     .sort((a, b) => getStockUrgency(a) - getStockUrgency(b));
 
-  // Funciones de manejo
+  const renderProductCard = (product: any, isInfrequent = false) => (
+    <div key={product.id} className={`relative ${isAdminMode ? 'group' : ''}`}>
+      {isAdminMode && (
+        <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowEditModal(product.id);
+            }}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 bg-blue-100 hover:bg-blue-200 text-blue-600"
+          >
+            <Edit className="h-3 w-3" />
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowAdminHistoryModal(product.id);
+            }}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 bg-green-100 hover:bg-green-200 text-green-600"
+          >
+            <History className="h-3 w-3" />
+          </Button>
+          <Button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowDeleteModal(product.id);
+            }}
+            variant="ghost"
+            size="sm"
+            className="h-8 w-8 p-0 bg-red-100 hover:bg-red-200 text-red-600"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
+      
+      <ProductCard
+        product={product}
+        onAddStock={handleAddStock}
+        onShowHistory={handleShowHistory}
+        isInfrequent={isInfrequent}
+      />
+    </div>
+  );
+
   const handleAddStock = (productId: string) => {
     const product = mockProducts.find(p => p.id === productId);
     if (product) {
@@ -334,14 +397,7 @@ const ProductionPanel = () => {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {frequentProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddStock={handleAddStock}
-                onShowHistory={handleShowHistory}
-              />
-            ))}
+            {frequentProducts.map((product) => renderProductCard(product))}
           </div>
         </div>
 
@@ -382,15 +438,7 @@ const ProductionPanel = () => {
             <CollapsibleContent>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {infrequentProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onAddStock={handleAddStock}
-                      onShowHistory={handleShowHistory}
-                      isInfrequent={true}
-                    />
-                  ))}
+                  {infrequentProducts.map((product) => renderProductCard(product, true))}
                 </div>
               </CardContent>
             </CollapsibleContent>
@@ -454,6 +502,39 @@ const ProductionPanel = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Admin Mode Toggle */}
+      <AdminModeToggle
+        onEditRecord={(recordId) => setShowEditModal(recordId)}
+        onViewHistory={(recordId) => setShowAdminHistoryModal(recordId)}
+        onDeleteRecord={(recordId) => setShowDeleteModal(recordId)}
+        totalRecords={mockProducts.length}
+      />
+
+      {/* Admin Modals */}
+      {showEditModal && (
+        <ProductionEditModal
+          record={mockProducts.find(p => p.id === showEditModal)}
+          isOpen={!!showEditModal}
+          onClose={() => setShowEditModal(null)}
+        />
+      )}
+
+      {showAdminHistoryModal && (
+        <ProductionHistoryModal
+          record={mockProducts.find(p => p.id === showAdminHistoryModal)}
+          isOpen={!!showAdminHistoryModal}
+          onClose={() => setShowAdminHistoryModal(null)}
+        />
+      )}
+
+      {showDeleteModal && (
+        <ProductionDeleteModal
+          record={mockProducts.find(p => p.id === showDeleteModal)}
+          isOpen={!!showDeleteModal}
+          onClose={() => setShowDeleteModal(null)}
+        />
+      )}
 
       {/* Modal para Agregar Stock */}
       {showAddStock && selectedProduct && (
@@ -533,6 +614,14 @@ const ProductionPanel = () => {
         />
       )}
     </div>
+  );
+};
+
+const ProductionPanel = () => {
+  return (
+    <AdminProductionProvider>
+      <ProductionPanelContent />
+    </AdminProductionProvider>
   );
 };
 
