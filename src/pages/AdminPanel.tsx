@@ -26,6 +26,12 @@ import {
   MessageSquare
 } from 'lucide-react';
 
+// Import the complete module components
+import OrdersPanel from './OrdersPanel';
+import DeliveryPanel from './DeliveryPanel';
+import ProductionPanel from './ProductionPanel';
+import BillingPanel from './BillingPanel';
+
 const AdminPanelContent = () => {
   const { user, logout, canAccessSection } = useAdmin();
   const [activeSection, setActiveSection] = useState('dashboard');
@@ -132,8 +138,102 @@ const AdminPanelContent = () => {
     switch (activeSection) {
       case 'dashboard':
         return <AdminDashboard />;
+      
+      // Complete module views - exactly as users see them
+      case 'orders-admin':
+        return (
+          <div className="relative">
+            {/* Admin overlay indicator */}
+            <div className="absolute top-4 right-4 z-50">
+              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Modo SuperAdmin
+              </div>
+            </div>
+            {/* Complete Orders Panel */}
+            <OrdersPanel />
+          </div>
+        );
+      
+      case 'delivery-admin':
+        return (
+          <div className="relative">
+            <div className="absolute top-4 right-4 z-50">
+              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Modo SuperAdmin
+              </div>
+            </div>
+            <DeliveryPanel />
+          </div>
+        );
+      
+      case 'production-admin':
+        return (
+          <div className="relative">
+            <div className="absolute top-4 right-4 z-50">
+              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Modo SuperAdmin
+              </div>
+            </div>
+            <ProductionPanel />
+          </div>
+        );
+      
+      case 'billing-admin':
+        return (
+          <div className="relative">
+            <div className="absolute top-4 right-4 z-50">
+              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Modo SuperAdmin
+              </div>
+            </div>
+            <BillingPanel />
+          </div>
+        );
+      
+      case 'customers-admin':
+        return (
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2">Gestión de Clientes (SuperAdmin)</h2>
+                <p className="text-stone-600">Administración completa de clientes</p>
+              </div>
+              <div className="flex gap-2">
+                <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                  <Shield className="h-3 w-3" />
+                  Modo SuperAdmin
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="p-4 bg-blue-50 rounded-lg">
+                <h3 className="font-medium text-blue-800">Clientes Activos</h3>
+                <p className="text-2xl font-bold text-blue-600 mt-2">89</p>
+              </div>
+              <div className="p-4 bg-green-50 rounded-lg">
+                <h3 className="font-medium text-green-800">Buenos Pagadores</h3>
+                <p className="text-2xl font-bold text-green-600 mt-2">67</p>
+              </div>
+              <div className="p-4 bg-amber-50 rounded-lg">
+                <h3 className="font-medium text-amber-800">En Seguimiento</h3>
+                <p className="text-2xl font-bold text-amber-600 mt-2">15</p>
+              </div>
+              <div className="p-4 bg-red-50 rounded-lg">
+                <h3 className="font-medium text-red-800">Morosos</h3>
+                <p className="text-2xl font-bold text-red-600 mt-2">7</p>
+              </div>
+            </div>
+            <p className="text-stone-600">Módulo completo de clientes con privilegios administrativos - Interface completa por implementar</p>
+          </div>
+        );
+      
       case 'system-config':
         return <SystemConfiguration />;
+      
       case 'promotions':
         return (
           <div className="space-y-6">
@@ -155,6 +255,7 @@ const AdminPanelContent = () => {
             </div>
           </div>
         );
+      
       case 'locations':
         return (
           <div className="space-y-6">
@@ -176,156 +277,7 @@ const AdminPanelContent = () => {
             </div>
           </div>
         );
-      case 'orders-admin':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Gestión de Pedidos (SuperAdmin)</h2>
-                <p className="text-stone-600">Control total con privilegios de edición</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Ver como Usuario
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Modo Edición
-                </Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h3 className="font-medium text-blue-800">Privilegios Admin</h3>
-                <ul className="text-sm text-blue-600 mt-2 space-y-1">
-                  <li>• Editar cualquier pedido</li>
-                  <li>• Revertir cambios</li>
-                  <li>• Ver historial completo</li>
-                  <li>• Enviar mensajes</li>
-                </ul>
-              </div>
-              <div className="p-4 bg-amber-50 rounded-lg">
-                <h3 className="font-medium text-amber-800">Acciones Rápidas</h3>
-                <div className="space-y-2 mt-2">
-                  <Button variant="outline" size="sm" className="w-full">Aceptar Todos Pendientes</Button>
-                  <Button variant="outline" size="sm" className="w-full">Exportar Reporte</Button>
-                </div>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <h3 className="font-medium text-green-800">Estado Actual</h3>
-                <p className="text-sm text-green-600 mt-2">Sistema funcionando correctamente</p>
-              </div>
-            </div>
-            <p className="text-stone-600">Interfaz de pedidos con privilegios de administrador - Por implementar vista completa</p>
-          </div>
-        );
-      case 'delivery-admin':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Control de Reparto (SuperAdmin)</h2>
-                <p className="text-stone-600">Supervisión completa de entregas</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Eye className="h-4 w-4 mr-2" />
-                  Vista Repartidor
-                </Button>
-                <Button variant="outline" size="sm">
-                  <MessageSquare className="h-4 w-4 mr-2" />
-                  Enviar Mensaje
-                </Button>
-              </div>
-            </div>
-            <p className="text-stone-600">Módulo de reparto con privilegios administrativos - Por implementar</p>
-          </div>
-        );
-      case 'production-admin':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Control de Producción (SuperAdmin)</h2>
-                <p className="text-stone-600">Gestión completa de inventario</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Settings className="h-4 w-4 mr-2" />
-                  Editar Parámetros
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Database className="h-4 w-4 mr-2" />
-                  Historial Completo
-                </Button>
-              </div>
-            </div>
-            <p className="text-stone-600">Módulo de producción con privilegios administrativos - Por implementar</p>
-          </div>
-        );
-      case 'billing-admin':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Supervisión de Cobranzas (SuperAdmin)</h2>
-                <p className="text-stone-600">Control financiero completo</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Corregir Pagos
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Shield className="h-4 w-4 mr-2" />
-                  Revertir Cambios
-                </Button>
-              </div>
-            </div>
-            <p className="text-stone-600">Módulo de cobranzas con privilegios administrativos - Por implementar</p>
-          </div>
-        );
-      case 'customers-admin':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Gestión de Clientes (SuperAdmin)</h2>
-                <p className="text-stone-600">Administración completa de clientes</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Edit className="h-4 w-4 mr-2" />
-                  Editar Datos
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Gift className="h-4 w-4 mr-2" />
-                  Promociones
-                </Button>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h3 className="font-medium text-blue-800">Clientes Activos</h3>
-                <p className="text-2xl font-bold text-blue-600 mt-2">89</p>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <h3 className="font-medium text-green-800">Buenos Pagadores</h3>
-                <p className="text-2xl font-bold text-green-600 mt-2">67</p>
-              </div>
-              <div className="p-4 bg-amber-50 rounded-lg">
-                <h3 className="font-medium text-amber-800">En Seguimiento</h3>
-                <p className="text-2xl font-bold text-amber-600 mt-2">15</p>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <h3 className="font-medium text-red-800">Morosos</h3>
-                <p className="text-2xl font-bold text-red-600 mt-2">7</p>
-              </div>
-            </div>
-            <p className="text-stone-600">Gestión avanzada de clientes - Por implementar vista completa</p>
-          </div>
-        );
+      
       case 'audit':
         return (
           <div className="p-6">
@@ -333,6 +285,7 @@ const AdminPanelContent = () => {
             <p className="text-stone-600">Registro completo de actividades del sistema - Por implementar</p>
           </div>
         );
+      
       case 'messages':
         return (
           <div className="p-6">
@@ -340,6 +293,7 @@ const AdminPanelContent = () => {
             <p className="text-stone-600">Comunicación interna con todos los perfiles - Por implementar</p>
           </div>
         );
+      
       default:
         return <AdminDashboard />;
     }
@@ -435,7 +389,7 @@ const AdminPanelContent = () => {
         </header>
 
         {/* Page content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1">
           {renderContent()}
         </main>
       </div>
