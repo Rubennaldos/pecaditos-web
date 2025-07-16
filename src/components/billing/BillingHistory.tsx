@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,13 +11,23 @@ import {
   CheckCircle, 
   X, 
   DollarSign,
-  Calendar
+  Calendar,
+  Edit,
+  Trash2,
+  Eye,
+  History
 } from 'lucide-react';
+import { useAdminBilling } from '@/contexts/AdminBillingContext';
 
 export const BillingHistory = () => {
+  const { isAdminMode, editMovement, deleteMovement } = useAdminBilling();
   const [filterType, setFilterType] = useState('todos');
   const [filterClient, setFilterClient] = useState('');
   const [filterMonth, setFilterMonth] = useState('todos');
+  const [selectedMovement, setSelectedMovement] = useState<any>(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   // Mock movements data
   const movements = [
@@ -107,6 +116,33 @@ export const BillingHistory = () => {
           icon: Clock 
         };
     }
+  };
+
+  const handleEditMovement = (movement: any) => {
+    setSelectedMovement(movement);
+    setShowEditModal(true);
+  };
+
+  const handleDeleteMovement = (movement: any) => {
+    setSelectedMovement(movement);
+    setShowDeleteModal(true);
+  };
+
+  const handleViewDetail = (movement: any) => {
+    setSelectedMovement(movement);
+    setShowDetailModal(true);
+  };
+
+  const confirmEdit = (changes: any) => {
+    editMovement(selectedMovement.id, changes);
+    setShowEditModal(false);
+    setSelectedMovement(null);
+  };
+
+  const confirmDelete = (reason: string) => {
+    deleteMovement(selectedMovement.id, reason);
+    setShowDeleteModal(false);
+    setSelectedMovement(null);
   };
 
   const filteredMovements = movements.filter(movement => {
@@ -217,21 +253,54 @@ export const BillingHistory = () => {
                       <div className="flex items-center gap-4 mt-2 text-xs text-stone-500">
                         <span>Método: {movement.method}</span>
                         <span>Usuario: {movement.user}</span>
+                        <span>ID: {movement.id}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className={`text-lg font-bold ${
-                      movement.type === 'payment_received' ? 'text-green-600' : 
-                      movement.type === 'invoice_rejected' ? 'text-red-600' : 
-                      'text-stone-800'
-                    }`}>
-                      {movement.type === 'payment_received' ? '+' : ''}
-                      S/ {movement.amount.toFixed(2)}
+                  <div className="flex items-center gap-2">
+                    <div className="text-right mr-4">
+                      <div className={`text-lg font-bold ${
+                        movement.type === 'payment_received' ? 'text-green-600' : 
+                        movement.type === 'invoice_rejected' ? 'text-red-600' : 
+                        'text-stone-800'
+                      }`}>
+                        {movement.type === 'payment_received' ? '+' : ''}
+                        S/ {movement.amount.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-stone-500">
+                        {new Date(movement.date).toLocaleString()}
+                      </div>
                     </div>
-                    <div className="text-sm text-stone-500">
-                      {new Date(movement.date).toLocaleString()}
-                    </div>
+
+                    {/* Admin Controls */}
+                    {isAdminMode && (
+                      <div className="flex gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleViewDetail(movement)}
+                          className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditMovement(movement)}
+                          className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteMovement(movement)}
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -263,6 +332,157 @@ export const BillingHistory = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Movement Detail Modal */}
+      {showDetailModal && selectedMovement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
+            <CardHeader>
+              <CardTitle>Detalle Completo del Movimiento</CardTitle>
+              <p className="text-stone-600">ID: {selectedMovement.id}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-stone-600">Cliente</label>
+                  <p className="font-semibold">{selectedMovement.client}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-stone-600">Tipo</label>
+                  <p className="font-semibold">{getMovementInfo(selectedMovement.type).text}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-stone-600">Monto</label>
+                  <p className="font-semibold">S/ {selectedMovement.amount.toFixed(2)}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-stone-600">Fecha</label>
+                  <p className="font-semibold">{new Date(selectedMovement.date).toLocaleString()}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-stone-600">Método</label>
+                  <p className="font-semibold">{selectedMovement.method}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-stone-600">Usuario Responsable</label>
+                  <p className="font-semibold">{selectedMovement.user}</p>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-sm font-medium text-stone-600">Descripción</label>
+                <p className="bg-stone-50 p-3 rounded-lg">{selectedMovement.description}</p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDetailModal(false)}
+                  className="flex-1"
+                >
+                  Cerrar
+                </Button>
+                {isAdminMode && (
+                  <Button
+                    onClick={() => {
+                      setShowDetailModal(false);
+                      handleEditMovement(selectedMovement);
+                    }}
+                    className="bg-orange-600 hover:bg-orange-700 text-white"
+                  >
+                    <Edit className="h-4 w-4 mr-2" />
+                    Editar
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Movement Edit Modal */}
+      {showEditModal && selectedMovement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-lg mx-4">
+            <CardHeader>
+              <CardTitle>Editar Movimiento</CardTitle>
+              <p className="text-stone-600">ID: {selectedMovement.id}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Descripción</label>
+                <Input defaultValue={selectedMovement.description} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Monto</label>
+                <Input type="number" defaultValue={selectedMovement.amount} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Método</label>
+                <Select defaultValue={selectedMovement.method}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Efectivo">Efectivo</SelectItem>
+                    <SelectItem value="Transferencia">Transferencia</SelectItem>
+                    <SelectItem value="Yape">Yape</SelectItem>
+                    <SelectItem value="Tarjeta">Tarjeta</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => confirmEdit({})}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  Guardar Cambios
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowEditModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Movement Delete Modal */}
+      {showDeleteModal && selectedMovement && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="text-red-800">Eliminar Movimiento</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p>¿Está seguro de eliminar este movimiento? Esta acción no se puede deshacer.</p>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Motivo de eliminación</label>
+                <Input placeholder="Ingrese el motivo..." />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => confirmDelete("Motivo de prueba")}
+                  className="bg-red-600 hover:bg-red-700 text-white flex-1"
+                >
+                  Confirmar Eliminación
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

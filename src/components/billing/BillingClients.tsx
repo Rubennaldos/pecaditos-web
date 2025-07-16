@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -21,14 +20,18 @@ import {
   Search,
   Smile,
   Frown,
-  Meh
+  Meh,
+  Bell
 } from 'lucide-react';
+import { useAdminBilling } from '@/contexts/AdminBillingContext';
 
 export const BillingClients = () => {
+  const { isAdminMode, sendWarningMessage } = useAdminBilling();
   const [filterStatus, setFilterStatus] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [showMorosityWarning, setShowMorosityWarning] = useState(false);
 
   // Enhanced mock clients data with rating system
   const clients = [
@@ -156,6 +159,15 @@ export const BillingClients = () => {
     const discount = getPromotionPercentage(client.rating);
     console.log(`Enviando promoción de ${discount}% a ${client.name}...`);
     // TODO: Send automatic promotion based on rating
+  };
+
+  const sendMorosityWarning = (client: any) => {
+    const message = `AVISO IMPORTANTE: ${client.name}, su cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos. Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar.`;
+    
+    console.log(`Enviando advertencia de morosidad a ${client.name}: ${message}`);
+    sendWarningMessage(client.ruc, message);
+    setShowMorosityWarning(false);
+    setSelectedClient(null);
   };
 
   // Intelligent filtering
@@ -301,7 +313,7 @@ export const BillingClients = () => {
                     </div>
                   </div>
 
-                  {/* Actions with Promotion System */}
+                  {/* Actions with Promotion System and Morosity Warning */}
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
                       <Button
@@ -309,7 +321,8 @@ export const BillingClients = () => {
                         variant="outline"
                         className="text-blue-600 border-blue-300 hover:bg-blue-50 flex-1"
                       >
-                        <Phone className="h-4 w-4" />
+                        <Phone className="h-4 w-4 mr-1" />
+                        {client.phone}
                       </Button>
                       <Button
                         size="sm"
@@ -330,6 +343,19 @@ export const BillingClients = () => {
                         Enviar Promoción {promotionDiscount}%
                       </Button>
                     )}
+
+                    {/* Morosity Warning Button - Always visible for all clients */}
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelectedClient(client);
+                        setShowMorosityWarning(true);
+                      }}
+                      className="bg-red-600 hover:bg-red-700 text-white"
+                    >
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      Advertencia por Morosidad
+                    </Button>
                     
                     <Button
                       size="sm"
@@ -425,6 +451,49 @@ export const BillingClients = () => {
                 <Button
                   variant="outline"
                   onClick={() => setShowEditModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Morosity Warning Confirmation Modal */}
+      {showMorosityWarning && selectedClient && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader>
+              <CardTitle className="text-red-800">Confirmar Advertencia por Morosidad</CardTitle>
+              <p className="text-stone-600">{selectedClient.name}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                <p className="text-sm text-red-800">
+                  <Bell className="h-4 w-4 inline mr-2" />
+                  Se enviará una advertencia formal por morosidad con notificación de sobrecargo administrativo del 10%.
+                </p>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-xs text-yellow-800">
+                  <strong>Mensaje a enviar:</strong><br />
+                  "AVISO IMPORTANTE: {selectedClient.name}, su cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos. Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar."
+                </p>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => sendMorosityWarning(selectedClient)}
+                  className="bg-red-600 hover:bg-red-700 text-white flex-1"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Confirmar Envío
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowMorosityWarning(false)}
                 >
                   Cancelar
                 </Button>
