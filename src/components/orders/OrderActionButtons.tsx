@@ -33,12 +33,12 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
       onStatusChange(orderId, 'en_preparacion');
       
       toast({
-        title: "Pedido Aceptado",
+        title: "✅ Pedido Aceptado",
         description: `El pedido ${orderId} ha sido aceptado y está en preparación.`,
       });
     } catch (error) {
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "No se pudo aceptar el pedido. Intenta nuevamente.",
         variant: "destructive"
       });
@@ -56,12 +56,12 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
       onStatusChange(orderId, 'listo');
       
       toast({
-        title: "Pedido Listo",
+        title: "✅ Pedido Listo",
         description: `El pedido ${orderId} está listo para entrega.`,
       });
     } catch (error) {
       toast({
-        title: "Error",
+        title: "❌ Error",
         description: "No se pudo marcar el pedido como listo. Intenta nuevamente.",
         variant: "destructive"
       });
@@ -77,7 +77,7 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
         <AlertDialogTrigger asChild>
           <Button 
             size="sm" 
-            className="bg-green-600 hover:bg-green-700 text-white"
+            className="bg-green-600 hover:bg-green-700 text-white font-medium"
             disabled={isLoading}
           >
             <Check className="h-4 w-4 mr-1" />
@@ -118,7 +118,7 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
         <AlertDialogTrigger asChild>
           <Button 
             size="sm" 
-            className="bg-blue-600 hover:bg-blue-700 text-white"
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
             disabled={isLoading}
           >
             <Package className="h-4 w-4 mr-1" />

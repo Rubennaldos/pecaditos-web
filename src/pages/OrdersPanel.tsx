@@ -17,7 +17,9 @@ import {
   Frown,
   Edit,
   Trash2,
-  History
+  History,
+  MapPin,
+  Phone
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
@@ -30,6 +32,7 @@ import { AdminModeToggle } from '@/components/orders/AdminModeToggle';
 import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
 import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
+import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
 
 /**
  * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
@@ -257,19 +260,61 @@ const OrdersPanelContent = () => {
               {/* Order content */}
               <div className="flex justify-between items-start mb-4">
                 <div>
-                  <h3 className="font-semibold">{order.id}</h3>
-                  <p className="text-stone-600">{order.customerName}</p>
-                  <p className="text-sm text-stone-500">{order.customerPhone}</p>
+                  <h3 className="font-semibold text-lg">{order.id}</h3>
+                  <p className="text-stone-600 font-medium">{order.customerName}</p>
+                  <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
+                    <Phone className="h-4 w-4" />
+                    <span>{order.customerPhone}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
+                    <MapPin className="h-4 w-4" />
+                    <span className="truncate">{order.customerAddress}</span>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <Badge>{order.status}</Badge>
-                  <p className="font-bold">S/ {order.total?.toFixed(2)}</p>
+                  <Badge className={`mb-2 ${
+                    order.status === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                    order.status === 'en_preparacion' ? 'bg-blue-100 text-blue-800' :
+                    order.status === 'listo' ? 'bg-green-100 text-green-800' :
+                    'bg-stone-100 text-stone-800'
+                  }`}>
+                    {order.status === 'pendiente' ? 'Pendiente' :
+                     order.status === 'en_preparacion' ? 'En Preparación' :
+                     order.status === 'listo' ? 'Listo' : order.status}
+                  </Badge>
+                  <p className="font-bold text-lg">S/ {order.total?.toFixed(2)}</p>
+                  <p className="text-sm text-stone-500">{order.items?.length} productos</p>
                 </div>
               </div>
 
-              {/* Admin actions */}
-              {isAdminMode && (
-                <div className="border-t pt-3 mt-3">
+              {/* Order Items Summary */}
+              <div className="mb-4 p-3 bg-stone-50 rounded">
+                <div className="space-y-1">
+                  {order.items?.slice(0, 2).map((item: any, idx: number) => (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span>{item.product}</span>
+                      <span>{item.quantity} x S/ {item.price}</span>
+                    </div>
+                  ))}
+                  {order.items?.length > 2 && (
+                    <p className="text-xs text-stone-500">
+                      y {order.items.length - 2} producto(s) más...
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-200">
+                {/* Main Order Action Buttons */}
+                <OrderActionButtons
+                  orderId={order.id}
+                  currentStatus={order.status}
+                  onStatusChange={updateOrderStatus}
+                />
+
+                {/* Admin actions */}
+                {isAdminMode && (
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
@@ -299,6 +344,15 @@ const OrdersPanelContent = () => {
                       Eliminar
                     </Button>
                   </div>
+                )}
+              </div>
+
+              {/* Notes if any */}
+              {order.notes && (
+                <div className="pt-2 border-t border-stone-200 mt-2">
+                  <p className="text-xs text-stone-500">
+                    <strong>Notas:</strong> {order.notes}
+                  </p>
                 </div>
               )}
             </CardContent>
