@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Phone, 
   MessageSquare, 
@@ -18,16 +21,50 @@ import {
   Bell,
   Edit,
   Trash2,
-  History
+  History,
+  DollarSign,
+  FileText,
+  User
 } from 'lucide-react';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
+import { useToast } from '@/hooks/use-toast';
 
 export const BillingToBePaidAdmin = () => {
   const { isAdminMode, sendWarningMessage } = useAdminBilling();
+  const { toast } = useToast();
   const [filterStatus, setFilterStatus] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Modal states
   const [showConfirmWarning, setShowConfirmWarning] = useState(false);
+  const [showCollectModal, setShowCollectModal] = useState(false);
+  const [showCommitmentModal, setShowCommitmentModal] = useState(false);
+  const [showCreditNoteModal, setCreditNoteModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
+  
+  // Form states
+  const [collectData, setCollectData] = useState({
+    amount: '',
+    operationNumber: '',
+    bank: '',
+    paymentDate: '',
+    responsible: '',
+    notes: ''
+  });
+  
+  const [commitmentData, setCommitmentData] = useState({
+    commitmentDate: '',
+    amount: '',
+    notes: '',
+    sendNotification: true
+  });
+  
+  const [creditNoteData, setCreditNoteData] = useState({
+    noteNumber: '',
+    amount: '',
+    reason: '',
+    description: ''
+  });
 
   // Enhanced mock invoices data without total amount displayed
   const invoices = [
@@ -61,9 +98,152 @@ export const BillingToBePaidAdmin = () => {
     }
   ];
 
+  // Action handlers
+  const handleCollect = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setCollectData({
+      amount: invoice.amount.toFixed(2),
+      operationNumber: '',
+      bank: '',
+      paymentDate: new Date().toISOString().split('T')[0],
+      responsible: 'cobranzas@pecaditos.com',
+      notes: ''
+    });
+    setShowCollectModal(true);
+  };
+
+  const handleCommitment = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setCommitmentData({
+      commitmentDate: '',
+      amount: invoice.amount.toFixed(2),
+      notes: '',
+      sendNotification: true
+    });
+    setShowCommitmentModal(true);
+  };
+
+  const handleCreditNote = (invoice: any) => {
+    setSelectedInvoice(invoice);
+    setCreditNoteData({
+      noteNumber: '',
+      amount: invoice.amount.toFixed(2),
+      reason: '',
+      description: ''
+    });
+    setCreditNoteModal(true);
+  };
+
+  const handleWhatsApp = (invoice: any) => {
+    const message = `Hola ${invoice.client}, le recordamos que tiene una factura pendiente ${invoice.id} por S/ ${invoice.amount.toFixed(2)}. ¿Podríamos coordinar el pago? Gracias.`;
+    const whatsappUrl = `https://wa.me/${invoice.clientPhone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    
+    toast({
+      title: "WhatsApp Abierto",
+      description: "Se abrió WhatsApp con el mensaje predeterminado",
+    });
+  };
+
   const handleWarning = (invoice: any) => {
     setSelectedInvoice(invoice);
     setShowConfirmWarning(true);
+  };
+
+  const handleDownloadPDF = (invoice: any) => {
+    console.log(`Descargando PDF de factura ${invoice.id}`);
+    toast({
+      title: "Descargando PDF",
+      description: `Generando PDF de la factura ${invoice.id}`,
+    });
+    // TODO: Implement real PDF download functionality
+  };
+
+  const handleCall = (phone: string) => {
+    console.log(`Iniciando llamada a ${phone}`);
+    toast({
+      title: "Llamada Iniciada",
+      description: `Marcando al número ${phone}`,
+    });
+    // TODO: Integrate with phone system
+  };
+
+  const confirmCollect = () => {
+    if (!collectData.operationNumber || !collectData.bank) {
+      toast({
+        title: "Error",
+        description: "Complete todos los campos obligatorios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Registrando cobro:', {
+      invoice: selectedInvoice?.id,
+      ...collectData
+    });
+
+    toast({
+      title: "Cobro Registrado",
+      description: `Cobro de S/ ${collectData.amount} registrado exitosamente`,
+    });
+
+    setShowCollectModal(false);
+    setSelectedInvoice(null);
+    // TODO: Integrar con base de datos
+  };
+
+  const confirmCommitment = () => {
+    if (!commitmentData.commitmentDate) {
+      toast({
+        title: "Error", 
+        description: "Debe seleccionar una fecha de compromiso",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Registrando compromiso:', {
+      invoice: selectedInvoice?.id,
+      ...commitmentData
+    });
+
+    if (commitmentData.sendNotification) {
+      const message = `${selectedInvoice?.client}, confirmamos su compromiso de pago de S/ ${commitmentData.amount} para el ${new Date(commitmentData.commitmentDate).toLocaleDateString()}. Gracias.`;
+      sendWarningMessage(selectedInvoice?.ruc, message);
+    }
+
+    toast({
+      title: "Compromiso Registrado",
+      description: `Compromiso agendado para ${new Date(commitmentData.commitmentDate).toLocaleDateString()}`,
+    });
+
+    setShowCommitmentModal(false);
+    setSelectedInvoice(null);
+  };
+
+  const confirmCreditNote = () => {
+    if (!creditNoteData.noteNumber || !creditNoteData.reason) {
+      toast({
+        title: "Error",
+        description: "Complete todos los campos obligatorios",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    console.log('Creando nota de crédito:', {
+      invoice: selectedInvoice?.id,
+      ...creditNoteData
+    });
+
+    toast({
+      title: "Nota de Crédito Creada",
+      description: `Nota de crédito ${creditNoteData.noteNumber} por S/ ${creditNoteData.amount}`,
+    });
+
+    setCreditNoteModal(false);
+    setSelectedInvoice(null);
   };
 
   const confirmWarning = () => {
@@ -72,16 +252,11 @@ export const BillingToBePaidAdmin = () => {
     sendWarningMessage(selectedInvoice?.ruc, defaultMessage);
     setShowConfirmWarning(false);
     setSelectedInvoice(null);
-  };
-
-  const handleDownloadPDF = (invoice: any) => {
-    console.log(`Descargando PDF de factura ${invoice.id}`);
-    // TODO: Implement PDF download functionality
-  };
-
-  const handleCall = (phone: string) => {
-    console.log(`Iniciando llamada a ${phone}`);
-    // TODO: Integrate with phone system
+    
+    toast({
+      title: "Advertencia Enviada",
+      description: "Se envió la advertencia por WhatsApp al cliente",
+    });
   };
 
   const filteredInvoices = invoices.filter(invoice => {
@@ -220,36 +395,40 @@ export const BillingToBePaidAdmin = () => {
                       <Phone className="h-4 w-4 mr-1" />
                       {invoice.clientPhone}
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-green-600 border-green-300 hover:bg-green-50"
-                    >
-                      <MessageSquare className="h-4 w-4 mr-1" />
-                      WhatsApp
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-green-600 hover:bg-green-700 text-white"
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Cobrar
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="bg-orange-600 hover:bg-orange-700 text-white"
-                    >
-                      <Calendar className="h-4 w-4 mr-1" />
-                      Compromiso
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-purple-600 border-purple-300 hover:bg-purple-50"
-                    >
-                      <CreditCard className="h-4 w-4 mr-1" />
-                      N. Crédito
-                    </Button>
+                     <Button
+                       size="sm"
+                       variant="outline"
+                       onClick={() => handleWhatsApp(invoice)}
+                       className="text-green-600 border-green-300 hover:bg-green-50"
+                     >
+                       <MessageSquare className="h-4 w-4 mr-1" />
+                       WhatsApp
+                     </Button>
+                     <Button
+                       size="sm"
+                       onClick={() => handleCollect(invoice)}
+                       className="bg-green-600 hover:bg-green-700 text-white"
+                     >
+                       <CheckCircle className="h-4 w-4 mr-1" />
+                       Cobrar
+                     </Button>
+                     <Button
+                       size="sm"
+                       onClick={() => handleCommitment(invoice)}
+                       className="bg-orange-600 hover:bg-orange-700 text-white"
+                     >
+                       <Calendar className="h-4 w-4 mr-1" />
+                       Compromiso
+                     </Button>
+                     <Button
+                       size="sm"
+                       onClick={() => handleCreditNote(invoice)}
+                       variant="outline"
+                       className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                     >
+                       <CreditCard className="h-4 w-4 mr-1" />
+                       N. Crédito
+                     </Button>
                     <Button
                       size="sm"
                       onClick={() => handleWarning(invoice)}
@@ -339,6 +518,272 @@ export const BillingToBePaidAdmin = () => {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Collect Payment Modal */}
+      {showCollectModal && selectedInvoice && (
+        <Dialog open={showCollectModal} onOpenChange={setShowCollectModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-green-800">Registrar Cobro</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-sm text-green-800">
+                  <strong>Cliente:</strong> {selectedInvoice.client}<br/>
+                  <strong>Factura:</strong> {selectedInvoice.id}<br/>
+                  <strong>Monto:</strong> S/ {selectedInvoice.amount.toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Monto Cobrado *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={collectData.amount}
+                    onChange={(e) => setCollectData({...collectData, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label>Fecha de Pago *</Label>
+                  <Input
+                    type="date"
+                    value={collectData.paymentDate}
+                    onChange={(e) => setCollectData({...collectData, paymentDate: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Número de Operación *</Label>
+                  <Input
+                    value={collectData.operationNumber}
+                    onChange={(e) => setCollectData({...collectData, operationNumber: e.target.value})}
+                    placeholder="Ej: 123456789"
+                  />
+                </div>
+                <div>
+                  <Label>Banco *</Label>
+                  <Select value={collectData.bank} onValueChange={(value) => setCollectData({...collectData, bank: value})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleccionar banco" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="bcp">BCP</SelectItem>
+                      <SelectItem value="bbva">BBVA</SelectItem>
+                      <SelectItem value="scotiabank">Scotiabank</SelectItem>
+                      <SelectItem value="interbank">Interbank</SelectItem>
+                      <SelectItem value="banbif">BanBif</SelectItem>
+                      <SelectItem value="efectivo">Efectivo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
+              <div>
+                <Label>Responsable</Label>
+                <Input
+                  value={collectData.responsible}
+                  onChange={(e) => setCollectData({...collectData, responsible: e.target.value})}
+                  placeholder="Usuario responsable"
+                />
+              </div>
+              
+              <div>
+                <Label>Observaciones</Label>
+                <Textarea
+                  value={collectData.notes}
+                  onChange={(e) => setCollectData({...collectData, notes: e.target.value})}
+                  placeholder="Notas adicionales sobre el cobro..."
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={confirmCollect}
+                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                >
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  Registrar Cobro
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCollectModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Commitment Modal */}
+      {showCommitmentModal && selectedInvoice && (
+        <Dialog open={showCommitmentModal} onOpenChange={setShowCommitmentModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-orange-800">Agendar Compromiso de Pago</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                <p className="text-sm text-orange-800">
+                  <strong>Cliente:</strong> {selectedInvoice.client}<br/>
+                  <strong>Factura:</strong> {selectedInvoice.id}<br/>
+                  <strong>Monto:</strong> S/ {selectedInvoice.amount.toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Fecha de Compromiso *</Label>
+                  <Input
+                    type="date"
+                    value={commitmentData.commitmentDate}
+                    onChange={(e) => setCommitmentData({...commitmentData, commitmentDate: e.target.value})}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                </div>
+                <div>
+                  <Label>Monto Comprometido</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={commitmentData.amount}
+                    onChange={(e) => setCommitmentData({...commitmentData, amount: e.target.value})}
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>Observaciones del Compromiso</Label>
+                <Textarea
+                  value={commitmentData.notes}
+                  onChange={(e) => setCommitmentData({...commitmentData, notes: e.target.value})}
+                  placeholder="Detalles del acuerdo, condiciones especiales..."
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="sendNotification"
+                  checked={commitmentData.sendNotification}
+                  onChange={(e) => setCommitmentData({...commitmentData, sendNotification: e.target.checked})}
+                  className="rounded"
+                />
+                <Label htmlFor="sendNotification" className="text-sm">
+                  Enviar notificación por WhatsApp al cliente
+                </Label>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={confirmCommitment}
+                  className="bg-orange-600 hover:bg-orange-700 text-white flex-1"
+                >
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Agendar Compromiso
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowCommitmentModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* Credit Note Modal */}
+      {showCreditNoteModal && selectedInvoice && (
+        <Dialog open={showCreditNoteModal} onOpenChange={setCreditNoteModal}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-purple-800">Crear Nota de Crédito</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="text-sm text-purple-800">
+                  <strong>Cliente:</strong> {selectedInvoice.client}<br/>
+                  <strong>Factura Original:</strong> {selectedInvoice.id}<br/>
+                  <strong>Monto Original:</strong> S/ {selectedInvoice.amount.toFixed(2)}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Número de Nota *</Label>
+                  <Input
+                    value={creditNoteData.noteNumber}
+                    onChange={(e) => setCreditNoteData({...creditNoteData, noteNumber: e.target.value})}
+                    placeholder="NC-2024-001"
+                  />
+                </div>
+                <div>
+                  <Label>Monto de la Nota *</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={creditNoteData.amount}
+                    onChange={(e) => setCreditNoteData({...creditNoteData, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>Motivo *</Label>
+                <Select value={creditNoteData.reason} onValueChange={(value) => setCreditNoteData({...creditNoteData, reason: value})}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar motivo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="devolucion">Devolución de mercadería</SelectItem>
+                    <SelectItem value="descuento">Descuento comercial</SelectItem>
+                    <SelectItem value="error_facturacion">Error en facturación</SelectItem>
+                    <SelectItem value="bonificacion">Bonificación</SelectItem>
+                    <SelectItem value="otros">Otros</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div>
+                <Label>Descripción Detallada</Label>
+                <Textarea
+                  value={creditNoteData.description}
+                  onChange={(e) => setCreditNoteData({...creditNoteData, description: e.target.value})}
+                  placeholder="Descripción detallada del motivo de la nota de crédito..."
+                  rows={3}
+                />
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  onClick={confirmCreditNote}
+                  className="bg-purple-600 hover:bg-purple-700 text-white flex-1"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Crear Nota de Crédito
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setCreditNoteModal(false)}
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );
