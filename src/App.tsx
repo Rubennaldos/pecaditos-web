@@ -59,23 +59,6 @@ const App = () => (
                   } 
                 />
                 
-                {/* PORTAL MAYORISTA - Solo mayoristas y admin */}
-                <Route 
-                  path="/mayorista" 
-                  element={
-                    <ProtectedRoute routeType="CATALOG_WHOLESALE">
-                      <WholesalePortal />
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/catalogo-mayorista" 
-                  element={
-                    <ProtectedRoute routeType="CATALOG_WHOLESALE">
-                      <WholesalePortal />
-                    </ProtectedRoute>
-                  } 
-                />
                 
                 {/* PANEL DE ADMINISTRACIÓN GENERAL - Solo admin */}
                 <Route 
