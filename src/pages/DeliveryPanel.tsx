@@ -46,7 +46,7 @@ import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
 import { DeliveryPersonsModal } from '@/components/delivery/DeliveryPersonsModal';
 import { SendMessageModal } from '@/components/delivery/SendMessageModal';
 
-// *** MOCK DATA DE REPARTIDORES CON CÓDIGOS TEMPORALES ***
+// Mock data
 const deliveryPersons = [
   { id: "1", name: "Carlos Mendoza", phone: "+51 999 111 111", tempCode: "1234" },
   { id: "2", name: "María López", phone: "+51 999 222 222", tempCode: "5678" },
@@ -54,7 +54,6 @@ const deliveryPersons = [
   { id: "4", name: "Ana Torres", phone: "+51 999 444 444", tempCode: "3456" }
 ];
 
-// *** DEFINIR TIPOS DE PEDIDOS ***
 interface DeliveryOrder {
   id: string;
   customerName: string;
@@ -73,7 +72,6 @@ interface DeliveryOrder {
   deliveryNotes?: string;
 }
 
-// *** MOCK DATA DE PEDIDOS ***
 const mockOrders: DeliveryOrder[] = [
   {
     id: "PEC-2024-003",
@@ -82,7 +80,7 @@ const mockOrders: DeliveryOrder[] = [
     customerAddress: "Calle Santa Rosa 789, San Borja",
     district: "San Borja",
     coordinates: { lat: -12.1004, lng: -76.9967 },
-    status: "listo", // Viene del módulo de pedidos
+    status: "listo",
     readyAt: "2024-01-14T16:30:00",
     total: 225.00,
     paymentMethod: "credito_15",
@@ -140,23 +138,27 @@ const DeliveryPanelContent = () => {
   const [showPersonsModal, setShowPersonsModal] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
   
-  // Form states
-  const [invoiceNumber, setInvoiceNumber] = useState('');
+  // Delivery confirmation modal
+  const [showDeliveryModal, setShowDeliveryModal] = useState<string | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
-  const [rejectReason, setRejectReason] = useState('');
-  const [customRejectReason, setCustomRejectReason] = useState('');
-  const [postponeDate, setPostponeDate] = useState('');
-  const [postponeReason, setPostponeReason] = useState('');
 
-  // *** FILTRAR PEDIDOS SEGÚN ESTADO ***
+  // Filtrar pedidos según estado
   const pendingOrders = orders.filter(o => o.status === 'listo' && !o.assignedTo);
   const inRouteOrders = orders.filter(o => o.status === 'en_ruta' && o.assignedTo === currentUser);
   const deliveredOrders = orders.filter(o => o.status === 'entregado' && o.assignedTo === currentUser);
 
-  // Admin can see all orders if in admin mode
+  // Admin puede ver todos los pedidos si está en modo admin
   const adminPendingOrders = isAdminMode ? orders.filter(o => o.status === 'listo') : pendingOrders;
   const adminInRouteOrders = isAdminMode ? orders.filter(o => o.status === 'en_ruta') : inRouteOrders;
   const adminDeliveredOrders = isAdminMode ? orders.filter(o => o.status === 'entregado') : deliveredOrders;
+
+  // Filtrar entregas solo del día actual para el módulo "Entregados"
+  const todayDeliveredOrders = adminDeliveredOrders.filter(order => {
+    if (!order.deliveredAt) return false;
+    const deliveryDate = new Date(order.deliveredAt).toDateString();
+    const today = new Date().toDateString();
+    return deliveryDate === today;
+  });
 
   // Listen for admin events
   useEffect(() => {
@@ -181,7 +183,6 @@ const DeliveryPanelContent = () => {
     };
   }, []);
 
-  // *** MANEJAR LOGIN ***
   const handleLogin = (personId: string) => {
     const person = deliveryPersons.find(p => p.id === personId);
     if (person) {
@@ -190,7 +191,6 @@ const DeliveryPanelContent = () => {
     }
   };
 
-  // *** TOMAR PEDIDO ***
   const takeOrder = (orderId: string) => {
     setOrders(prev => prev.map(order => 
       order.id === orderId 
@@ -199,110 +199,22 @@ const DeliveryPanelContent = () => {
     ));
   };
 
-  // *** DEVOLVER PEDIDO A PENDIENTES ***
-  const returnOrderToPending = (orderId: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
-        ? { ...order, status: 'listo', assignedTo: null, takenAt: null }
-        : order
-    ));
-  };
-
-  // *** ACTUALIZAR ESTADO DE PEDIDO ***
-  const updateOrderStatus = (orderId: string, newStatus: string, notes?: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
-        ? { 
-            ...order, 
-            status: newStatus,
-            deliveryNotes: notes || order.deliveryNotes,
-            deliveredAt: newStatus === 'entregado' ? new Date().toISOString() : order.deliveredAt
-          }
-        : order
-    ));
-  };
-
-  // *** MANEJAR ENTREGA ***
   const handleDeliveryConfirm = (orderId: string) => {
-    if (!invoiceNumber.trim()) {
-      alert('Por favor ingrese el número de factura/boleta');
-      return;
-    }
-
     setOrders(prev => prev.map(order => 
       order.id === orderId 
         ? { 
             ...order, 
             status: 'entregado',
             deliveredAt: new Date().toISOString(),
-            deliveryNotes: `Factura/Boleta: ${invoiceNumber}${deliveryNotes ? ` - ${deliveryNotes}` : ''}`
+            deliveryNotes: deliveryNotes
           }
         : order
     ));
     
-    // Reset form and close modal
-    setInvoiceNumber('');
     setDeliveryNotes('');
-    setShowEditModal(null);
+    setShowDeliveryModal(null);
   };
 
-  // *** RECHAZAR PEDIDO ***
-  const handleRejectOrder = (orderId: string) => {
-    const finalReason = rejectReason === 'otro' ? customRejectReason : rejectReason;
-    if (!finalReason.trim()) {
-      alert('Por favor seleccione o ingrese un motivo de rechazo');
-      return;
-    }
-
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
-        ? { 
-            ...order, 
-            status: 'rechazado',
-            deliveryNotes: `Rechazado: ${finalReason}`,
-            assignedTo: null
-          }
-        : order
-    ));
-    
-    // Reset form and close modal
-    setRejectReason('');
-    setCustomRejectReason('');
-    setShowDeleteModal(null);
-  };
-
-  // *** POSTERGAR PEDIDO ***
-  const handlePostponeOrder = (orderId: string) => {
-    if (!postponeDate || !postponeReason.trim()) {
-      alert('Por favor complete la nueva fecha y el motivo');
-      return;
-    }
-
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
-        ? { 
-            ...order, 
-            status: 'postergado',
-            deliveryNotes: `Postergado para ${postponeDate}: ${postponeReason}`,
-            assignedTo: null
-          }
-        : order
-    ));
-    
-    // Reset form and close modal
-    setPostponeDate('');
-    setPostponeReason('');
-    setShowDeleteModal(null);
-  };
-
-  // *** IMPRIMIR PEDIDO ***
-  const handlePrintOrder = (order: any, format: string, editedData: any) => {
-    // Implementation for printing - can be enhanced based on requirements
-    console.log('Printing order:', order.id, 'in format:', format);
-    window.print(); // Basic print functionality
-  };
-
-  // *** CERRAR SESIÓN ***
   const handleLogout = async () => {
     try {
       await logout();
@@ -322,9 +234,10 @@ const DeliveryPanelContent = () => {
     );
   }
 
-  const renderOrderCard = (order: any, showAdminActions = false) => (
+  const renderOrderCard = (order: any, showAdminActions = false, showDeliveryButton = false) => (
     <Card key={order.id} className={`hover:shadow-lg transition-all ${showAdminActions && isAdminMode ? 'relative group' : ''}`}>
-      {showAdminActions && isAdminMode && (
+      {
+      showAdminActions && isAdminMode && (
         <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             onClick={(e) => {
@@ -360,7 +273,8 @@ const DeliveryPanelContent = () => {
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
-      )}
+      )
+    }
       
       <CardHeader>
         <div className="flex items-center justify-between">
@@ -400,15 +314,42 @@ const DeliveryPanelContent = () => {
             <div className="text-sm">
               <span>Pago: {order.paymentMethod}</span>
             </div>
-            <Button
-              onClick={() => takeOrder(order.id)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              <Truck className="h-4 w-4 mr-2" />
-              Tomar Pedido
-            </Button>
+            
+            {/* Botón Tomar Pedido - solo en Pedidos Listos */}
+            {order.status === 'listo' && !order.assignedTo && (
+              <Button
+                onClick={() => takeOrder(order.id)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Truck className="h-4 w-4 mr-2" />
+                Tomar Pedido
+              </Button>
+            )}
+            
+            {/* Botón Entregado - solo en En Ruta */}
+            {showDeliveryButton && order.status === 'en_ruta' && (
+              <Button
+                onClick={() => setShowDeliveryModal(order.id)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Marcar Entregado
+              </Button>
+            )}
           </div>
         </div>
+        
+        {/* Mostrar notas de entrega si está entregado */}
+        {order.status === 'entregado' && order.deliveryNotes && (
+          <div className="mt-3 pt-3 border-t border-stone-200">
+            <p className="text-sm text-stone-600">
+              <strong>Observaciones de entrega:</strong> {order.deliveryNotes}
+            </p>
+            <p className="text-xs text-stone-500 mt-1">
+              Entregado: {new Date(order.deliveredAt!).toLocaleString()}
+            </p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
@@ -462,7 +403,7 @@ const DeliveryPanelContent = () => {
         <div className="w-64 bg-white shadow-sm min-h-screen">
           <div className="p-4">
             <Tabs value={selectedTab} onValueChange={setSelectedTab} orientation="vertical">
-              <TabsList className="grid w-full grid-rows-3 h-auto">
+              <TabsList className="grid w-full grid-rows-4 h-auto">
                 <TabsTrigger value="pendientes" className="justify-start">
                   <Package className="h-4 w-4 mr-2" />
                   Pedidos Listos ({adminPendingOrders.length})
@@ -473,7 +414,11 @@ const DeliveryPanelContent = () => {
                 </TabsTrigger>
                 <TabsTrigger value="entregados" className="justify-start">
                   <CheckCircle className="h-4 w-4 mr-2" />
-                  Entregados ({adminDeliveredOrders.length})
+                  Entregados Hoy ({todayDeliveredOrders.length})
+                </TabsTrigger>
+                <TabsTrigger value="historial" className="justify-start">
+                  <History className="h-4 w-4 mr-2" />
+                  Historial
                 </TabsTrigger>
               </TabsList>
             </Tabs>
@@ -500,7 +445,7 @@ const DeliveryPanelContent = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {adminPendingOrders.map((order) => renderOrderCard(order, true))}
+                  {adminPendingOrders.map((order) => renderOrderCard(order, true, false))}
                 </div>
               )}
             </TabsContent>
@@ -522,37 +467,110 @@ const DeliveryPanelContent = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {adminInRouteOrders.map((order) => renderOrderCard(order, true))}
+                  {adminInRouteOrders.map((order) => renderOrderCard(order, true, true))}
                 </div>
               )}
             </TabsContent>
 
-            {/* PEDIDOS ENTREGADOS */}
+            {/* PEDIDOS ENTREGADOS HOY */}
             <TabsContent value="entregados" className="space-y-4">
               <h2 className="text-xl font-semibold text-stone-800 mb-4">
-                Pedidos Entregados
+                Entregas del Día
               </h2>
-              {adminDeliveredOrders.length === 0 ? (
+              {todayDeliveredOrders.length === 0 ? (
                 <div className="text-center py-12">
                   <CheckCircle className="h-12 w-12 text-stone-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-stone-800 mb-2">
-                    No hay entregas completadas
+                    No hay entregas completadas hoy
                   </h3>
                   <p className="text-stone-600">
-                    Aquí aparecerán los pedidos que hayas entregado
+                    Aquí aparecerán los pedidos que hayas entregado hoy
                   </p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {adminDeliveredOrders.map((order) => renderOrderCard(order, true))}
+                  {todayDeliveredOrders.map((order) => renderOrderCard(order, true, false))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* HISTORIAL */}
+            <TabsContent value="historial" className="space-y-4">
+              <h2 className="text-xl font-semibold text-stone-800 mb-4">
+                Historial de Entregas
+              </h2>
+              
+              {/* Filtros */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Filtros de Búsqueda</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Fecha Desde</Label>
+                    <Input type="date" />
+                  </div>
+                  <div>
+                    <Label>Fecha Hasta</Label>
+                    <Input type="date" />
+                  </div>
+                  <div>
+                    <Label>Cliente</Label>
+                    <Input placeholder="Nombre del cliente" />
+                  </div>
+                  <div>
+                    <Label>Número de Pedido</Label>
+                    <Input placeholder="PEC-2024-XXX" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Button className="mt-6">
+                      <FileText className="h-4 w-4 mr-2" />
+                      Buscar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Resultados del historial */}
+              <div className="space-y-4">
+                {orders.filter(o => o.status === 'entregado' && o.assignedTo === currentUser).map((order) => (
+                  <Card key={`hist-${order.id}`}>
+                    <CardContent className="p-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                        <div>
+                          <div className="font-semibold">{order.id}</div>
+                          <div className="text-sm text-stone-600">{order.customerName}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-stone-500">Tomado:</div>
+                          <div className="text-sm">{order.takenAt ? new Date(order.takenAt).toLocaleString() : '-'}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-stone-500">Entregado:</div>
+                          <div className="text-sm">{order.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : '-'}</div>
+                        </div>
+                        <div>
+                          <div className="text-sm text-stone-500">Total:</div>
+                          <div className="font-semibold">S/ {order.total.toFixed(2)}</div>
+                        </div>
+                      </div>
+                      {order.deliveryNotes && (
+                        <div className="mt-2 pt-2 border-t border-stone-200">
+                          <div className="text-sm text-stone-600">
+                            <strong>Observaciones:</strong> {order.deliveryNotes}
+                          </div>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             </TabsContent>
           </Tabs>
         </div>
       </div>
 
-      {/* Admin Mode Toggle */}
+      {/* Admin Mode Toggle - Solo para Admin General */}
       <AdminModeToggle
         onEditDelivery={(orderId) => setShowEditModal(orderId)}
         onViewHistory={(orderId) => setShowHistoryModal(orderId)}
@@ -563,7 +581,38 @@ const DeliveryPanelContent = () => {
         totalPersons={deliveryPersons.length}
       />
 
-      {/* Admin Modals */}
+      {/* Modal de confirmación de entrega */}
+      <Dialog open={!!showDeliveryModal} onOpenChange={() => setShowDeliveryModal(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Entrega</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Observaciones de la entrega (opcional)</Label>
+              <Textarea
+                value={deliveryNotes}
+                onChange={(e) => setDeliveryNotes(e.target.value)}
+                placeholder="Ej: Entregado correctamente, recibido por..."
+                rows={3}
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setShowDeliveryModal(null)}>
+                Cancelar
+              </Button>
+              <Button 
+                onClick={() => showDeliveryModal && handleDeliveryConfirm(showDeliveryModal)}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                Confirmar Entrega
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modales Admin - Solo visibles para Admin General */}
       {showEditModal && (
         <DeliveryEditModal
           delivery={orders.find(o => o.id === showEditModal)}
@@ -605,7 +654,7 @@ const DeliveryPanelContent = () => {
         isOpen={showQRReader}
         onClose={() => setShowQRReader(false)}
         availableOrders={pendingOrders}
-        onOrderUpdate={updateOrderStatus}
+        onOrderUpdate={() => {}}
       />
     </div>
   );

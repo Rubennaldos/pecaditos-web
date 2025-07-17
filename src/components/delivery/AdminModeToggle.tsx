@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useAdminDelivery } from '@/contexts/AdminDeliveryContext';
+import { useAdmin } from '@/contexts/AdminContext';
 
 interface AdminModeToggleProps {
   onEditDelivery: (orderId: string) => void;
@@ -25,7 +26,13 @@ export const AdminModeToggle = ({
   totalDeliveries,
   totalPersons
 }: AdminModeToggleProps) => {
+  const { user } = useAdmin();
   const { isAdminMode, setIsAdminMode, deliveryHistory } = useAdminDelivery();
+
+  // Solo mostrar si el usuario es Admin General
+  if (!user || user.profile !== 'admin') {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
