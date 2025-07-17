@@ -25,15 +25,14 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      
-      {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado por perfiles */}
-      <AuthProvider>
-        <WholesaleAuthProvider>
-          <AdminProvider>
-            <BrowserRouter>
+    {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado por perfiles */}
+    <AuthProvider>
+      <WholesaleAuthProvider>
+        <AdminProvider>
+          <BrowserRouter>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
               <Routes>
                 {/* PÁGINA PRINCIPAL - Landing/Bienvenida - Acceso público */}
                 <Route path="/" element={<Index />} />
@@ -151,11 +150,11 @@ const App = () => (
                 {/* RUTA 404 - Debe ir al final */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </BrowserRouter>
-          </AdminProvider>
-        </WholesaleAuthProvider>
-      </AuthProvider>
-    </TooltipProvider>
+            </TooltipProvider>
+          </BrowserRouter>
+        </AdminProvider>
+      </WholesaleAuthProvider>
+    </AuthProvider>
   </QueryClientProvider>
 );
 
