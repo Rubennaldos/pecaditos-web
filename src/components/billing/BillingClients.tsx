@@ -344,18 +344,29 @@ export const BillingClients = () => {
                       </Button>
                     )}
 
-                    {/* Morosity Warning Button - Always visible for all clients */}
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setSelectedClient(client);
-                        setShowMorosityWarning(true);
-                      }}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
-                      <AlertTriangle className="h-4 w-4 mr-2" />
-                      Advertencia por Morosidad
-                    </Button>
+                    {/* Morosity Warning Button - Solo visible para clientes con 2 estrellas o menos */}
+                    {client.rating <= 2 && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedClient(client);
+                          setShowMorosityWarning(true);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        <AlertTriangle className="h-4 w-4 mr-2" />
+                        Advertencia por Morosidad
+                      </Button>
+                    )}
+                    
+                    {/* Mostrar estado de crédito desactivado para 0 estrellas */}
+                    {client.rating === 0 && (
+                      <div className="w-full bg-red-50 border border-red-200 rounded p-2 text-center">
+                        <p className="text-xs text-red-800 font-medium">
+                          ⚠️ CRÉDITO DESACTIVADO - Solo Admin General puede reactivar
+                        </p>
+                      </div>
+                    )}
                     
                     <Button
                       size="sm"

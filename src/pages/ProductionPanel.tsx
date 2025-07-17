@@ -503,13 +503,7 @@ const ProductionPanelContent = () => {
         </Card>
       </div>
 
-      {/* Admin Mode Toggle */}
-      <AdminModeToggle
-        onEditRecord={(recordId) => setShowEditModal(recordId)}
-        onViewHistory={(recordId) => setShowAdminHistoryModal(recordId)}
-        onDeleteRecord={(recordId) => setShowDeleteModal(recordId)}
-        totalRecords={mockProducts.length}
-      />
+      {/* Admin Mode Toggle - REMOVIDO según instrucciones */}
 
       {/* Admin Modals */}
       {showEditModal && (

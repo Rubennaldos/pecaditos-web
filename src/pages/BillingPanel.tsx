@@ -53,8 +53,7 @@ const BillingPanel = () => {
   return (
     <AdminBillingProvider>
       <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
-        {/* Admin Mode Toggle */}
-        <AdminBillingModeToggle />
+        {/* Admin Mode Toggle - REMOVIDO según instrucciones */}
         
         {/* Header */}
         <div className="bg-white shadow-sm border-b">

@@ -40,6 +40,7 @@ import PrintModal from '@/components/orders/PrintModal';
 
 // Import admin components
 import { AdminModeToggle } from '@/components/delivery/AdminModeToggle';
+import { DeliveryHistory } from '@/components/delivery/DeliveryHistory';
 import { DeliveryEditModal } from '@/components/delivery/DeliveryEditModal';
 import { DeliveryHistoryModal } from '@/components/delivery/DeliveryHistoryModal';
 import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
@@ -496,75 +497,7 @@ const DeliveryPanelContent = () => {
 
             {/* HISTORIAL */}
             <TabsContent value="historial" className="space-y-4">
-              <h2 className="text-xl font-semibold text-stone-800 mb-4">
-                Historial de Entregas
-              </h2>
-              
-              {/* Filtros */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Filtros de Búsqueda</CardTitle>
-                </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label>Fecha Desde</Label>
-                    <Input type="date" />
-                  </div>
-                  <div>
-                    <Label>Fecha Hasta</Label>
-                    <Input type="date" />
-                  </div>
-                  <div>
-                    <Label>Cliente</Label>
-                    <Input placeholder="Nombre del cliente" />
-                  </div>
-                  <div>
-                    <Label>Número de Pedido</Label>
-                    <Input placeholder="PEC-2024-XXX" />
-                  </div>
-                  <div className="md:col-span-2">
-                    <Button className="mt-6">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Buscar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Resultados del historial */}
-              <div className="space-y-4">
-                {orders.filter(o => o.status === 'entregado' && o.assignedTo === currentUser).map((order) => (
-                  <Card key={`hist-${order.id}`}>
-                    <CardContent className="p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                        <div>
-                          <div className="font-semibold">{order.id}</div>
-                          <div className="text-sm text-stone-600">{order.customerName}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-stone-500">Tomado:</div>
-                          <div className="text-sm">{order.takenAt ? new Date(order.takenAt).toLocaleString() : '-'}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-stone-500">Entregado:</div>
-                          <div className="text-sm">{order.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : '-'}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm text-stone-500">Total:</div>
-                          <div className="font-semibold">S/ {order.total.toFixed(2)}</div>
-                        </div>
-                      </div>
-                      {order.deliveryNotes && (
-                        <div className="mt-2 pt-2 border-t border-stone-200">
-                          <div className="text-sm text-stone-600">
-                            <strong>Observaciones:</strong> {order.deliveryNotes}
-                          </div>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <DeliveryHistory />
             </TabsContent>
           </Tabs>
         </div>

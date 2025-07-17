@@ -33,6 +33,7 @@ import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
 import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
+import { OrdersHistory } from '@/components/orders/OrdersHistory';
 
 /**
  * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
@@ -427,7 +428,8 @@ const OrdersPanelContent = () => {
                 { id: 'dashboard', label: 'Dashboard', icon: BarChart3, count: null },
                 { id: 'pendientes', label: 'Pendientes', icon: Clock, count: stats.pendientes },
                 { id: 'preparacion', label: 'En Preparación', icon: Package, count: stats.enPreparacion },
-                { id: 'listos', label: 'Listos', icon: CheckCircle, count: stats.listos }
+                { id: 'listos', label: 'Listos', icon: CheckCircle, count: stats.listos },
+                { id: 'historial', label: 'Historial', icon: History, count: null }
               ].map((tab) => (
                 <Button
                   key={tab.id}
@@ -559,6 +561,11 @@ const OrdersPanelContent = () => {
                   undefined
                 )}
               </div>
+            )}
+
+            {/* Historial */}
+            {selectedTab === 'historial' && (
+              <OrdersHistory />
             )}
 
             {/* Urgentes */}
