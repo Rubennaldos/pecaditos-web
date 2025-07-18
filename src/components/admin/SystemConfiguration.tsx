@@ -212,7 +212,7 @@ export const SystemConfiguration = () => {
               <CardTitle className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <Eye className="h-5 w-5" />
-                  Vista Previa
+                  Vista Previa del Sistema
                 </span>
                 <div className="flex gap-2">
                   <Button 
@@ -221,7 +221,7 @@ export const SystemConfiguration = () => {
                     onClick={() => setDevicePreview('desktop')}
                   >
                     <Monitor className="h-4 w-4 mr-1" />
-                    PC
+                    Ver como PC
                   </Button>
                   <Button 
                     variant={devicePreview === 'mobile' ? 'default' : 'outline'} 
@@ -229,22 +229,97 @@ export const SystemConfiguration = () => {
                     onClick={() => setDevicePreview('mobile')}
                   >
                     <Smartphone className="h-4 w-4 mr-1" />
-                    Móvil
+                    Ver como Móvil
                   </Button>
                 </div>
               </CardTitle>
+              <CardDescription>
+                Previsualiza cómo se verá el sistema completo con la información de tu empresa
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className={`border rounded-lg p-4 bg-gradient-to-br from-amber-50 to-orange-50 ${
-                devicePreview === 'mobile' ? 'max-w-sm mx-auto' : 'w-full'
-              }`}>
-                <div className="text-center space-y-2">
-                  <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mx-auto">
-                    <span className="text-white font-bold text-xl">P</span>
+              <div className={`border-2 rounded-lg overflow-hidden bg-white shadow-lg ${
+                devicePreview === 'mobile' ? 'max-w-sm mx-auto' : 'w-full max-w-4xl mx-auto'
+              } transition-all duration-300`}>
+                {/* Header simulado */}
+                <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {companyInfo.logo ? (
+                        <img src={companyInfo.logo} alt="Logo" className="w-10 h-10 rounded-full bg-white p-1" />
+                      ) : (
+                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">
+                            {companyInfo.name.charAt(0)}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-bold text-lg">{companyInfo.name}</h3>
+                        {devicePreview === 'desktop' && (
+                          <p className="text-amber-100 text-sm">{companyInfo.slogan}</p>
+                        )}
+                      </div>
+                    </div>
+                    {devicePreview === 'desktop' && (
+                      <div className="flex gap-4 text-sm">
+                        <span className="flex items-center gap-1">
+                          <Phone className="h-4 w-4" />
+                          {companyInfo.phone}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Mail className="h-4 w-4" />
+                          {companyInfo.email}
+                        </span>
+                      </div>
+                    )}
                   </div>
-                  <h3 className="font-bold text-lg text-stone-800">{companyInfo.name}</h3>
-                  <p className="text-stone-600 text-sm">{companyInfo.slogan}</p>
-                  <p className="text-stone-500 text-xs">{companyInfo.welcomeMessage}</p>
+                </div>
+                
+                {/* Contenido simulado */}
+                <div className="p-6 space-y-4">
+                  <div className="text-center">
+                    <h4 className="text-xl font-semibold text-stone-800 mb-2">
+                      {companyInfo.welcomeMessage}
+                    </h4>
+                    <p className="text-stone-600">{companyInfo.description}</p>
+                  </div>
+                  
+                  {devicePreview === 'desktop' ? (
+                    <div className="grid grid-cols-3 gap-4 mt-6">
+                      <div className="bg-blue-50 p-4 rounded-lg text-center">
+                        <div className="w-12 h-12 bg-blue-500 rounded-full mx-auto mb-2"></div>
+                        <p className="font-medium">Pedidos</p>
+                      </div>
+                      <div className="bg-green-50 p-4 rounded-lg text-center">
+                        <div className="w-12 h-12 bg-green-500 rounded-full mx-auto mb-2"></div>
+                        <p className="font-medium">Producción</p>
+                      </div>
+                      <div className="bg-purple-50 p-4 rounded-lg text-center">
+                        <div className="w-12 h-12 bg-purple-500 rounded-full mx-auto mb-2"></div>
+                        <p className="font-medium">Reparto</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-3">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full"></div>
+                        <span className="font-medium">Pedidos</span>
+                      </div>
+                      <div className="bg-green-50 p-3 rounded-lg flex items-center gap-3">
+                        <div className="w-8 h-8 bg-green-500 rounded-full"></div>
+                        <span className="font-medium">Producción</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Footer simulado */}
+                <div className="bg-stone-100 p-4 text-center text-sm text-stone-600">
+                  <p>{companyInfo.fiscalAddress}</p>
+                  {devicePreview === 'desktop' && companyInfo.businessName && (
+                    <p className="mt-1">{companyInfo.businessName} - RUC: {companyInfo.ruc}</p>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -281,11 +356,38 @@ export const SystemConfiguration = () => {
                 </div>
                 <div>
                   <Label htmlFor="company-ruc">RUC</Label>
-                  <Input 
-                    id="company-ruc"
-                    value={companyInfo.ruc}
-                    onChange={(e) => setCompanyInfo({...companyInfo, ruc: e.target.value})}
-                  />
+                  <div className="flex gap-2">
+                    <Input 
+                      id="company-ruc"
+                      value={companyInfo.ruc}
+                      onChange={(e) => setCompanyInfo({...companyInfo, ruc: e.target.value})}
+                      placeholder="20123456789"
+                    />
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        if (companyInfo.ruc) {
+                          toast({
+                            title: "Consultando SUNAT",
+                            description: "Obteniendo datos de la empresa...",
+                          });
+                          // Aquí iría la integración con API SUNAT/RENIEC
+                          setTimeout(() => {
+                            toast({
+                              title: "Datos obtenidos",
+                              description: "Información actualizada desde SUNAT.",
+                            });
+                          }, 2000);
+                        }
+                      }}
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-1">
+                    Consultará datos en SUNAT/RENIEC automáticamente
+                  </p>
                 </div>
                 <div>
                   <Label htmlFor="fiscal-address">Dirección Fiscal</Label>

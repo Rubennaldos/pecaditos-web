@@ -4,6 +4,8 @@ import { AdminProvider, useAdmin } from '@/contexts/AdminContext';
 import { AdminLogin } from '@/components/admin/AdminLogin';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
+import { MessagesModule } from '@/components/admin/MessagesModule';
+import { AuditModule } from '@/components/admin/AuditModule';
 import { Button } from '@/components/ui/button';
 import { 
   LogOut, 
@@ -246,20 +248,10 @@ const AdminPanelContent = () => {
         );
       
       case 'audit':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Sistema de Auditoría</h2>
-            <p className="text-stone-600">Registro completo de actividades del sistema - Por implementar</p>
-          </div>
-        );
+        return <AuditModule />;
       
       case 'messages':
-        return (
-          <div className="p-6">
-            <h2 className="text-2xl font-bold mb-4">Centro de Mensajes</h2>
-            <p className="text-stone-600">Comunicación interna con todos los perfiles - Por implementar</p>
-          </div>
-        );
+        return <MessagesModule />;
       
       default:
         return <AdminDashboard />;
