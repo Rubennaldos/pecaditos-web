@@ -6,6 +6,7 @@ import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
 import { MessagesModule } from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
+import { WholesaleCatalogEditor } from '@/components/admin/WholesaleCatalogEditor';
 import { Button } from '@/components/ui/button';
 import { 
   LogOut, 
@@ -91,6 +92,13 @@ const AdminPanelContent = () => {
       section: 'customers',
       description: 'Gestión de clientes',
       superAdmin: true
+    },
+    {
+      id: 'catalog-editor',
+      name: 'Editor Catálogo',
+      icon: Edit,
+      section: 'catalog',
+      description: 'Editar productos mayoristas'
     },
     {
       id: 'system-config',
@@ -199,6 +207,9 @@ const AdminPanelContent = () => {
       
       case 'customers-admin':
         return <ClientsManagement />;
+      
+      case 'catalog-editor':
+        return <WholesaleCatalogEditor />;
       
       case 'system-config':
         return <SystemConfiguration />;

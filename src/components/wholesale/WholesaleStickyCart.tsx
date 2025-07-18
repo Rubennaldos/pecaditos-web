@@ -33,7 +33,7 @@ import { toast } from '@/components/ui/use-toast';
  */
 
 export const WholesaleStickyCart = () => {
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false); // Iniciado como colapsado
   const [discountCodeInput, setDiscountCodeInput] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
   
@@ -95,17 +95,34 @@ export const WholesaleStickyCart = () => {
     if (!isMinimumMet) {
       toast({
         title: "Pedido mínimo no alcanzado",
-        description: `El pedido mínimo es de S/ ${minimumAmount.toFixed(2)}`,
+        description: `Necesitas S/ ${(minimumAmount - finalTotal).toFixed(2)} más para completar el pedido mínimo`,
         variant: "destructive"
       });
       return;
     }
     
-    setShowCheckout(true);
+    if (itemCount === 0) {
+      toast({
+        title: "Carrito vacío",
+        description: "Agrega productos antes de continuar",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Simular navegación a checkout (en implementación real redirigiría a /checkout)
     toast({
-      title: "Procediendo al checkout",
-      description: "Redirigiendo al formulario de pedido mayorista..."
+      title: "¡Procediendo al checkout!",
+      description: `Procesando ${itemCount} productos por S/ ${finalTotal.toFixed(2)}`,
     });
+    
+    // Simular proceso de checkout
+    setTimeout(() => {
+      toast({
+        title: "✅ Pedido confirmado",
+        description: "Tu pedido mayorista ha sido procesado exitosamente",
+      });
+    }, 2000);
   };
 
   const remainingForMinimum = Math.max(0, minimumAmount - finalTotal);

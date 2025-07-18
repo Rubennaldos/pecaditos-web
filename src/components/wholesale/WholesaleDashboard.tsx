@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
 import { toast } from '@/components/ui/use-toast';
+import { RepeatOrderModal } from './RepeatOrderModal';
 
 /**
  * DASHBOARD MAYORISTA
@@ -37,6 +38,7 @@ import { toast } from '@/components/ui/use-toast';
 export const WholesaleDashboard = () => {
   const { user, logout } = useWholesaleAuth();
   const [showProfile, setShowProfile] = useState(false);
+  const [showRepeatOrderModal, setShowRepeatOrderModal] = useState(false);
 
   if (!user) return null;
 
@@ -181,17 +183,17 @@ export const WholesaleDashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Cotización Especial */}
-          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={handleSpecialQuote}>
+          {/* Repetir Pedido */}
+          <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setShowRepeatOrderModal(true)}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-stone-600 mb-1">Cotización</p>
-                  <p className="text-sm font-medium text-amber-600">
-                    Solicitar Especial
+                  <p className="text-sm text-stone-600 mb-1">Pedidos</p>
+                  <p className="text-sm font-medium text-green-600">
+                    Repetir Pedido
                   </p>
                 </div>
-                <FileText className="h-8 w-8 text-amber-500" />
+                <FileText className="h-8 w-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
@@ -270,17 +272,23 @@ export const WholesaleDashboard = () => {
                 </p>
               )}
               
-              {/* Botón Cotización Especial Destacado */}
+              {/* Botón Repetir Pedido Destacado */}
               <Button
-                onClick={handleSpecialQuote}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                onClick={() => setShowRepeatOrderModal(true)}
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
               >
                 <MessageSquare className="h-4 w-4 mr-2" />
-                Solicitar Cotización Especial
+                Repetir Pedido Anterior
               </Button>
             </CardContent>
           </Card>
         </div>
+
+        {/* Modal Repetir Pedido */}
+        <RepeatOrderModal 
+          isOpen={showRepeatOrderModal}
+          onClose={() => setShowRepeatOrderModal(false)}
+        />
       </div>
     </div>
   );
