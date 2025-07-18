@@ -119,7 +119,7 @@ export const SystemConfiguration = () => {
     { id: 5, user: 'Jorge Silva', action: 'Actualizó stock', module: 'Producción', timestamp: '2024-07-17 14:10:15', details: 'Producto: Galletas de Chocolate - Stock: 150 unidades' }
   ]);
 
-  const [auditFilter, setAuditFilter] = useState({ user: '', module: '', dateFrom: '', dateTo: '' });
+  const [auditFilter, setAuditFilter] = useState({ user: '', module: 'all', dateFrom: '', dateTo: '' });
 
   const filteredUsers = users.filter(user => 
     user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
@@ -129,7 +129,7 @@ export const SystemConfiguration = () => {
 
   const filteredAuditLogs = auditLogs.filter(log => {
     return (!auditFilter.user || log.user.toLowerCase().includes(auditFilter.user.toLowerCase())) &&
-           (!auditFilter.module || log.module.toLowerCase().includes(auditFilter.module.toLowerCase()));
+           (!auditFilter.module || auditFilter.module === 'all' || log.module.toLowerCase().includes(auditFilter.module.toLowerCase()));
   });
 
   const daysOfWeek = [
@@ -914,7 +914,7 @@ export const SystemConfiguration = () => {
                       <SelectValue placeholder="Todos los módulos" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Todos</SelectItem>
+                      <SelectItem value="all">Todos</SelectItem>
                       <SelectItem value="clientes">Clientes</SelectItem>
                       <SelectItem value="pedidos">Pedidos</SelectItem>
                       <SelectItem value="produccion">Producción</SelectItem>
