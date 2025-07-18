@@ -31,6 +31,7 @@ import OrdersPanel from './OrdersPanel';
 import DeliveryPanel from './DeliveryPanel';
 import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
+import { ClientsManagement } from '@/components/clients/ClientsManagement';
 
 const AdminPanelContent = () => {
   const { user, logout, canAccessSection } = useAdmin();
@@ -195,41 +196,7 @@ const AdminPanelContent = () => {
         );
       
       case 'customers-admin':
-        return (
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold mb-2">Gestión de Clientes (SuperAdmin)</h2>
-                <p className="text-stone-600">Administración completa de clientes</p>
-              </div>
-              <div className="flex gap-2">
-                <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                  <Shield className="h-3 w-3" />
-                  Modo SuperAdmin
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <h3 className="font-medium text-blue-800">Clientes Activos</h3>
-                <p className="text-2xl font-bold text-blue-600 mt-2">89</p>
-              </div>
-              <div className="p-4 bg-green-50 rounded-lg">
-                <h3 className="font-medium text-green-800">Buenos Pagadores</h3>
-                <p className="text-2xl font-bold text-green-600 mt-2">67</p>
-              </div>
-              <div className="p-4 bg-amber-50 rounded-lg">
-                <h3 className="font-medium text-amber-800">En Seguimiento</h3>
-                <p className="text-2xl font-bold text-amber-600 mt-2">15</p>
-              </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <h3 className="font-medium text-red-800">Morosos</h3>
-                <p className="text-2xl font-bold text-red-600 mt-2">7</p>
-              </div>
-            </div>
-            <p className="text-stone-600">Módulo completo de clientes con privilegios administrativos - Interface completa por implementar</p>
-          </div>
-        );
+        return <ClientsManagement />;
       
       case 'system-config':
         return <SystemConfiguration />;
