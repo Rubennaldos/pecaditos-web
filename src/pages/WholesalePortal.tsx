@@ -37,16 +37,10 @@ import { PromotionalBanners } from '@/components/catalog/PromotionalBanners';
  */
 
 const WholesalePortalContent = () => {
-  const { user } = useWholesaleAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Si no hay usuario logueado, mostrar login
-  if (!user) {
-    return <WholesaleLogin onLoginSuccess={() => {}} />;
-  }
-
-  // Portal mayorista completo para usuarios autenticados
+  // Portal mayorista siempre disponible - sin autenticación requerida
   return (
     <WholesaleCartProvider>
       <div className="min-h-screen bg-background">
@@ -57,8 +51,13 @@ const WholesalePortalContent = () => {
           isMayorista={true}
         />
 
-        {/* Dashboard mayorista */}
-        <WholesaleDashboard />
+        {/* Dashboard mayorista - sin autenticación */}
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-8">
+          <div className="max-w-7xl mx-auto px-4 text-center">
+            <h1 className="text-3xl font-bold mb-2">🏪 Bienvenido al Portal Mayorista</h1>
+            <p className="text-blue-100">Descuentos especiales • Pedidos mínimos • Atención personalizada</p>
+          </div>
+        </div>
 
         {/* Banner promocional */}
         <div className="relative">
@@ -196,12 +195,12 @@ const WholesalePortalContent = () => {
   );
 };
 
-// Componente principal con providers
+// Componente principal sin providers de autenticación
 const WholesalePortal = () => {
   return (
-    <WholesaleAuthProvider>
+    <WholesaleCartProvider>
       <WholesalePortalContent />
-    </WholesaleAuthProvider>
+    </WholesaleCartProvider>
   );
 };
 
