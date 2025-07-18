@@ -120,6 +120,16 @@ const App = () => (
                   } 
                 />
                 
+                {/* PORTAL MAYORISTA - Acceso para mayoristas */}
+                <Route 
+                  path="/mayorista" 
+                  element={
+                    <ProtectedRoute routeType="CATALOG_WHOLESALE">
+                      <WholesalePortal />
+                    </ProtectedRoute>
+                  } 
+                />
+                
                 {/* DÓNDE NOS UBICAMOS - Nueva ruta pública */}
                 <Route 
                   path="/donde-nos-ubicamos" 
