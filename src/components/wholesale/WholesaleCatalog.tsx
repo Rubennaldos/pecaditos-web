@@ -101,9 +101,9 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: WholesaleCat
           </div>
         </div>
 
-        {/* Grid de productos mayoristas */}
+        {/* Grid de productos mayoristas - tarjetas cuadradas y centradas */}
         {filteredProducts.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
             {filteredProducts.map((product) => (
               <WholesaleProductCard 
                 key={product.id} 
@@ -133,23 +133,6 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: WholesaleCat
           </div>
         )}
 
-        {/* Información adicional para mayoristas */}
-        <div className="mt-12 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg p-6">
-          <div className="grid md:grid-cols-3 gap-6 text-center">
-            <div>
-              <div className="text-2xl font-bold text-amber-600 mb-2">6+</div>
-              <p className="text-sm text-stone-700">Múltiplos mínimos por producto</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-green-600 mb-2">S/ 300</div>
-              <p className="text-sm text-stone-700">Pedido mínimo mayorista</p>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-blue-600 mb-2">15%</div>
-              <p className="text-sm text-stone-700">Descuento adicional +S/ 500</p>
-            </div>
-          </div>
-        </div>
       </div>
     </section>
   );

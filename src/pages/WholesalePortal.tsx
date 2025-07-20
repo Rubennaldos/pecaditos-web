@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { Search, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { WholesaleCartProvider } from '@/contexts/WholesaleCartContext';
 import { WholesaleCatalog } from '@/components/wholesale/WholesaleCatalog';
 import { WholesaleStickyCart } from '@/components/wholesale/WholesaleStickyCart';
 import { CategorySelector } from '@/components/catalog/CategorySelector';
-import { CatalogHeader } from '@/components/catalog/CatalogHeader';
-import { HeroBanner } from '@/components/catalog/HeroBanner';
-import { FAQSection } from '@/components/catalog/FAQSection';
-import { PromotionalBanners } from '@/components/catalog/PromotionalBanners';
 
 /**
  * PORTAL MAYORISTA PRINCIPAL
@@ -27,43 +26,118 @@ import { PromotionalBanners } from '@/components/catalog/PromotionalBanners';
 const WholesalePortalContent = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showAccountMenu, setShowAccountMenu] = useState(false);
+  
+  // Simular datos del cliente mayorista
+  const wholesaleClient = {
+    name: "Restaurant Don Pepe",
+    email: "contacto@donpepe.com",
+    phone: "+51 987 654 321",
+    address: "Av. Larco 1234, Miraflores, Lima"
+  };
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header mayorista */}
-      <CatalogHeader 
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        isMayorista={true}
-      />
+    <div className="min-h-screen bg-white">
+      {/* Header mayorista optimizado */}
+      <header className="sticky top-0 z-50 bg-white border-b border-stone-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo centrado y cuadrado */}
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center shadow-md">
+                <span className="text-white font-bold text-xl">P</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-stone-800">Pecaditos Mayoristas</h1>
+                <span className="text-sm text-blue-600">Portal Mayorista</span>
+              </div>
+            </div>
 
-      {/* Banner de bienvenida mayorista */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-8">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-          <h1 className="text-3xl font-bold mb-2">🏪 Bienvenido al Portal Mayorista</h1>
-          <p className="text-blue-100">Descuentos especiales • Pedidos mínimos • Atención personalizada</p>
-        </div>
-      </div>
+            {/* Búsqueda centrada */}
+            <div className="flex-1 max-w-md mx-8">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
+                <Input
+                  type="text"
+                  placeholder="Buscar productos mayoristas..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-stone-50 border-stone-200 focus:border-blue-300"
+                />
+              </div>
+            </div>
 
-      {/* Banner promocional */}
-      <div className="relative">
-        <HeroBanner />
-        {/* Overlay para diferenciar mayorista */}
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-blue-600/20 flex items-center justify-center">
-          <div className="bg-white/95 px-4 py-2 rounded-full shadow-lg">
-            <span className="text-blue-600 font-bold text-sm">PORTAL MAYORISTA</span>
+            {/* Acciones del usuario */}
+            <div className="flex items-center space-x-2">
+              {/* Botón Mi Cuenta funcional */}
+              <div className="relative">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setShowAccountMenu(!showAccountMenu)}
+                  className="bg-white hover:bg-stone-50"
+                >
+                  <User className="h-4 w-4 mr-2" />
+                  Mi cuenta
+                </Button>
+                
+                {/* Menú desplegable Mi Cuenta */}
+                {showAccountMenu && (
+                  <div className="absolute right-0 mt-2 w-80 bg-white border border-stone-200 rounded-lg shadow-xl z-50">
+                    <div className="p-4 border-b border-stone-100">
+                      <h3 className="font-semibold text-stone-800">¡Hola, {wholesaleClient.name}!</h3>
+                      <p className="text-sm text-stone-600">{wholesaleClient.email}</p>
+                    </div>
+                    <div className="py-2">
+                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                        📋 Historial de pedidos
+                      </button>
+                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                        🔄 Repetir pedidos anteriores
+                      </button>
+                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                        ✏️ Cambiar datos personales
+                      </button>
+                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                        🎁 Ver promociones activas
+                      </button>
+                      <div className="border-t border-stone-100 mt-2 pt-2">
+                        <button className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600">
+                          🚪 Salir de la cuenta
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Carrito pequeño - acceso principal */}
+              <WholesaleStickyCart isCompact={true} />
+            </div>
           </div>
+        </div>
+      </header>
+
+      {/* Mensaje de bienvenida personalizado */}
+      <div className="bg-white py-6">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <h2 className="text-2xl font-bold text-stone-800 mb-2">
+            ¡Bienvenido, {wholesaleClient.name}!
+          </h2>
+          <p className="text-stone-600">Descuentos especiales • Pedidos rápidos • Atención personalizada</p>
         </div>
       </div>
 
       {/* Selector de categorías */}
-      <CategorySelector 
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
-      />
+      <div className="bg-white py-4 border-b border-stone-100">
+        <CategorySelector 
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+        />
+      </div>
 
-      {/* Banner con botón expandible para condiciones */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 py-6">
+      {/* Banner limpio con botón para condiciones */}
+      <div className="bg-white py-4">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <button 
             id="showConditions"
@@ -71,9 +145,9 @@ const WholesalePortalContent = () => {
               const modal = document.getElementById('conditionsModal');
               if (modal) modal.style.display = 'flex';
             }}
-            className="bg-white rounded-lg px-6 py-3 shadow-md hover:shadow-lg transition-shadow text-blue-600 font-semibold"
+            className="text-blue-600 hover:text-blue-700 font-medium underline"
           >
-            📋 Mostrar Condiciones y Beneficios Mayoristas
+            Ver condiciones y beneficios mayoristas
           </button>
         </div>
       </div>
@@ -146,35 +220,12 @@ const WholesalePortalContent = () => {
         </div>
       </div>
 
-      {/* Contenido principal con catálogo y carrito */}
+      {/* Contenido principal - solo catálogo */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          {/* Catálogo mayorista */}
-          <div className="flex-1">
-            <WholesaleCatalog 
-              selectedCategory={selectedCategory}
-              searchQuery={searchQuery}
-            />
-            
-            {/* FAQ específico para mayoristas */}
-            <div className="mt-12">
-              <FAQSection isMayorista={true} />
-            </div>
-          </div>
-
-          {/* Carrito sticky mayorista */}
-          <div className="hidden lg:block w-80">
-            <WholesaleStickyCart />
-          </div>
-        </div>
-      </div>
-
-      {/* Banners promocionales finales */}
-      <PromotionalBanners isMayorista={true} />
-
-      {/* Carrito móvil flotante */}
-      <div className="lg:hidden">
-        <WholesaleStickyCart />
+        <WholesaleCatalog 
+          selectedCategory={selectedCategory}
+          searchQuery={searchQuery}
+        />
       </div>
     </div>
   );

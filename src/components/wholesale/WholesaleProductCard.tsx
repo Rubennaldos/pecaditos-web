@@ -111,10 +111,10 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
   };
 
   return (
-    <Card className="group overflow-hidden transition-all duration-300 hover:shadow-xl border-2 hover:border-amber-200">
+    <Card className="group overflow-hidden transition-all duration-300 hover:shadow-xl border-2 hover:border-blue-200 w-full max-w-sm mx-auto">
       <CardContent className="p-0">
-        {/* Imagen del producto */}
-        <div className="relative overflow-hidden bg-stone-100 aspect-square">
+        {/* Imagen del producto - formato cuadrado */}
+        <div className="relative overflow-hidden bg-stone-100 aspect-square w-full">
           <img
             src={product.image}
             alt={product.name}

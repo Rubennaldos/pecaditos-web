@@ -32,7 +32,11 @@ import { toast } from '@/components/ui/use-toast';
  * - Agregar más funcionalidades
  */
 
-export const WholesaleStickyCart = () => {
+interface WholesaleStickyCartProps {
+  isCompact?: boolean;
+}
+
+export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartProps) => {
   const [isExpanded, setIsExpanded] = useState(false); // Iniciado como colapsado
   const [discountCodeInput, setDiscountCodeInput] = useState('');
   const [showCheckout, setShowCheckout] = useState(false);
@@ -127,6 +131,25 @@ export const WholesaleStickyCart = () => {
 
   const remainingForMinimum = Math.max(0, minimumAmount - finalTotal);
   const progressPercentage = Math.min(100, (finalTotal / minimumAmount) * 100);
+
+  // Modo compacto para header
+  if (isCompact) {
+    return (
+      <Button
+        onClick={() => setIsExpanded(true)}
+        variant="outline"
+        size="sm"
+        className="relative bg-white hover:bg-stone-50"
+      >
+        <ShoppingCart className="h-4 w-4" />
+        {itemCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {itemCount}
+          </span>
+        )}
+      </Button>
+    );
+  }
 
   // Responsive: móvil vs desktop
   const isMobile = window.innerWidth < 1024;
