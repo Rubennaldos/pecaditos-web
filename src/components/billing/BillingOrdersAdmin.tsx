@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,8 +28,8 @@ export const BillingOrdersAdmin = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  // Mock orders data with phone numbers displayed
-  const orders = [
+  // State for orders with ability to remove them
+  const [orders, setOrders] = useState([
     {
       id: "PEC-2024-001",
       client: "Distribuidora El Sol SAC",
@@ -57,7 +56,7 @@ export const BillingOrdersAdmin = () => {
       phone: "+51 999 333 444",
       whatsapp: "+51 999 333 444"
     }
-  ];
+  ]);
 
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -76,7 +75,14 @@ export const BillingOrdersAdmin = () => {
 
   const handleAcceptOrder = (order: any) => {
     console.log(`Aceptando pedido ${order.id} automáticamente`);
-    // TODO: Process order acceptance with proper status change
+    setOrders(prev => prev.filter(o => o.id !== order.id));
+  };
+
+  const handleRejectOrder = (order: any) => {
+    console.log(`Rechazando pedido ${order.id}`);
+    setOrders(prev => prev.map(o => 
+      o.id === order.id ? { ...o, status: 'rejected' } : o
+    ));
   };
 
   const handleCallClient = (phone: string) => {
@@ -206,14 +212,25 @@ export const BillingOrdersAdmin = () => {
                     </Button>
                     
                     {order.status !== 'paid' && order.status !== 'rejected' && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleAcceptOrder(order)}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Aceptar
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => handleAcceptOrder(order)}
+                          className="bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Aceptar
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleRejectOrder(order)}
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Rechazar
+                        </Button>
+                      </>
                     )}
 
                     {/* Admin Controls */}

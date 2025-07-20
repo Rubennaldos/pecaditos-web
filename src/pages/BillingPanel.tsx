@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { BillingSidebar } from '@/components/billing/BillingSidebar';
 import { BillingDashboard } from '@/components/billing/BillingDashboard';
 import { BillingOrdersAdmin } from '@/components/billing/BillingOrdersAdmin';
-import { BillingToBePaidAdmin } from '@/components/billing/BillingToBeePaidAdmin';
+import { BillingToBePaidAdmin } from '@/components/billing/BillingToBePaidAdmin';
 import { BillingPaid } from '@/components/billing/BillingPaid';
 import { BillingClients } from '@/components/billing/BillingClients';
 import { BillingHistory } from '@/components/billing/BillingHistory';

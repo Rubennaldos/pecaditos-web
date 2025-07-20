@@ -36,23 +36,29 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
   const discountedPrice = wholesalePrice * (1 - discount);
 
   return (
-    <Card className="w-full max-w-xs bg-white border shadow-sm hover:shadow-md transition-all duration-200 mx-auto">
-      <div className="aspect-square relative overflow-hidden rounded-t-lg">
+    <Card className="w-full max-w-xs bg-white border shadow-sm hover:shadow-md transition-all duration-200 mx-auto aspect-square">
+      <div className="h-48 relative overflow-hidden rounded-t-lg">
         <img
           src={product.image}
           alt={product.name}
           className="w-full h-full object-cover"
         />
       </div>
-      <CardContent className="p-4">
+      <CardContent className="p-4 flex-1 flex flex-col">
         <h3 className="font-semibold text-gray-900 mb-2 text-center line-clamp-2">{product.name}</h3>
-        <div className="space-y-3">
+        
+        {/* Precio unitario y descripción */}
+        <div className="text-center mb-3">
+          <p className="text-sm text-gray-600 mb-1">Precio unitario: S/ 6.00</p>
+          <p className="text-xs text-gray-500 mb-2">Deliciosas galletas de avena artesanales</p>
           <div className="text-center">
             <p className="text-xl font-bold text-amber-600">
               S/ {(product.wholesalePrice || product.price * 0.8).toFixed(2)}
             </p>
           </div>
-          
+        </div>
+        
+        <div className="space-y-3 mt-auto">
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -87,7 +93,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
                   {(discount * 100).toFixed(0)}% descuento aplicado
                 </p>
               )}
-                <p className="text-sm font-medium text-amber-800">
+              <p className="text-sm font-medium text-amber-800">
                 {discount > 0 ? (
                   <>
                     <span className="line-through text-gray-500">

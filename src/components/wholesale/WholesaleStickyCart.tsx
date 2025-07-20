@@ -57,7 +57,9 @@ export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartPr
   } = useWholesaleCart();
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
-    if (newQuantity < 6 || newQuantity % 6 !== 0) {
+    if (newQuantity < 0) return;
+    
+    if (newQuantity > 0 && (newQuantity < 6 || newQuantity % 6 !== 0)) {
       toast({
         title: "Cantidad no válida",
         description: "La cantidad debe ser múltiplo de 6 (mínimo 6)",
