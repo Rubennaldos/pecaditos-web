@@ -7,6 +7,7 @@ import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
 import { MessagesModule } from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
 import { WholesaleCatalogEditor } from '@/components/admin/WholesaleCatalogEditor';
+import { WholesaleAdminModule } from '@/components/admin/WholesaleAdminModule';
 import { Button } from '@/components/ui/button';
 import { 
   LogOut, 
@@ -101,6 +102,13 @@ const AdminPanelContent = () => {
       description: 'Editar productos mayoristas'
     },
     {
+      id: 'wholesale-admin',
+      name: 'Portal Mayorista',
+      icon: Building,
+      section: 'wholesale',
+      description: 'Control total del portal mayorista'
+    },
+    {
       id: 'system-config',
       name: 'Configuración',
       icon: Settings,
@@ -143,6 +151,8 @@ const AdminPanelContent = () => {
 
   const handleLogout = () => {
     logout();
+    // Redirigir a página de bienvenida, no al login
+    window.location.href = '/';
   };
 
   const renderContent = () => {
@@ -210,6 +220,9 @@ const AdminPanelContent = () => {
       
       case 'catalog-editor':
         return <WholesaleCatalogEditor />;
+      
+      case 'wholesale-admin':
+        return <WholesaleAdminModule />;
       
       case 'system-config':
         return <SystemConfiguration />;

@@ -52,7 +52,8 @@ const WholesalePortalContent = () => {
       description: "Has salido de tu cuenta mayorista exitosamente.",
     });
     setShowAccountMenu(false);
-    // Here you would implement actual logout logic
+    // Redirigir a página de bienvenida
+    window.location.href = '/';
   };
 
   const handleRepeatOrder = (orderId: string) => {
@@ -133,15 +134,6 @@ const WholesalePortalContent = () => {
                         className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm"
                       >
                         📋 Historial de pedidos
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setShowOrderHistory(true);
-                          setShowAccountMenu(false);
-                        }}
-                        className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm"
-                      >
-                        🔄 Repetir pedidos anteriores
                       </button>
                       <button 
                         onClick={() => {

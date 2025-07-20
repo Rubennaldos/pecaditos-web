@@ -103,7 +103,7 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: WholesaleCat
 
         {/* Grid de productos mayoristas - tarjetas cuadradas y centradas */}
         {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 justify-items-center">
             {filteredProducts.map((product) => (
               <WholesaleProductCard 
                 key={product.id} 

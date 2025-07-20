@@ -42,6 +42,10 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Obtener el tipo de login desde URL params
+  const searchParams = new URLSearchParams(location.search);
+  const loginType = searchParams.get('type');
+  
   // Hooks de autenticación
   const { login: retailLogin } = useAuth();
   const { login: wholesaleLogin } = useWholesaleAuth();
@@ -94,8 +98,9 @@ const Login = () => {
         }
       }
 
-      // 2. MAYORISTAS
+      // 2. MAYORISTAS - Solo si viene del portal mayorista o cumple condiciones
       if (!loginSuccess && (
+        loginType === 'wholesale' || 
         email.includes('@ejemplo.com') || 
         email.includes('distribuidora') || 
         email.includes('minimarket') ||
@@ -261,7 +266,7 @@ const Login = () => {
               onClick={() => navigate('/')}
               className="text-amber-600 hover:text-amber-700 hover:bg-amber-50 transition-all"
             >
-              ← Volver al inicio
+              ← Volver a la página de bienvenida
             </Button>
           </div>
 
