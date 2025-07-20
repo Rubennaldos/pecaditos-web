@@ -6,6 +6,11 @@ import { WholesaleCartProvider } from '@/contexts/WholesaleCartContext';
 import { WholesaleCatalog } from '@/components/wholesale/WholesaleCatalog';
 import { WholesaleStickyCart } from '@/components/wholesale/WholesaleStickyCart';
 import { CategorySelector } from '@/components/catalog/CategorySelector';
+import { WholesaleOrderHistory } from '@/components/wholesale/WholesaleOrderHistory';
+import { WholesaleProfileEditor } from '@/components/wholesale/WholesaleProfileEditor';
+import { WholesalePromotions } from '@/components/wholesale/WholesalePromotions';
+import { RepeatOrderModal } from '@/components/wholesale/RepeatOrderModal';
+import { useToast } from '@/hooks/use-toast';
 
 /**
  * PORTAL MAYORISTA PRINCIPAL
@@ -27,13 +32,44 @@ const WholesalePortalContent = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showAccountMenu, setShowAccountMenu] = useState(false);
+  const [showOrderHistory, setShowOrderHistory] = useState(false);
+  const [showProfileEditor, setShowProfileEditor] = useState(false);
+  const [showPromotions, setShowPromotions] = useState(false);
+  const [showRepeatOrder, setShowRepeatOrder] = useState(false);
+  const { toast } = useToast();
   
   // Simular datos del cliente mayorista
-  const wholesaleClient = {
+  const [wholesaleClient, setWholesaleClient] = useState({
     name: "Restaurant Don Pepe",
     email: "contacto@donpepe.com",
     phone: "+51 987 654 321",
     address: "Av. Larco 1234, Miraflores, Lima"
+  });
+
+  const handleLogout = () => {
+    toast({
+      title: "Sesión cerrada",
+      description: "Has salido de tu cuenta mayorista exitosamente.",
+    });
+    setShowAccountMenu(false);
+    // Here you would implement actual logout logic
+  };
+
+  const handleRepeatOrder = (orderId: string) => {
+    setShowRepeatOrder(true);
+    setShowOrderHistory(false);
+    toast({
+      title: "Repitiendo pedido",
+      description: `Preparando repetición del pedido ${orderId}`,
+    });
+  };
+
+  const handleProfileSave = (data: any) => {
+    setWholesaleClient(data);
+    toast({
+      title: "Datos actualizados",
+      description: "Tu información personal ha sido actualizada correctamente.",
+    });
   };
 
   return (
@@ -89,20 +125,47 @@ const WholesalePortalContent = () => {
                       <p className="text-sm text-stone-600">{wholesaleClient.email}</p>
                     </div>
                     <div className="py-2">
-                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                      <button 
+                        onClick={() => {
+                          setShowOrderHistory(true);
+                          setShowAccountMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm"
+                      >
                         📋 Historial de pedidos
                       </button>
-                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                      <button 
+                        onClick={() => {
+                          setShowOrderHistory(true);
+                          setShowAccountMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm"
+                      >
                         🔄 Repetir pedidos anteriores
                       </button>
-                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                      <button 
+                        onClick={() => {
+                          setShowProfileEditor(true);
+                          setShowAccountMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm"
+                      >
                         ✏️ Cambiar datos personales
                       </button>
-                      <button className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm">
+                      <button 
+                        onClick={() => {
+                          setShowPromotions(true);
+                          setShowAccountMenu(false);
+                        }}
+                        className="w-full px-4 py-2 text-left hover:bg-stone-50 text-sm"
+                      >
                         🎁 Ver promociones activas
                       </button>
                       <div className="border-t border-stone-100 mt-2 pt-2">
-                        <button className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600">
+                        <button 
+                          onClick={handleLogout}
+                          className="w-full px-4 py-2 text-left hover:bg-red-50 text-sm text-red-600"
+                        >
                           🚪 Salir de la cuenta
                         </button>
                       </div>
@@ -227,6 +290,29 @@ const WholesalePortalContent = () => {
           searchQuery={searchQuery}
         />
       </div>
+
+      {/* Modales funcionales */}
+      <WholesaleOrderHistory
+        isOpen={showOrderHistory}
+        onClose={() => setShowOrderHistory(false)}
+        onRepeatOrder={handleRepeatOrder}
+      />
+
+      <WholesaleProfileEditor
+        isOpen={showProfileEditor}
+        onClose={() => setShowProfileEditor(false)}
+        onSave={handleProfileSave}
+      />
+
+      <WholesalePromotions
+        isOpen={showPromotions}
+        onClose={() => setShowPromotions(false)}
+      />
+
+      <RepeatOrderModal
+        isOpen={showRepeatOrder}
+        onClose={() => setShowRepeatOrder(false)}
+      />
     </div>
   );
 };
