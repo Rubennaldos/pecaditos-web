@@ -8,7 +8,17 @@ export const HeroSection = () => {
   }, []);
 
   return (
-    <section className="container mx-auto px-4 py-8 lg:py-16 flex flex-col items-center justify-center">
+    <section className="relative container mx-auto px-4 py-8 lg:py-16 flex flex-col items-center justify-center">
+      {/* Botón Admin en esquina superior izquierda */}
+      <div className="absolute top-4 left-4">
+        <button 
+          onClick={() => window.location.href = '/login?type=admin'} 
+          className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-200 transition-all duration-200"
+        >
+          Usuario administrador
+        </button>
+      </div>
+
       <div className="flex flex-col items-center space-y-6 w-full">
         {/* Logo centrado y grande */}
         <div className="flex flex-col items-center lg:items-start space-y-4">
@@ -32,28 +42,6 @@ export const HeroSection = () => {
           }`}>
             Los mejores sabores artesanales, directamente a tu mesa
           </p>
-          
-          {/* Botón Admin pequeño en la parte superior */}
-          <div className="flex justify-center mb-6">
-            <button 
-              onClick={() => window.location.href = '/login?type=admin'} 
-              className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-200 transition-all duration-200"
-            >
-              Usuario administrador
-            </button>
-          </div>
-          
-          <div className={`flex flex-col gap-4 justify-center transition-all duration-1000 delay-500 ${
-            isVisible ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-10'
-          }`}>
-            {/* Botón Portal Mayorista */}
-            <button 
-              onClick={() => window.location.href = '/login?type=wholesale'} 
-              className="bg-amber-600 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:bg-amber-700 transition-all duration-300 transform hover:scale-105 shadow-lg mx-auto"
-            >
-              🏢 Portal Mayorista
-            </button>
-          </div>
         </div>
 
         {/* Texto de bienvenida */}

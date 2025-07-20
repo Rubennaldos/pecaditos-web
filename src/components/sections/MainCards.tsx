@@ -7,7 +7,7 @@ export const MainCards = () => {
   const navigate = useNavigate();
 
   const handleWholesaleClick = () => {
-    navigate('/mayorista');
+    navigate('/login?type=wholesale');
   };
 
   const handleLocationsClick = () => {
