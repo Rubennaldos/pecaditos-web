@@ -312,6 +312,7 @@ const OrdersPanelContent = () => {
                   orderId={order.id}
                   currentStatus={order.status}
                   onStatusChange={updateOrderStatus}
+                  order={order}
                 />
 
                 {/* Admin actions */}

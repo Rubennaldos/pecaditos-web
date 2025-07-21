@@ -130,6 +130,7 @@ export const OrderCard = ({
             orderId={order.id}
             currentStatus={order.status}
             onStatusChange={onStatusChange}
+            order={order}
           />
 
           {/* Controles Admin (solo para Admin General en modo admin) */}
