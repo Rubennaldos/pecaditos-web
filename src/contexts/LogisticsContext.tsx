@@ -130,77 +130,111 @@ type LogisticsAction =
   | { type: 'ACKNOWLEDGE_ALERT'; payload: string }
   | { type: 'INITIALIZE_DATA'; payload: Partial<LogisticsState> };
 
-// Mock data for development
+// DATOS DE EJEMPLO REALISTAS PARA EL SISTEMA DE LOGÍSTICA
 const mockInventory: InventoryItem[] = [
   {
     id: 'inv_001',
     name: 'Harina Integral',
-    category: 'insumos-basicos',
+    category: 'Insumos Básicos',
     currentQuantity: 15,
     minQuantity: 10,
     maxQuantity: 50,
     needsRefrigeration: false,
-    suppliers: ['makro', 'parada'],
+    suppliers: ['Makro', 'Parada'],
     cost: 3.50,
     location: 'Almacén A - Estante 1',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    lot: 'HI-2024-001',
+    createdAt: '2024-07-15',
+    updatedAt: '2024-07-21'
   },
   {
     id: 'inv_002',
-    name: 'Chocolate Belga',
-    category: 'insumos-especiales',
+    name: 'Chocolate Premium',
+    category: 'Insumos Especiales',
     currentQuantity: 5,
     minQuantity: 8,
     maxQuantity: 30,
     needsRefrigeration: true,
-    suppliers: ['makro'],
-    expirationDate: '2024-03-15',
+    suppliers: ['Makro'],
+    expirationDate: '2024-08-15',
     cost: 12.00,
     location: 'Refrigerador 1',
-    lot: 'LOT-2024-001',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    lot: 'CH-2024-002',
+    createdAt: '2024-07-10',
+    updatedAt: '2024-07-20'
   },
   {
     id: 'inv_003',
-    name: 'Avena Integral',
-    category: 'cereales',
+    name: 'Avena Orgánica',
+    category: 'Cereales',
     currentQuantity: 25,
     minQuantity: 15,
     maxQuantity: 60,
     needsRefrigeration: false,
-    suppliers: ['productores', 'parada'],
+    suppliers: ['Productores', 'Parada'],
     cost: 2.80,
     location: 'Almacén A - Estante 2',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    lot: 'AV-2024-003',
+    createdAt: '2024-07-12',
+    updatedAt: '2024-07-19'
   },
   {
     id: 'inv_004',
     name: 'Miel de Abeja',
-    category: 'endulzantes',
+    category: 'Endulzantes',
     currentQuantity: 3,
     minQuantity: 5,
     maxQuantity: 20,
     needsRefrigeration: false,
-    suppliers: ['productores'],
+    suppliers: ['Productores'],
     expirationDate: '2025-01-30',
     cost: 18.00,
     location: 'Almacén B - Estante 1',
-    lot: 'MIEL-2024-A',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    lot: 'MI-2024-004',
+    createdAt: '2024-07-08',
+    updatedAt: '2024-07-18'
+  },
+  {
+    id: 'inv_005',
+    name: 'Aceite de Coco',
+    category: 'Aceites',
+    currentQuantity: 0,
+    minQuantity: 6,
+    maxQuantity: 24,
+    needsRefrigeration: false,
+    suppliers: ['Makro', 'Mercado de frutas'],
+    expirationDate: '2024-12-20',
+    cost: 8.50,
+    location: 'Almacén B - Estante 3',
+    lot: 'AC-2024-005',
+    createdAt: '2024-07-05',
+    updatedAt: '2024-07-21'
+  },
+  {
+    id: 'inv_006',
+    name: 'Nueces Pecanas',
+    category: 'Frutos Secos',
+    currentQuantity: 12,
+    minQuantity: 8,
+    maxQuantity: 40,
+    needsRefrigeration: true,
+    suppliers: ['Productores'],
+    expirationDate: '2024-07-25',
+    cost: 25.00,
+    location: 'Refrigerador 2',
+    lot: 'NP-2024-006',
+    createdAt: '2024-07-01',
+    updatedAt: '2024-07-16'
   }
 ];
 
 const mockCategories: Category[] = [
-  { id: 'insumos-basicos', name: 'Insumos Básicos', description: 'Harinas, aceites, azúcar', color: '#3B82F6' },
-  { id: 'insumos-especiales', name: 'Insumos Especiales', description: 'Chocolate, frutos secos', color: '#8B5CF6' },
-  { id: 'cereales', name: 'Cereales y Granos', description: 'Avena, quinua, semillas', color: '#10B981' },
-  { id: 'endulzantes', name: 'Endulzantes', description: 'Miel, stevia, azúcar', color: '#F59E0B' },
-  { id: 'conservantes', name: 'Conservantes', description: 'Sal, bicarbonato, conservantes', color: '#EF4444' },
-  { id: 'frutas', name: 'Frutas y Vegetales', description: 'Frutas frescas y deshidratadas', color: '#06B6D4' }
+  { id: 'insumos-basicos', name: 'Insumos Básicos', description: 'Harinas, aceites, azúcar básico', color: '#3B82F6' },
+  { id: 'insumos-especiales', name: 'Insumos Especiales', description: 'Chocolate premium, ingredientes gourmet', color: '#8B5CF6' },
+  { id: 'cereales', name: 'Cereales y Granos', description: 'Avena, quinua, semillas variadas', color: '#10B981' },
+  { id: 'endulzantes', name: 'Endulzantes', description: 'Miel, stevia, azúcar orgánica', color: '#F59E0B' },
+  { id: 'aceites', name: 'Aceites y Grasas', description: 'Aceite de coco, mantequilla, ghee', color: '#EF4444' },
+  { id: 'frutos-secos', name: 'Frutos Secos', description: 'Nueces, almendras, pistachos', color: '#06B6D4' }
 ];
 
 const mockSuppliers: Supplier[] = [
@@ -211,7 +245,7 @@ const mockSuppliers: Supplier[] = [
     email: 'compras@makro.pe',
     phone: '+51 999 888 777',
     address: 'Av. Industrial 123, Lima',
-    categories: ['insumos-basicos', 'insumos-especiales', 'conservantes']
+    categories: ['insumos-basicos', 'insumos-especiales', 'aceites']
   },
   {
     id: 'parada',
@@ -229,7 +263,7 @@ const mockSuppliers: Supplier[] = [
     email: 'info@productoreslocales.pe',
     phone: '+51 777 666 555',
     address: 'Mercado de Productores, Surco',
-    categories: ['cereales', 'endulzantes', 'frutas']
+    categories: ['cereales', 'endulzantes', 'frutos-secos']
   },
   {
     id: 'mercado-frutas',
@@ -238,7 +272,70 @@ const mockSuppliers: Supplier[] = [
     email: 'ventas@mercadofrutas.pe',
     phone: '+51 666 555 444',
     address: 'Mercado Central de Frutas, La Victoria',
-    categories: ['frutas']
+    categories: ['aceites', 'frutos-secos']
+  }
+];
+
+const mockMovements: MovementRecord[] = [
+  {
+    id: 'mov_001',
+    itemId: 'inv_005',
+    itemName: 'Aceite de Coco',
+    type: 'out',
+    quantity: 6,
+    previousQuantity: 6,
+    newQuantity: 0,
+    reason: 'Producción galletas premium',
+    userId: 'logistica_001',
+    userName: 'Responsable de Logística',
+    timestamp: '2024-07-21 09:30:00',
+    notes: 'Último stock para pedido urgente'
+  },
+  {
+    id: 'mov_002',
+    itemId: 'inv_002',
+    itemName: 'Chocolate Premium',
+    type: 'out',
+    quantity: 3,
+    previousQuantity: 8,
+    newQuantity: 5,
+    reason: 'Producción lote especial',
+    userId: 'logistica_001',
+    userName: 'Responsable de Logística',
+    timestamp: '2024-07-20 14:15:00'
+  },
+  {
+    id: 'mov_003',
+    itemId: 'inv_001',
+    itemName: 'Harina Integral',
+    type: 'in',
+    quantity: 10,
+    previousQuantity: 5,
+    newQuantity: 15,
+    reason: 'Compra de reposición',
+    supplier: 'Makro',
+    lot: 'HI-2024-001',
+    userId: 'admin_001',
+    userName: 'Administrador General',
+    timestamp: '2024-07-19 11:00:00'
+  }
+];
+
+const mockPurchaseOrders: PurchaseOrder[] = [
+  {
+    id: 'po_001',
+    orderNumber: 'ORD-2024-001',
+    supplier: 'Makro',
+    status: 'sent',
+    items: [
+      { itemId: 'inv_005', itemName: 'Aceite de Coco', quantity: 12, unitCost: 8.50, totalCost: 102.00 },
+      { itemId: 'inv_002', itemName: 'Chocolate Premium', quantity: 10, unitCost: 12.00, totalCost: 120.00 }
+    ],
+    totalAmount: 222.00,
+    createdBy: 'logistica@pecaditos.com',
+    createdAt: '2024-07-21',
+    updatedAt: '2024-07-21',
+    notes: 'Orden urgente por stock crítico'
   }
 ];
 
@@ -246,8 +343,8 @@ const initialState: LogisticsState = {
   user: null,
   isAdminMode: false,
   inventory: mockInventory,
-  movements: [],
-  purchaseOrders: [],
+  movements: mockMovements,
+  purchaseOrders: mockPurchaseOrders,
   categories: mockCategories,
   suppliers: mockSuppliers,
   alerts: [],
@@ -474,8 +571,8 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
-      // Simulación de autenticación sin Firebase
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular tiempo de carga
+      // Simulación de autenticación local (sin Firebase por ahora)
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       if (email === 'logistica@pecaditos.com' && password === 'logistica123') {
         const user: LogisticsUser = {
@@ -518,11 +615,8 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
     if (state.user?.role === 'admin') {
       dispatch({ type: 'TOGGLE_ADMIN_MODE' });
       toast({
-        title: state.isAdminMode ? "Modo Usuario" : "Modo Admin",
-        description: state.isAdminMode 
-          ? "Cambió a modo usuario normal" 
-          : "Cambió a modo administrador",
-        variant: state.isAdminMode ? "default" : "destructive"
+        title: state.isAdminMode ? "Modo admin desactivado" : "Modo admin activado",
+        description: state.isAdminMode ? "Ahora en modo usuario normal" : "Acceso completo habilitado",
       });
     }
   };
@@ -535,60 +629,31 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
       updatedAt: new Date().toISOString()
     };
     dispatch({ type: 'ADD_INVENTORY_ITEM', payload: newItem });
-    
-    // Add movement record
-    const movement: MovementRecord = {
-      id: `mov_${Date.now()}`,
-      itemId: newItem.id,
-      itemName: newItem.name,
-      type: 'in',
-      quantity: newItem.currentQuantity,
-      previousQuantity: 0,
-      newQuantity: newItem.currentQuantity,
-      reason: 'Producto agregado al inventario',
-      userId: state.user?.id || '',
-      userName: state.user?.name || '',
-      timestamp: new Date().toISOString()
-    };
-    dispatch({ type: 'ADD_MOVEMENT', payload: movement });
   };
 
   const updateInventoryItem = (item: InventoryItem) => {
-    dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: { ...item, updatedAt: new Date().toISOString() } });
+    const updatedItem = { ...item, updatedAt: new Date().toISOString() };
+    dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
   };
 
   const deleteInventoryItem = (id: string) => {
-    if (state.isAdminMode) {
-      dispatch({ type: 'DELETE_INVENTORY_ITEM', payload: id });
-    }
+    dispatch({ type: 'DELETE_INVENTORY_ITEM', payload: id });
   };
 
   const addMovement = (movement: Omit<MovementRecord, 'id' | 'timestamp'>) => {
     const newMovement: MovementRecord = {
       ...movement,
       id: `mov_${Date.now()}`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toLocaleString()
     };
     dispatch({ type: 'ADD_MOVEMENT', payload: newMovement });
-
-    // Update inventory quantity
-    const item = state.inventory.find(i => i.id === movement.itemId);
-    if (item) {
-      const updatedItem = {
-        ...item,
-        currentQuantity: movement.newQuantity,
-        updatedAt: new Date().toISOString()
-      };
-      dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
-    }
   };
 
   const addPurchaseOrder = (order: Omit<PurchaseOrder, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => {
-    const orderNumber = `PO-${Date.now()}`;
     const newOrder: PurchaseOrder = {
       ...order,
       id: `po_${Date.now()}`,
-      orderNumber,
+      orderNumber: `ORD-${new Date().getFullYear()}-${String(state.purchaseOrders.length + 1).padStart(3, '0')}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -596,19 +661,18 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updatePurchaseOrder = (order: PurchaseOrder) => {
-    dispatch({ type: 'UPDATE_PURCHASE_ORDER', payload: { ...order, updatedAt: new Date().toISOString() } });
+    const updatedOrder = { ...order, updatedAt: new Date().toISOString() };
+    dispatch({ type: 'UPDATE_PURCHASE_ORDER', payload: updatedOrder });
   };
 
   const deletePurchaseOrder = (id: string) => {
-    if (state.isAdminMode) {
-      dispatch({ type: 'DELETE_PURCHASE_ORDER', payload: id });
-    }
+    dispatch({ type: 'DELETE_PURCHASE_ORDER', payload: id });
   };
 
   const addCategory = (category: Omit<Category, 'id'>) => {
     const newCategory: Category = {
       ...category,
-      id: `cat_${Date.now()}`
+      id: category.name.toLowerCase().replace(/\s+/g, '-')
     };
     dispatch({ type: 'ADD_CATEGORY', payload: newCategory });
   };
@@ -618,15 +682,13 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteCategory = (id: string) => {
-    if (state.isAdminMode) {
-      dispatch({ type: 'DELETE_CATEGORY', payload: id });
-    }
+    dispatch({ type: 'DELETE_CATEGORY', payload: id });
   };
 
   const addSupplier = (supplier: Omit<Supplier, 'id'>) => {
     const newSupplier: Supplier = {
       ...supplier,
-      id: `sup_${Date.now()}`
+      id: supplier.name.toLowerCase().replace(/\s+/g, '-')
     };
     dispatch({ type: 'ADD_SUPPLIER', payload: newSupplier });
   };
@@ -636,50 +698,45 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const deleteSupplier = (id: string) => {
-    if (state.isAdminMode) {
-      dispatch({ type: 'DELETE_SUPPLIER', payload: id });
-    }
+    dispatch({ type: 'DELETE_SUPPLIER', payload: id });
   };
 
   const acknowledgeAlert = (alertId: string) => {
     dispatch({ type: 'ACKNOWLEDGE_ALERT', payload: alertId });
   };
 
-  const value = {
-    state,
-    login,
-    logout,
-    toggleAdminMode,
-    addInventoryItem,
-    updateInventoryItem,
-    deleteInventoryItem,
-    addMovement,
-    addPurchaseOrder,
-    updatePurchaseOrder,
-    deletePurchaseOrder,
-    addCategory,
-    updateCategory,
-    deleteCategory,
-    addSupplier,
-    updateSupplier,
-    deleteSupplier,
-    generateAlerts,
-    acknowledgeAlert,
-    // Convenience properties
-    user: state.user,
-    isAdminMode: state.isAdminMode,
-    inventory: state.inventory,
-    movements: state.movements,
-    purchaseOrders: state.purchaseOrders,
-    categories: state.categories,
-    suppliers: state.suppliers,
-    alerts: state.alerts,
-    loading: state.loading,
-    error: state.error
-  };
-
   return (
-    <LogisticsContext.Provider value={value}>
+    <LogisticsContext.Provider value={{
+      state,
+      login,
+      logout,
+      toggleAdminMode,
+      addInventoryItem,
+      updateInventoryItem,
+      deleteInventoryItem,
+      addMovement,
+      addPurchaseOrder,
+      updatePurchaseOrder,
+      deletePurchaseOrder,
+      addCategory,
+      updateCategory,
+      deleteCategory,
+      addSupplier,
+      updateSupplier,
+      deleteSupplier,
+      generateAlerts,
+      acknowledgeAlert,
+      user: state.user,
+      isAdminMode: state.isAdminMode,
+      inventory: state.inventory,
+      movements: state.movements,
+      purchaseOrders: state.purchaseOrders,
+      categories: state.categories,
+      suppliers: state.suppliers,
+      alerts: state.alerts,
+      loading: state.loading,
+      error: state.error
+    }}>
       {children}
     </LogisticsContext.Provider>
   );
