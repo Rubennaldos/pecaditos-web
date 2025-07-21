@@ -73,7 +73,7 @@ export const MessagesModule = () => {
     { value: 'cobranzas', label: 'Módulo Cobranzas', count: 2 }
   ];
 
-  // Los números indican la cantidad de usuarios activos en cada perfil
+  // Los números entre paréntesis indican la cantidad de usuarios activos en cada perfil
 
   const handleSendMessage = () => {
     if (!newMessage.title || !newMessage.content || newMessage.recipients.length === 0) {
@@ -179,7 +179,7 @@ export const MessagesModule = () => {
 
               <div>
                 <Label htmlFor="message-image">Imagen (Opcional)</Label>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Input 
                     id="message-image"
                     type="file"
@@ -189,17 +189,19 @@ export const MessagesModule = () => {
                         setNewMessage(prev => ({ ...prev, image: URL.createObjectURL(e.target.files[0]) }));
                       }
                     }}
+                    className="mb-2"
                   />
                   {newMessage.image && (
-                    <div className="flex justify-between items-center">
-                      <img src={newMessage.image} alt="Preview" className="w-24 h-24 object-cover rounded-lg" />
+                    <div className="space-y-2">
+                      <img src={newMessage.image} alt="Preview" className="w-32 h-32 object-cover rounded-lg mx-auto" />
                       <Button 
                         size="sm" 
                         variant="outline" 
                         onClick={() => setNewMessage(prev => ({ ...prev, image: '' }))}
-                        className="text-red-600"
+                        className="w-full text-red-600 hover:bg-red-50"
                       >
-                        Eliminar
+                        <X className="h-4 w-4 mr-2" />
+                        Eliminar imagen
                       </Button>
                     </div>
                   )}
@@ -208,17 +210,23 @@ export const MessagesModule = () => {
 
               <div>
                 <Label>Destinatarios</Label>
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <p className="text-xs text-stone-500 mb-3">
+                  Los números entre paréntesis indican usuarios activos en cada perfil
+                </p>
+                <div className="grid grid-cols-1 gap-3 mt-2">
                   {profiles.map((profile) => (
-                    <div key={profile.value} className="flex items-center space-x-2">
+                    <div key={profile.value} className="flex items-center space-x-3 p-2 border rounded-lg hover:bg-stone-50">
                       <Checkbox 
                         id={profile.value}
                         checked={newMessage.recipients.includes(profile.value)}
                         onCheckedChange={(checked) => handleRecipientChange(profile.value, checked)}
                       />
-                      <Label htmlFor={profile.value} className="text-sm">
-                        {profile.label} ({profile.count})
+                      <Label htmlFor={profile.value} className="text-sm font-medium flex-1">
+                        {profile.label}
                       </Label>
+                      <span className="text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded">
+                        {profile.count} usuarios
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -249,11 +257,16 @@ export const MessagesModule = () => {
                 </div>
               )}
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex gap-3 pt-4">
               <Button variant="outline" onClick={() => setShowNewMessageModal(false)}>
+                <X className="h-4 w-4 mr-2" />
                 Cancelar
               </Button>
-              <Button onClick={handleSendMessage}>
+              <Button 
+                onClick={handleSendMessage}
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={!newMessage.title || !newMessage.content || newMessage.recipients.length === 0}
+              >
                 <Send className="h-4 w-4 mr-2" />
                 Enviar Mensaje
               </Button>

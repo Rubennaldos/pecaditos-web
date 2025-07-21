@@ -14,14 +14,22 @@ import {
   Building,
   CreditCard,
   Award,
-  ChevronRight
+  ChevronRight,
+  Settings,
+  Store,
+  Megaphone,
+  MessageSquare,
+  MapPin
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/ui/date-picker';
 import { DateRange } from 'react-day-picker';
+import { ConsolidatedAdminModule } from './ConsolidatedAdminModule';
+import { MessagesModule } from './MessagesModule';
 
 export const GlobalDashboard = () => {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: new Date()
@@ -94,7 +102,48 @@ export const GlobalDashboard = () => {
   const getDisplayedDebtors = () => showMoreDebtors ? rankings.topDebtors : rankings.topDebtors.slice(0, 10);
   const getDisplayedProducts = () => showMoreProducts ? rankings.topProducts : rankings.topProducts.slice(0, 10);
 
-  return (
+  const adminTabs = [
+    { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
+    { id: 'gestioner', name: 'Gestión Integrada', icon: Settings },
+    { id: 'messages', name: 'Mensajes', icon: MessageSquare },
+    { id: 'locations', name: 'Puntos de Venta', icon: MapPin }
+  ];
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'gestioner':
+        return <ConsolidatedAdminModule />;
+      case 'messages':
+        return <MessagesModule />;
+      case 'locations':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-3xl font-bold text-stone-800">Puntos de Venta</h1>
+              <p className="text-stone-600 mt-1">Gestiona los puntos donde vendes tus productos</p>
+            </div>
+            <Card>
+              <CardContent className="p-8 text-center">
+                <Store className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-600 mb-2">Puntos de Venta</h3>
+                <p className="text-gray-500 mb-4">
+                  Gestiona las tiendas y distribuidores donde tus productos están disponibles.<br />
+                  Estos puntos aparecerán en la página "Dónde nos ubicamos" para los clientes.
+                </p>
+                <Button>
+                  <Store className="h-4 w-4 mr-2" />
+                  Administrar Puntos de Venta
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        );
+      default:
+        return renderDashboard();
+    }
+  };
+
+  const renderDashboard = () => (
     <div className="space-y-6">
       {/* Header con filtros */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -350,6 +399,36 @@ export const GlobalDashboard = () => {
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Navigation Tabs */}
+      <div className="border-b border-stone-200">
+        <nav className="flex space-x-8">
+          {adminTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center px-1 py-4 text-sm font-medium border-b-2 transition-colors ${
+                  activeTab === tab.id
+                    ? 'border-amber-500 text-amber-600'
+                    : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
+                }`}
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {tab.name}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Content */}
+      {renderContent()}
     </div>
   );
 };
