@@ -16,6 +16,27 @@ import { mockProducts, mockOrders, mockUsers, Product, Order, User } from '@/dat
 
 export const loginUser = async (email: string, password: string) => {
   try {
+    // En modo de desarrollo/demo, simular login exitoso para usuarios específicos
+    const demoUsers = [
+      'admin@pecaditos.com',
+      'pedidos@pecaditos.com', 
+      'reparto@pecaditos.com',
+      'produccion@pecaditos.com',
+      'cobranzas@pecaditos.com',
+      'distribuidora@ejemplo.com',
+      'minimarket@ejemplo.com'
+    ];
+    
+    if (demoUsers.includes(email)) {
+      // Simular usuario Firebase para demo
+      return {
+        uid: `demo-${email.split('@')[0]}`,
+        email: email,
+        displayName: email.split('@')[0],
+        emailVerified: true
+      } as any;
+    }
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error) {

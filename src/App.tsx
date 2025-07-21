@@ -8,6 +8,7 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { WholesaleAuthProvider } from "@/contexts/WholesaleAuthContext";
 import { AdminProvider } from "@/contexts/AdminContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Catalog from "./pages/Catalog";
@@ -25,14 +26,15 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado por perfiles */}
-    <AuthProvider>
-      <WholesaleAuthProvider>
-        <AdminProvider>
-          <BrowserRouter>
-            <TooltipProvider>
-              <Toaster />
-              <Sonner />
+    <AuthErrorBoundary>
+      {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado por perfiles */}
+      <AuthProvider>
+        <WholesaleAuthProvider>
+          <AdminProvider>
+            <BrowserRouter>
+              <TooltipProvider>
+                <Toaster />
+                <Sonner />
               <Routes>
                 {/* PÁGINA PRINCIPAL - Landing/Bienvenida - Acceso público */}
                 <Route path="/" element={<Index />} />
@@ -143,11 +145,12 @@ const App = () => (
                 {/* RUTA 404 - Debe ir al final */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </TooltipProvider>
-          </BrowserRouter>
-        </AdminProvider>
-      </WholesaleAuthProvider>
-    </AuthProvider>
+              </TooltipProvider>
+            </BrowserRouter>
+          </AdminProvider>
+        </WholesaleAuthProvider>
+      </AuthProvider>
+    </AuthErrorBoundary>
   </QueryClientProvider>
 );
 

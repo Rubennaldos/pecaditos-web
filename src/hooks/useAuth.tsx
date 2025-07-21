@@ -19,6 +19,8 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
+    // Proporcionar más información sobre el error para debugging
+    console.error('useAuth fue llamado fuera del AuthProvider. Verifica que el componente esté dentro del provider.');
     throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
   return context;
@@ -34,25 +36,30 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-      
-      if (firebaseUser) {
-        // Obtener datos adicionales del usuario desde Firebase
-        try {
-          const additionalUserData = await getUserData(firebaseUser.uid);
-          setUserData(additionalUserData);
-        } catch (error) {
-          console.error('Error al obtener datos del usuario:', error);
+    try {
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        setUser(firebaseUser);
+        
+        if (firebaseUser) {
+          // Obtener datos adicionales del usuario desde Firebase
+          try {
+            const additionalUserData = await getUserData(firebaseUser.uid);
+            setUserData(additionalUserData);
+          } catch (error) {
+            console.error('Error al obtener datos del usuario:', error);
+          }
+        } else {
+          setUserData(null);
         }
-      } else {
-        setUserData(null);
-      }
-      
-      setLoading(false);
-    });
+        
+        setLoading(false);
+      });
 
-    return () => unsubscribe();
+      return () => unsubscribe();
+    } catch (error) {
+      console.error('Error configurando Firebase Auth listener:', error);
+      setLoading(false);
+    }
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -60,6 +67,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const user = await loginUser(email, password);
       return user;
+    } catch (error) {
+      console.error('Error en login:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -70,6 +80,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const user = await registerUser(email, password, additionalData);
       return user;
+    } catch (error) {
+      console.error('Error en registro:', error);
+      throw error;
     } finally {
       setLoading(false);
     }
@@ -79,6 +92,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setLoading(true);
     try {
       await logoutUser();
+    } catch (error) {
+      console.error('Error en logout:', error);
+      throw error;
     } finally {
       setLoading(false);
     }

@@ -6,15 +6,15 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
-// Configuración de Firebase (reemplazar con datos reales)
+// Configuración de Firebase (usando valores de desarrollo por defecto)
 const firebaseConfig = {
-  apiKey: "your-api-key-here",
+  apiKey: "AIzaSyDemokey-firebase-development-only",
   authDomain: "pecaditos-integrales.firebaseapp.com",
   databaseURL: "https://pecaditos-integrales-default-rtdb.firebaseio.com",
   projectId: "pecaditos-integrales",
   storageBucket: "pecaditos-integrales.appspot.com",
   messagingSenderId: "123456789",
-  appId: "your-app-id-here"
+  appId: "1:123456789:web:abcdef123456789"
 };
 
 // Inicializar Firebase
