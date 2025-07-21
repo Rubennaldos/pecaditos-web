@@ -21,9 +21,10 @@ interface OrderActionButtonsProps {
   currentStatus: string;
   onStatusChange: (orderId: string, newStatus: string) => void;
   order?: any; // Datos completos del pedido para el modal
+  onCreateNewOrder?: (orderId: string, incompleteItems: any[]) => void; // Función para crear nueva orden
 }
 
-export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, order }: OrderActionButtonsProps) => {
+export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, order, onCreateNewOrder }: OrderActionButtonsProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
 
@@ -81,20 +82,20 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
 
   const handleOrderCompletion = (orderId: string, completedItems: any[], incompleteItems?: any[]) => {
     if (incompleteItems && incompleteItems.length > 0) {
-      // Crear nueva orden para productos faltantes
-      const newOrderId = `${orderId}-R${Date.now().toString().slice(-4)}`;
+      // Crear nueva orden para productos faltantes usando la función pasada como prop
+      if (onCreateNewOrder) {
+        onCreateNewOrder(orderId, incompleteItems);
+      }
+      
       console.log('🔄 Nueva orden creada para productos faltantes:', {
         originalOrder: orderId,
-        newOrder: newOrderId,
         incompleteItems: incompleteItems.length,
         customerAlert: true
       });
       
-      // Aquí se debería agregar la nueva orden al estado global
-      // Por ahora solo logging para debug
       toast({
         title: "Nueva orden creada",
-        description: `Se creó la orden ${newOrderId} para ${incompleteItems.length} productos faltantes`,
+        description: `Se creó una nueva orden para ${incompleteItems.length} productos faltantes`,
       });
     }
     

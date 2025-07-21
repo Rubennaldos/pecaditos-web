@@ -365,6 +365,7 @@ const OrdersPanelContent = () => {
                   currentStatus={order.status}
                   onStatusChange={updateOrderStatus}
                   order={order}
+                  onCreateNewOrder={createNewOrderForMissingItems}
                 />
 
                 {/* Admin actions */}
