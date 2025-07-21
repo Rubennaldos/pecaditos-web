@@ -19,7 +19,8 @@ import {
   Store,
   Megaphone,
   MessageSquare,
-  MapPin
+  MapPin,
+  Boxes
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -27,6 +28,7 @@ import { DatePickerWithRange } from '@/components/ui/date-picker';
 import { DateRange } from 'react-day-picker';
 import { ConsolidatedAdminModule } from './ConsolidatedAdminModule';
 import { MessagesModule } from './MessagesModule';
+import { LogisticsAdminModule } from './LogisticsAdminModule';
 
 export const GlobalDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -105,6 +107,7 @@ export const GlobalDashboard = () => {
   const adminTabs = [
     { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
     { id: 'gestioner', name: 'Gestión Integrada', icon: Settings },
+    { id: 'logistics', name: 'Logística', icon: Boxes },
     { id: 'messages', name: 'Mensajes', icon: MessageSquare },
     { id: 'locations', name: 'Puntos de Venta', icon: MapPin }
   ];
@@ -113,6 +116,8 @@ export const GlobalDashboard = () => {
     switch (activeTab) {
       case 'gestioner':
         return <ConsolidatedAdminModule />;
+      case 'logistics':
+        return <LogisticsAdminModule />;
       case 'messages':
         return <MessagesModule />;
       case 'locations':
