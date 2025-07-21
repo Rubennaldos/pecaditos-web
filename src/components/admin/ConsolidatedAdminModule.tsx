@@ -3,7 +3,6 @@ import {
   Settings, 
   Package, 
   DollarSign, 
-  MapPin,
   Users,
   Tag,
   Edit3,
@@ -22,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { mockProducts } from '@/data/mockData';
 
 /**
  * MÓDULO CONSOLIDADO DE ADMINISTRACIÓN GENERAL
@@ -73,43 +73,21 @@ interface Promotion {
 export const ConsolidatedAdminModule = () => {
   const { toast } = useToast();
   
-  // Estados para productos
-  const [products, setProducts] = useState<Product[]>([
-    {
-      id: '1',
-      name: 'Galletas de Avena Premium',
-      description: 'Galletas integrales de avena con pasas',
-      price: 4.50,
-      wholesalePrice: 3.20,
-      image: '/placeholder.svg',
-      category: 'clasicas',
-      stock: 100,
-      minOrder: 6,
-      isActive: true
-    }
-  ]);
-
-  // Estados para sedes/puntos de venta
-  const [salesLocations, setSalesLocations] = useState<SalesLocation[]>([
-    {
-      id: '1',
-      name: 'Minimarket El Sol',
-      address: 'Av. Los Olivos 123, San Isidro',
-      phone: '+51 999 111 222',
-      hours: 'Lun-Dom: 8:00-22:00',
-      type: 'tienda',
-      isActive: true
-    },
-    {
-      id: '2', 
-      name: 'Bodega Santa Rosa',
-      address: 'Jr. Las Flores 456, Miraflores',
-      phone: '+51 999 333 444',
-      hours: 'Lun-Sab: 7:00-23:00',
-      type: 'distribuidor',
-      isActive: true
-    }
-  ]);
+  // Estados para productos - usar datos reales del mockData
+  const [products, setProducts] = useState<Product[]>(
+    mockProducts.map(product => ({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      wholesalePrice: product.wholesalePrice || product.price * 0.75, // 25% descuento mayorista por defecto
+      image: product.image,
+      category: product.category,
+      stock: 100, // Stock inicial
+      minOrder: 6, // Cantidad mínima para mayoristas
+      isActive: product.available
+    }))
+  );
 
   // Estados para promociones
   const [promotions, setPromotions] = useState<Promotion[]>([
@@ -119,7 +97,7 @@ export const ConsolidatedAdminModule = () => {
       description: '15% adicional en pedidos mayores a S/ 500',
       discount: 15,
       validUntil: '2024-01-31',
-      products: ['1'],
+      products: ['prod_001'],
       isActive: true
     }
   ]);
@@ -159,45 +137,21 @@ export const ConsolidatedAdminModule = () => {
     }
   };
 
-  // FUNCIONES PARA SEDES
-  const handleEditLocation = (locationId: string) => {
-    setSalesLocations(prev => prev.map(l => 
-      l.id === locationId ? { ...l, isEditing: true } : { ...l, isEditing: false }
-    ));
-  };
-
-  const handleSaveLocation = (locationId: string, updatedData: Partial<SalesLocation>) => {
-    setSalesLocations(prev => prev.map(l =>
-      l.id === locationId ? { ...l, ...updatedData, isEditing: false } : l
-    ));
-    toast({
-      title: "Punto de venta actualizado",
-      description: "La información ha sido guardada exitosamente",
-    });
-  };
-
-  const handleDeleteLocation = (locationId: string) => {
-    if (confirm('¿Eliminar este punto de venta?')) {
-      setSalesLocations(prev => prev.filter(l => l.id !== locationId));
-      toast({
-        title: "Punto de venta eliminado",
-        description: "Ha sido eliminado de la lista",
-      });
-    }
-  };
-
-  const addNewLocation = () => {
-    const newLocation: SalesLocation = {
-      id: `new-${Date.now()}`,
+  const addNewProduct = () => {
+    const newProduct: Product = {
+      id: `prod_${Date.now()}`,
       name: '',
-      address: '',
-      phone: '',
-      hours: '',
-      type: 'tienda',
+      description: '',
+      price: 0,
+      wholesalePrice: 0,
+      image: '/placeholder.svg',
+      category: 'clasicas',
+      stock: 0,
+      minOrder: 6,
       isActive: true,
       isEditing: true
     };
-    setSalesLocations(prev => [newLocation, ...prev]);
+    setProducts(prev => [newProduct, ...prev]);
   };
 
   return (
@@ -210,14 +164,10 @@ export const ConsolidatedAdminModule = () => {
       </div>
 
       <Tabs defaultValue="catalog" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="catalog" className="flex items-center gap-2">
             <Package className="h-4 w-4" />
             Catálogo
-          </TabsTrigger>
-          <TabsTrigger value="locations" className="flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Puntos de Venta
           </TabsTrigger>
           <TabsTrigger value="promotions" className="flex items-center gap-2">
             <Tag className="h-4 w-4" />
@@ -232,8 +182,8 @@ export const ConsolidatedAdminModule = () => {
         {/* TAB: CATÁLOGO MAYORISTA */}
         <TabsContent value="catalog" className="space-y-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Catálogo de Productos</h2>
-            <Button onClick={() => {/* Agregar producto */}} className="bg-blue-500 hover:bg-blue-600">
+            <h2 className="text-xl font-semibold">Catálogo de Productos Mayoristas</h2>
+            <Button onClick={addNewProduct} className="bg-blue-500 hover:bg-blue-600">
               <Plus className="h-4 w-4 mr-2" />
               Nuevo Producto
             </Button>
@@ -247,34 +197,6 @@ export const ConsolidatedAdminModule = () => {
                 onEdit={() => handleEditProduct(product.id)}
                 onSave={(data) => handleSaveProduct(product.id, data)}
                 onDelete={() => handleDeleteProduct(product.id)}
-              />
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* TAB: PUNTOS DE VENTA */}
-        <TabsContent value="locations" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-semibold">Puntos de Venta</h2>
-              <p className="text-sm text-stone-600">
-                Gestiona las tiendas y distribuidores donde se venden tus productos
-              </p>
-            </div>
-            <Button onClick={addNewLocation} className="bg-green-500 hover:bg-green-600">
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Punto de Venta
-            </Button>
-          </div>
-
-          <div className="grid gap-4">
-            {salesLocations.map((location) => (
-              <LocationCard
-                key={location.id}
-                location={location}
-                onEdit={() => handleEditLocation(location.id)}
-                onSave={(data) => handleSaveLocation(location.id, data)}
-                onDelete={() => handleDeleteLocation(location.id)}
               />
             ))}
           </div>
@@ -470,100 +392,6 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
               <Badge variant={product.isActive ? "default" : "secondary"}>
                 {product.isActive ? 'Activo' : 'Inactivo'}
               </Badge>
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={onEdit}>
-              <Edit3 className="h-4 w-4" />
-            </Button>
-            <Button size="sm" variant="outline" onClick={onDelete} className="text-red-600">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-// Componente para tarjetas de puntos de venta
-interface LocationCardProps {
-  location: SalesLocation;
-  onEdit: () => void;
-  onSave: (data: Partial<SalesLocation>) => void;
-  onDelete: () => void;
-}
-
-const LocationCard = ({ location, onEdit, onSave, onDelete }: LocationCardProps) => {
-  const [editData, setEditData] = useState(location);
-
-  if (location.isEditing) {
-    return (
-      <Card className="border-2 border-green-300">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <Input
-                placeholder="Nombre del establecimiento"
-                value={editData.name}
-                onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-              />
-              <Input
-                placeholder="Dirección completa"
-                value={editData.address}
-                onChange={(e) => setEditData(prev => ({ ...prev, address: e.target.value }))}
-              />
-              <Input
-                placeholder="Teléfono"
-                value={editData.phone}
-                onChange={(e) => setEditData(prev => ({ ...prev, phone: e.target.value }))}
-              />
-              <Input
-                placeholder="Horarios"
-                value={editData.hours}
-                onChange={(e) => setEditData(prev => ({ ...prev, hours: e.target.value }))}
-              />
-              <Select value={editData.type} onValueChange={(value: any) => setEditData(prev => ({ ...prev, type: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="tienda">Tienda</SelectItem>
-                  <SelectItem value="distribuidor">Distribuidor</SelectItem>
-                  <SelectItem value="punto_venta">Punto de Venta</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button size="sm" onClick={() => onSave(editData)}>
-                <Save className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" onClick={onEdit}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex justify-between items-start">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <h3 className="font-semibold text-lg">{location.name}</h3>
-              <Badge variant="outline">
-                {location.type === 'tienda' ? 'Tienda' : 
-                 location.type === 'distribuidor' ? 'Distribuidor' : 'Punto de Venta'}
-              </Badge>
-            </div>
-            <div className="space-y-1 text-sm text-stone-600">
-              <p>📍 {location.address}</p>
-              <p>📞 {location.phone}</p>
-              <p>🕐 {location.hours}</p>
             </div>
           </div>
           <div className="flex gap-2">
