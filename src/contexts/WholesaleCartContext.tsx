@@ -152,11 +152,17 @@ export const WholesaleCartProvider = ({ children }: WholesaleCartProviderProps) 
   const updateQuantity = (productId: string, quantity: number) => {
     // Validar múltiplos de 6
     if (quantity % 6 !== 0 || quantity < 6) {
-      return;
+      throw new Error('La cantidad debe ser múltiplo de 6 y mínimo 6 unidades');
     }
 
-    setItems(prevItems =>
-      prevItems.map(item => {
+    setItems(prevItems => {
+      const existingItem = prevItems.find(item => item.product.id === productId);
+      
+      if (!existingItem) {
+        throw new Error('Producto no encontrado en el carrito');
+      }
+      
+      return prevItems.map(item => {
         if (item.product.id === productId) {
           const newPricing = calculateWholesalePrice(item.product, quantity);
           return {
@@ -166,8 +172,8 @@ export const WholesaleCartProvider = ({ children }: WholesaleCartProviderProps) 
           };
         }
         return item;
-      })
-    );
+      });
+    });
   };
 
   const clearCart = () => {

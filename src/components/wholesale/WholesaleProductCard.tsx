@@ -13,7 +13,7 @@ interface WholesaleProductCardProps {
 
 export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => {
   const [quantity, setQuantity] = useState(0);
-  const { addItem, updateQuantity, removeItem } = useWholesaleCart();
+  const { addItem, updateQuantity, removeItem, items } = useWholesaleCart();
 
   const updateProductQuantity = (newQuantity: number) => {
     // Asegurar que las cantidades sean múltiplos de 6
@@ -29,16 +29,28 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
     
     setQuantity(validQuantity);
     
+    // Verificar si el producto ya existe en el carrito
+    const existingItem = items.find(item => item.product.id === product.id);
+    
     try {
       if (validQuantity > 0) {
-        addItem(product, validQuantity);
+        if (existingItem) {
+          // Producto existe, actualizar cantidad
+          updateQuantity(product.id, validQuantity);
+        } else {
+          // Producto no existe, agregarlo
+          addItem(product, validQuantity);
+        }
       } else {
-        removeItem(product.id);
+        // Cantidad es 0, remover del carrito
+        if (existingItem) {
+          removeItem(product.id);
+        }
       }
     } catch (error) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Error al agregar producto",
+        description: error instanceof Error ? error.message : "Error al gestionar el producto",
         variant: "destructive"
       });
     }
