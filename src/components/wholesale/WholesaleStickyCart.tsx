@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
 import { toast } from '@/components/ui/use-toast';
+import { WholesaleCheckout } from './WholesaleCheckout';
 
 /**
  * CARRITO STICKY MAYORISTA
@@ -116,19 +117,9 @@ export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartPr
       return;
     }
 
-    // Simular navegación a checkout (en implementación real redirigiría a /checkout)
-    toast({
-      title: "¡Procediendo al checkout!",
-      description: `Procesando ${itemCount} productos por S/ ${finalTotal.toFixed(2)}`,
-    });
-    
-    // Simular proceso de checkout
-    setTimeout(() => {
-      toast({
-        title: "✅ Pedido confirmado",
-        description: "Tu pedido mayorista ha sido procesado exitosamente",
-      });
-    }, 2000);
+    // Abrir el módulo de checkout
+    setShowCheckout(true);
+    setIsExpanded(false); // Cerrar el carrito modal
   };
 
   const remainingForMinimum = Math.max(0, minimumAmount - finalTotal);
@@ -340,23 +331,35 @@ export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartPr
                 )}
 
                 {/* Botón continuar */}
-                <Button
-                  onClick={handleProceedToCheckout}
-                  disabled={!isMinimumMet || items.length === 0}
-                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3"
-                >
-                  <ArrowRight className="h-5 w-5 mr-2" />
-                  {items.length === 0 
-                    ? 'Carrito vacío' 
-                    : !isMinimumMet 
-                      ? `Faltan S/ ${remainingForMinimum.toFixed(2)}` 
-                      : 'Continuar Pedido'
-                  }
-                </Button>
+            <Button
+              onClick={handleProceedToCheckout}
+              disabled={!isMinimumMet || items.length === 0}
+              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3"
+            >
+              <ArrowRight className="h-5 w-5 mr-2" />
+              {items.length === 0 
+                ? 'Carrito vacío' 
+                : !isMinimumMet 
+                  ? `Faltan S/ ${remainingForMinimum.toFixed(2)}` 
+                  : 'Continuar Pedido'
+              }
+            </Button>
+
+        {/* Modal de Checkout para desktop */}
+        <WholesaleCheckout
+          isOpen={showCheckout}
+          onClose={() => setShowCheckout(false)}
+        />
               </div>
             </div>
           </div>
         )}
+
+        {/* Modal de Checkout */}
+        <WholesaleCheckout
+          isOpen={showCheckout}
+          onClose={() => setShowCheckout(false)}
+        />
       </>
     );
   }
@@ -396,6 +399,12 @@ export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartPr
               <ArrowRight className="h-4 w-4 mr-2" />
               Continuar
             </Button>
+
+      {/* Modal de Checkout para móvil */}
+      <WholesaleCheckout
+        isOpen={showCheckout}
+        onClose={() => setShowCheckout(false)}
+      />
           </div>
           
           {!isMinimumMet && remainingForMinimum > 0 && (
