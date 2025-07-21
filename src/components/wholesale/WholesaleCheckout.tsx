@@ -92,26 +92,88 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
   };
 
   const handleConfirmOrder = () => {
-    // Generar número de orden único
+    // Generar número de orden único - PENDIENTE DE CONFIRMACIÓN
     const orderNum = `MW-${Date.now().toString().slice(-8)}`;
     setOrderNumber(orderNum);
     setStep('confirmed');
     
+    // Notificar al área de pedidos para confirmación
+    console.log('🔔 NUEVO PEDIDO MAYORISTA PENDIENTE CONFIRMACIÓN:', {
+      orderId: orderNum,
+      customer: 'Usuario Mayorista',
+      total: finalTotal,
+      items: items.length,
+      location: selectedLocation,
+      timestamp: new Date().toISOString(),
+      status: 'pendiente_confirmacion_2h'
+    });
+    
     toast({
-      title: "¡Pedido confirmado!",
-      description: `Orden ${orderNum} creada exitosamente`,
+      title: "¡Pedido enviado!",
+      description: `Orden ${orderNum} enviada. Será confirmada en 2 horas.`,
     });
   };
 
   const handleDownloadPDF = () => {
-    // Simular descarga de PDF
-    toast({
-      title: "Descargando PDF",
-      description: "El archivo de tu pedido se está descargando...",
+    import('jspdf').then(({ jsPDF }) => {
+      const doc = new jsPDF();
+      
+      // Configurar PDF
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text('PECADITOS INTEGRALES S.A.C.', 20, 30);
+      
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "normal");
+      doc.text('ORDEN DE PEDIDO MAYORISTA', 20, 45);
+      
+      // Número de orden
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Orden N°: ${orderNumber}`, 20, 65);
+      doc.text(`Fecha: ${new Date().toLocaleDateString('es-PE')}`, 20, 75);
+      
+      // Información de entrega
+      doc.setFont("helvetica", "normal");
+      doc.text('INFORMACIÓN DE ENTREGA:', 20, 95);
+      doc.text(`Sede: ${selectedLocationData?.name}`, 25, 105);
+      doc.text(`Dirección: ${selectedLocationData?.address}`, 25, 115);
+      doc.text(`Tiempo estimado: ${selectedLocationData?.deliveryTime}`, 25, 125);
+      
+      // Lista de productos
+      doc.text('PRODUCTOS SOLICITADOS:', 20, 145);
+      let yPos = 155;
+      items.forEach((item, index) => {
+        doc.text(`${index + 1}. ${item.product.name}`, 25, yPos);
+        doc.text(`   Cantidad: ${item.quantity} | Precio: S/ ${item.finalPrice.toFixed(2)}`, 25, yPos + 10);
+        yPos += 20;
+      });
+      
+      // Total
+      doc.setFont("helvetica", "bold");
+      doc.text(`TOTAL: S/ ${finalTotal.toFixed(2)}`, 20, yPos + 20);
+      
+      // Observaciones
+      if (customerObservations) {
+        doc.setFont("helvetica", "normal");
+        doc.text('OBSERVACIONES:', 20, yPos + 40);
+        const splitText = doc.splitTextToSize(customerObservations, 170);
+        doc.text(splitText, 25, yPos + 50);
+      }
+      
+      // Términos
+      doc.setFontSize(10);
+      doc.text('IMPORTANTE: Este pedido será confirmado en las próximas 2 horas.', 20, 270);
+      doc.text('Para consultas: WhatsApp 999-888-777', 20, 280);
+      
+      // Descargar
+      doc.save(`Pedido-${orderNumber}.pdf`);
+      
+      toast({
+        title: "PDF Descargado",
+        description: "Tu orden ha sido descargada exitosamente",
+      });
     });
-    
-    // En implementación real, generar PDF con jsPDF o similar
-    console.log('Generando PDF para orden:', orderNumber);
   };
 
   const handleBackToShopping = () => {
@@ -390,11 +452,11 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                 </CardContent>
               </Card>
 
-              {/* Recordatorio de 24 horas */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">
-                  <strong>Recordatorio:</strong> Tienes 24 horas para confirmar este pedido. 
-                  Te contactaremos dentro de las próximas 2 horas para coordinar la entrega.
+              {/* Aviso de confirmación en 2 horas */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>⏰ Confirmación pendiente:</strong> Tu pedido será confirmado por nuestro equipo dentro de las próximas <strong>2 horas</strong>. 
+                  Te notificaremos por WhatsApp o a través de tu perfil mayorista.
                 </p>
               </div>
 

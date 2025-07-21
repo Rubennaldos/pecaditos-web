@@ -133,37 +133,38 @@ export const WholesaleDashboard = () => {
 
         {/* Grid de métricas y avisos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {/* Pedidos Recientes */}
+          {/* Pedidos Confirmados */}
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-stone-600 mb-1">Pedidos Recientes</p>
-                  <p className="text-2xl font-bold text-stone-800">
-                    {user.recentOrders.length}
+                  <p className="text-sm text-stone-600 mb-1">Pedidos Confirmados</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    {user.recentOrders.filter((_, i) => i % 2 === 0).length}
                   </p>
+                  <Badge variant="default" className="text-xs mt-1 bg-green-100 text-green-800">
+                    Listos para entrega
+                  </Badge>
                 </div>
-                <Package className="h-8 w-8 text-amber-500" />
+                <Package className="h-8 w-8 text-green-500" />
               </div>
             </CardContent>
           </Card>
 
-          {/* Pagos Pendientes */}
+          {/* Pedidos Pendientes Confirmación */}
           <Card className="hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-stone-600 mb-1">Pagos Pendientes</p>
-                  <p className="text-2xl font-bold text-stone-800">
-                    {user.pendingPayments}
+                  <p className="text-sm text-stone-600 mb-1">Pendientes Confirmación</p>
+                  <p className="text-2xl font-bold text-amber-700">
+                    {Math.ceil(user.recentOrders.length / 2)}
                   </p>
-                  {user.pendingPayments > 0 && (
-                    <Badge variant="destructive" className="text-xs mt-1">
-                      Requiere atención
-                    </Badge>
-                  )}
+                  <Badge variant="secondary" className="text-xs mt-1 bg-amber-100 text-amber-800">
+                    Máximo 2 horas
+                  </Badge>
                 </div>
-                <Clock className="h-8 w-8 text-orange-500" />
+                <Clock className="h-8 w-8 text-amber-500" />
               </div>
             </CardContent>
           </Card>

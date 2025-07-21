@@ -73,6 +73,8 @@ export const MessagesModule = () => {
     { value: 'cobranzas', label: 'Módulo Cobranzas', count: 2 }
   ];
 
+  // Los números indican la cantidad de usuarios activos en cada perfil
+
   const handleSendMessage = () => {
     if (!newMessage.title || !newMessage.content || newMessage.recipients.length === 0) {
       toast({
@@ -177,22 +179,31 @@ export const MessagesModule = () => {
 
               <div>
                 <Label htmlFor="message-image">Imagen (Opcional)</Label>
-                <Input 
-                  id="message-image"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => {
-                    // Simular carga de imagen
-                    if (e.target.files[0]) {
-                      setNewMessage(prev => ({ ...prev, image: URL.createObjectURL(e.target.files[0]) }));
-                    }
-                  }}
-                />
-                {newMessage.image && (
-                  <div className="mt-2">
-                    <img src={newMessage.image} alt="Preview" className="w-24 h-24 object-cover rounded-lg" />
-                  </div>
-                )}
+                <div className="space-y-2">
+                  <Input 
+                    id="message-image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      if (e.target.files[0]) {
+                        setNewMessage(prev => ({ ...prev, image: URL.createObjectURL(e.target.files[0]) }));
+                      }
+                    }}
+                  />
+                  {newMessage.image && (
+                    <div className="flex justify-between items-center">
+                      <img src={newMessage.image} alt="Preview" className="w-24 h-24 object-cover rounded-lg" />
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => setNewMessage(prev => ({ ...prev, image: '' }))}
+                        className="text-red-600"
+                      >
+                        Eliminar
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div>

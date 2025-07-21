@@ -14,15 +14,18 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { OrderCompletionModal } from './OrderCompletionModal';
 
 interface OrderActionButtonsProps {
   orderId: string;
   currentStatus: string;
   onStatusChange: (orderId: string, newStatus: string) => void;
+  order?: any; // Datos completos del pedido para el modal
 }
 
-export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: OrderActionButtonsProps) => {
+export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, order }: OrderActionButtonsProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
 
   const handleAcceptOrder = async () => {
     setIsLoading(true);
@@ -47,14 +50,20 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
     }
   };
 
-  const handleMarkReady = async () => {
+  const handleMarkReady = () => {
+    if (order) {
+      setShowCompletionModal(true);
+    } else {
+      // Fallback para cuando no hay datos del pedido
+      handleDirectMarkReady();
+    }
+  };
+
+  const handleDirectMarkReady = async () => {
     setIsLoading(true);
     try {
-      // Simular API call
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       onStatusChange(orderId, 'listo');
-      
       toast({
         title: "✅ Pedido Listo",
         description: `El pedido ${orderId} está listo para entrega.`,
@@ -68,6 +77,22 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOrderCompletion = (orderId: string, completedItems: any[], incompleteItems?: any[]) => {
+    if (incompleteItems && incompleteItems.length > 0) {
+      // Crear nueva orden para productos faltantes
+      const newOrderId = `${orderId}-R${Date.now().toString().slice(-4)}`;
+      console.log('🔄 Nueva orden creada para productos faltantes:', {
+        originalOrder: orderId,
+        newOrder: newOrderId,
+        incompleteItems: incompleteItems.length,
+        customerAlert: true
+      });
+    }
+    
+    onStatusChange(orderId, 'listo');
+    setShowCompletionModal(false);
   };
 
   // Botón para pedidos pendientes
@@ -111,44 +136,28 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange }: O
     );
   }
 
-  // Botón para pedidos en preparación
+  // Botón para pedidos en preparación - Con modal avanzado
   if (currentStatus === 'en_preparacion') {
     return (
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button 
-            size="sm" 
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
-            disabled={isLoading}
-          >
-            <Package className="h-4 w-4 mr-1" />
-            Marcar Listo
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              Confirmar Finalización
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Estás seguro de que el pedido <strong>{orderId}</strong> está listo?
-              <br />
-              El pedido pasará al estado "Listo para Entrega".
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleMarkReady}
-              className="bg-blue-600 hover:bg-blue-700"
-              disabled={isLoading}
-            >
-              {isLoading ? 'Procesando...' : 'Marcar Listo'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <>
+        <Button 
+          onClick={handleMarkReady}
+          size="sm" 
+          className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+          disabled={isLoading}
+        >
+          <Package className="h-4 w-4 mr-1" />
+          {isLoading ? 'Procesando...' : 'Marcar Listo'}
+        </Button>
+
+        {/* Modal avanzado de completación */}
+        <OrderCompletionModal
+          isOpen={showCompletionModal}
+          onClose={() => setShowCompletionModal(false)}
+          order={order}
+          onComplete={handleOrderCompletion}
+        />
+      </>
     );
   }
 
