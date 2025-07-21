@@ -335,41 +335,110 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
     return (
       <Card className="border-2 border-blue-300">
         <CardContent className="p-4">
+          {/* Instrucciones y orientación */}
+          <div className="bg-blue-50 p-3 rounded-lg mb-4 border-l-4 border-blue-400">
+            <h4 className="font-medium text-blue-800 mb-2">💡 Guía para completar el producto</h4>
+            <ul className="text-sm text-blue-700 space-y-1">
+              <li>• <strong>Nombre:</strong> Escriba el nombre completo del producto</li>
+              <li>• <strong>Descripción:</strong> Detalle características, presentación, peso, etc.</li>
+              <li>• <strong>Precio Normal:</strong> Precio de venta al público individual</li>
+              <li>• <strong>Precio Mayorista:</strong> Precio con descuento para ventas al por mayor</li>
+            </ul>
+            <div className="mt-2 p-2 bg-yellow-50 rounded border-l-2 border-yellow-400">
+              <p className="text-sm text-yellow-800">
+                <strong>📊 Descuentos por Mayoreo:</strong> El precio mayorista se aplica automáticamente 
+                a clientes con perfil mayorista. Recomendamos un descuento del 15-25% sobre el precio normal.
+              </p>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
-              <Input
-                placeholder="Nombre del producto"
-                value={editData.name}
-                onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-              />
-              <Textarea
-                placeholder="Descripción"
-                value={editData.description}
-                onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
-                rows={2}
-              />
-              <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Nombre del producto *
+                </label>
                 <Input
-                  type="number"
-                  placeholder="Precio normal"
-                  value={editData.price}
-                  onChange={(e) => setEditData(prev => ({ ...prev, price: parseFloat(e.target.value) }))}
-                />
-                <Input
-                  type="number"
-                  placeholder="Precio mayorista"
-                  value={editData.wholesalePrice}
-                  onChange={(e) => setEditData(prev => ({ ...prev, wholesalePrice: parseFloat(e.target.value) }))}
+                  placeholder="Ej: Arroz Extra Premium 5kg"
+                  value={editData.name}
+                  onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
+              
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-1 block">
+                  Descripción del producto
+                </label>
+                <Textarea
+                  placeholder="Ej: Arroz de grano largo, extra premium, bolsa de 5kg, ideal para restaurantes..."
+                  value={editData.description}
+                  onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Precio Normal (S/) *
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={editData.price}
+                    onChange={(e) => setEditData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-700 mb-1 block">
+                    Precio Mayorista (S/) *
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={editData.wholesalePrice}
+                    onChange={(e) => setEditData(prev => ({ ...prev, wholesalePrice: parseFloat(e.target.value) || 0 }))}
+                  />
+                  {editData.price > 0 && editData.wholesalePrice > 0 && (
+                    <p className="text-xs text-green-600 mt-1">
+                      Descuento: {Math.round(((editData.price - editData.wholesalePrice) / editData.price) * 100)}%
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button size="sm" onClick={() => onSave(editData)}>
-                <Save className="h-4 w-4" />
-              </Button>
-              <Button size="sm" variant="outline" onClick={onEdit}>
-                Cancelar
-              </Button>
+            
+            <div className="flex flex-col justify-between">
+              <div className="bg-gray-50 p-3 rounded-lg">
+                <h5 className="font-medium text-gray-800 mb-2">📋 Resumen</h5>
+                <div className="space-y-1 text-sm">
+                  <p><strong>Producto:</strong> {editData.name || 'Sin nombre'}</p>
+                  <p><strong>Precio público:</strong> S/ {editData.price?.toFixed(2) || '0.00'}</p>
+                  <p><strong>Precio mayorista:</strong> S/ {editData.wholesalePrice?.toFixed(2) || '0.00'}</p>
+                  {editData.price > 0 && editData.wholesalePrice > 0 && (
+                    <p className="text-green-600">
+                      <strong>Ahorro mayorista:</strong> S/ {(editData.price - editData.wholesalePrice).toFixed(2)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex gap-2 mt-4">
+                <Button 
+                  size="sm" 
+                  onClick={() => onSave(editData)}
+                  disabled={!editData.name || editData.price <= 0 || editData.wholesalePrice <= 0}
+                  className="flex-1"
+                >
+                  <Save className="h-4 w-4 mr-1" />
+                  Guardar
+                </Button>
+                <Button size="sm" variant="outline" onClick={onEdit}>
+                  Cancelar
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
