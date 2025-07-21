@@ -137,19 +137,227 @@ export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartPr
   // Modo compacto para header
   if (isCompact) {
     return (
-      <Button
-        onClick={() => setIsExpanded(true)}
-        variant="outline"
-        size="sm"
-        className="relative bg-white hover:bg-stone-50"
-      >
-        <ShoppingCart className="h-4 w-4" />
-        {itemCount > 0 && (
-          <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-            {itemCount}
-          </span>
+      <>
+        <Button
+          onClick={() => setIsExpanded(true)}
+          variant="outline"
+          size="sm"
+          className="relative bg-white hover:bg-stone-50"
+        >
+          <ShoppingCart className="h-4 w-4" />
+          {itemCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+              {itemCount}
+            </span>
+          )}
+          <span className="ml-2 hidden sm:inline">Carrito</span>
+        </Button>
+
+        {/* Modal del carrito */}
+        {isExpanded && (
+          <div 
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+            onClick={() => setIsExpanded(false)}
+          >
+            <div 
+              className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="sticky top-0 bg-white border-b p-4 flex justify-between items-center">
+                <h2 className="text-xl font-bold text-stone-800">Carrito Mayorista</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsExpanded(false)}
+                  className="h-8 w-8 p-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              
+              <div className="p-4 space-y-4">
+                {/* Indicador pedido mínimo */}
+                {!isMinimumMet && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-amber-800 mb-1">
+                          Pedido mínimo: S/ {minimumAmount.toFixed(2)}
+                        </p>
+                        <p className="text-sm text-amber-700">
+                          Faltan S/ {remainingForMinimum.toFixed(2)} para continuar
+                        </p>
+                        <div className="mt-2">
+                          <div className="w-full bg-amber-200 rounded-full h-2">
+                            <div
+                              className="bg-gradient-to-r from-amber-400 to-orange-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${progressPercentage}%` }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista de productos */}
+                {items.length > 0 ? (
+                  <div className="space-y-3">
+                    {items.map((item) => (
+                      <div key={item.product.id} className="flex gap-3 p-3 bg-stone-50 rounded-lg">
+                        <img
+                          src={item.product.image}
+                          alt={item.product.name}
+                          className="w-16 h-16 object-cover rounded flex-shrink-0"
+                          onError={(e) => {
+                            e.currentTarget.src = '/placeholder.svg';
+                          }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-stone-800">
+                            {item.product.name}
+                          </h4>
+                          <p className="text-xs text-stone-600 mb-2">
+                            S/ {item.unitPrice.toFixed(2)} c/u
+                          </p>
+                          
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleQuantityChange(item.product.id, item.quantity - 6)}
+                                disabled={item.quantity <= 6}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </Button>
+                              <span className="text-sm font-medium min-w-[3rem] text-center">
+                                {item.quantity}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleQuantityChange(item.product.id, item.quantity + 6)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </Button>
+                            </div>
+                            
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeItem(item.product.id)}
+                              className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="mt-2">
+                            <p className="text-sm font-medium text-stone-800">
+                              S/ {item.finalPrice.toFixed(2)}
+                            </p>
+                            {item.discount > 0 && (
+                              <p className="text-xs text-green-600">
+                                Ahorro: S/ {item.discount.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <ShoppingCart className="h-16 w-16 text-stone-300 mx-auto mb-4" />
+                    <p className="text-lg text-stone-500 mb-2">Tu carrito está vacío</p>
+                    <p className="text-sm text-stone-400">
+                      Agrega productos para empezar tu pedido mayorista
+                    </p>
+                  </div>
+                )}
+
+                {/* Código de descuento */}
+                {items.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Código de descuento"
+                        value={discountCodeInput}
+                        onChange={(e) => setDiscountCodeInput(e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button
+                        onClick={handleApplyDiscountCode}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Tag className="h-4 w-4 mr-2" />
+                        Aplicar
+                      </Button>
+                    </div>
+                    
+                    {discountCode && (
+                      <div className="flex items-center justify-between text-sm bg-green-50 border border-green-200 rounded-lg p-3">
+                        <span className="text-green-800 font-medium">
+                          Código: {discountCode}
+                        </span>
+                        <span className="text-green-600">
+                          -{(additionalDiscount * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Resumen */}
+                {items.length > 0 && (
+                  <div className="border-t pt-4 space-y-2">
+                    <div className="flex justify-between text-base">
+                      <span className="text-stone-600">Subtotal:</span>
+                      <span>S/ {subtotal.toFixed(2)}</span>
+                    </div>
+                    
+                    {totalDiscount > 0 && (
+                      <div className="flex justify-between text-base">
+                        <span className="text-green-600">Descuentos:</span>
+                        <span className="text-green-600">-S/ {totalDiscount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between text-xl font-bold border-t pt-2">
+                      <span>Total:</span>
+                      <span>S/ {finalTotal.toFixed(2)}</span>
+                    </div>
+                    
+                    <p className="text-xs text-stone-500 text-center">
+                      * Precios mayoristas incluyen descuentos por volumen
+                    </p>
+                  </div>
+                )}
+
+                {/* Botón continuar */}
+                <Button
+                  onClick={handleProceedToCheckout}
+                  disabled={!isMinimumMet || items.length === 0}
+                  className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold py-3"
+                >
+                  <ArrowRight className="h-5 w-5 mr-2" />
+                  {items.length === 0 
+                    ? 'Carrito vacío' 
+                    : !isMinimumMet 
+                      ? `Faltan S/ ${remainingForMinimum.toFixed(2)}` 
+                      : 'Continuar Pedido'
+                  }
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
-      </Button>
+      </>
     );
   }
 

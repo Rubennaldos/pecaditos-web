@@ -60,7 +60,7 @@ export const mockProducts: Product[] = [
     description: 'Deliciosas galletas integrales con chips de chocolate belga. Sin preservantes artificiales.',
     price: 12.50,
     category: 'clasicas',
-    image: '/placeholder-cookie-choco.jpg',
+    image: 'https://images.unsplash.com/photo-1570197788417-0e82375c9371?w=400&h=400&fit=crop',
     ingredients: ['Harina integral', 'Chocolate belga', 'Miel de abeja', 'Aceite de coco'],
     available: true,
     featured: true
@@ -71,7 +71,7 @@ export const mockProducts: Product[] = [
     description: 'Tradicionales galletas de avena con pasas naturales. Rica en fibra y sabor casero.',
     price: 11.00,
     category: 'clasicas',
-    image: '/placeholder-cookie-oat.jpg',
+    image: 'https://images.unsplash.com/photo-1565958011703-44f9829ba187?w=400&h=400&fit=crop',
     ingredients: ['Avena integral', 'Pasas naturales', 'Canela', 'Miel de abeja'],
     available: true,
     featured: false
@@ -82,7 +82,7 @@ export const mockProducts: Product[] = [
     description: 'Variedad de nuestras mejores galletas. Perfecto para compartir en familia.',
     price: 65.00,
     category: 'combos',
-    image: '/placeholder-combo-family.jpg',
+    image: 'https://images.unsplash.com/photo-1584362917165-526a968579e8?w=400&h=400&fit=crop',
     ingredients: ['Variedad de galletas integrales'],
     available: true,
     featured: true
@@ -93,7 +93,7 @@ export const mockProducts: Product[] = [
     description: 'Galletas nutritivas con quinua peruana y frutos secos. Ideales para deportistas.',
     price: 14.00,
     category: 'especiales',
-    image: '/placeholder-cookie-quinoa.jpg',
+    image: 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?w=400&h=400&fit=crop',
     ingredients: ['Harina integral', 'Quinua', 'Almendras', 'Nueces'],
     available: true,
     featured: false
@@ -104,7 +104,7 @@ export const mockProducts: Product[] = [
     description: 'Sabor tropical único con pulpa de maracuyá natural. Refrescantes y deliciosas.',
     price: 13.50,
     category: 'especiales',
-    image: '/placeholder-cookie-maracuya.jpg',
+    image: 'https://images.unsplash.com/photo-1586190848861-99aa4a171e90?w=400&h=400&fit=crop',
     ingredients: ['Harina integral', 'Pulpa de maracuyá', 'Miel', 'Aceite de coco'],
     available: true,
     featured: true
@@ -115,7 +115,7 @@ export const mockProducts: Product[] = [
     description: 'Galletas con higos secos naturales. Dulzura natural y textura única.',
     price: 13.00,
     category: 'especiales',
-    image: '/placeholder-cookie-higo.jpg',
+    image: 'https://images.unsplash.com/photo-1511554029219-e2a774906fa8?w=400&h=400&fit=crop',
     ingredients: ['Harina integral', 'Higos secos', 'Canela', 'Nuez moscada'],
     available: true,
     featured: false
