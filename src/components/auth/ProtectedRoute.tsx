@@ -31,7 +31,7 @@ import { useAdmin } from '@/contexts/AdminContext';
  * Solo admin puede impersonar otros perfiles para soporte.
  */
 
-export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'ORDERS' | 'DELIVERY' | 'PRODUCTION' | 'BILLING' | 'PUBLIC';
+export type RouteType = 'CATALOG_RETAIL' | 'CATALOG_WHOLESALE' | 'ADMIN' | 'ORDERS' | 'DELIVERY' | 'PRODUCTION' | 'BILLING' | 'LOGISTICS' | 'PUBLIC';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -60,6 +60,7 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
     if (email === 'reparto@pecaditos.com') return 'reparto';
     if (email === 'produccion@pecaditos.com') return 'produccion';
     if (email === 'cobranzas@pecaditos.com') return 'cobranzas';
+    if (email === 'logistica@pecaditos.com') return 'logistica';
     
     // Detección de mayoristas por patrones de email
     if (email.includes('@ejemplo.com') || 
@@ -84,6 +85,7 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
       case 'reparto': return '/reparto';
       case 'produccion': return '/produccion';
       case 'cobranzas': return '/cobranzas';
+      case 'logistica': return '/logistica';
       case 'mayorista': return '/mayorista';
       case 'retail': return '/'; // Redirige a landing (catálogo oculto)
       default: return '/';
@@ -147,6 +149,14 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido al área de cobranzas'
+    },
+
+    // PANEL LOGÍSTICA - Solo perfil logística
+    LOGISTICS: {
+      allowedProfiles: ['logistica', 'admin'], // Admin puede impersonar
+      redirectTo: '/login',
+      requireAuth: true,
+      message: 'Acceso restringido al área de logística'
     },
     
     // RUTAS PÚBLICAS - Sin restricción

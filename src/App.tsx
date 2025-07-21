@@ -18,6 +18,7 @@ import OrdersPanel from "./pages/OrdersPanel";
 import DeliveryPanel from "./pages/DeliveryPanel";
 import ProductionPanel from "./pages/ProductionPanel";
 import BillingPanel from "./pages/BillingPanel";
+import LogisticsPanel from "./pages/LogisticsPanel";
 import OrderTracking from "./pages/OrderTracking";
 import DondeNosUbicamos from "./pages/DondeNosUbicamos";
 import NotFound from "./pages/NotFound";
@@ -108,6 +109,16 @@ const App = () => (
                   element={
                     <ProtectedRoute routeType="BILLING">
                       <BillingPanel />
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                {/* PANEL DE LOGÍSTICA - Solo perfil logística y admin */}
+                <Route 
+                  path="/logistica" 
+                  element={
+                    <ProtectedRoute routeType="LOGISTICS">
+                      <LogisticsPanel />
                     </ProtectedRoute>
                   } 
                 />
