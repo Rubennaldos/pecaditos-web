@@ -89,6 +89,13 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
         incompleteItems: incompleteItems.length,
         customerAlert: true
       });
+      
+      // Aquí se debería agregar la nueva orden al estado global
+      // Por ahora solo logging para debug
+      toast({
+        title: "Nueva orden creada",
+        description: `Se creó la orden ${newOrderId} para ${incompleteItems.length} productos faltantes`,
+      });
     }
     
     onStatusChange(orderId, 'listo');

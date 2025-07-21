@@ -116,6 +116,9 @@ const OrdersPanelContent = () => {
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
   
+  // Estado local para los pedidos (simula la base de datos)
+  const [orders, setOrders] = useState(mockOrders);
+  
   // Admin modals state
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -123,23 +126,16 @@ const OrdersPanelContent = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
 
-  // *** FUNCIÓN PARA OBTENER PEDIDOS CON URGENCIA MEJORADA ***
-  const getOrdersWithUrgency = () => {
-    return mockOrders.map(order => {
-      const urgency = calculateOrderUrgency(order);
-      return { ...order, urgency };
-    });
-  };
-
+  // *** FUNCIÓN PARA CALCULAR URGENCIA ***
   const calculateOrderUrgency = (order: any) => {
     const now = new Date();
     let referenceDate: Date;
-    let timeLimit: number;
+    let timeLimit: number; // en horas
 
     switch (order.status) {
       case 'pendiente':
         referenceDate = new Date(order.createdAt);
-        timeLimit = 24;
+        timeLimit = 24; // 24 horas para aceptar
         break;
       case 'en_preparacion':
         referenceDate = order.acceptedAt ? new Date(order.acceptedAt) : new Date(order.createdAt);
@@ -165,13 +161,18 @@ const OrdersPanelContent = () => {
     };
   };
 
-  // *** ESTADÍSTICAS ACTUALIZADAS ***
+  const getOrdersWithUrgency = () => {
+    return orders.map(order => ({
+      ...order,
+      urgency: calculateOrderUrgency(order)
+    }));
+  };
   const ordersWithUrgency = getOrdersWithUrgency();
   const stats = {
-    total: mockOrders.length,
-    pendientes: mockOrders.filter(o => o.status === 'pendiente').length,
-    enPreparacion: mockOrders.filter(o => o.status === 'en_preparacion').length,
-    listos: mockOrders.filter(o => o.status === 'listo').length,
+    total: orders.length,
+    pendientes: orders.filter(o => o.status === 'pendiente').length,
+    enPreparacion: orders.filter(o => o.status === 'en_preparacion').length,
+    listos: orders.filter(o => o.status === 'listo').length,
     vencidos: ordersWithUrgency.filter(o => o.urgency.isExpired).length,
     urgentes: ordersWithUrgency.filter(o => o.urgency.isUrgent && !o.urgency.isExpired).length,
     alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length
@@ -179,16 +180,14 @@ const OrdersPanelContent = () => {
 
   // *** FUNCIÓN MEJORADA PARA LEER QR ***
   const handleQRRead = (code: string) => {
-    console.log(`Código QR leído: ${code}`);
+    console.log('🔍 QR Escaneado:', code);
     
-    // Extraer el ID del pedido de la URL del QR
-    const urlMatch = code.match(/\/seguimiento\/(.+)$/);
-    let orderId = urlMatch ? urlMatch[1] : code;
+    // Extraer ID del pedido del código QR
+    const orderId = code.replace('PECADITOS-ORDER-', '');
+    const order = orders.find(o => o.id === orderId);
     
-    // Buscar el pedido en los datos mock
-    const foundOrder = mockOrders.find(order => order.id === orderId);
-    if (foundOrder) {
-      const orderWithUrgency = { ...foundOrder, urgency: calculateOrderUrgency(foundOrder) };
+    if (order) {
+      const orderWithUrgency = { ...order, urgency: calculateOrderUrgency(order) };
       setQrScannedOrder(orderWithUrgency);
       setShowQRReader(false);
     } else {
@@ -207,7 +206,60 @@ const OrdersPanelContent = () => {
   // *** FUNCIÓN PARA CAMBIAR ESTADO DE PEDIDO ***
   const updateOrderStatus = (orderId: string, newStatus: string) => {
     console.log(`Actualizando pedido ${orderId} a estado: ${newStatus}`);
-    // TODO: Integrar con Firebase
+    
+    setOrders(prevOrders => 
+      prevOrders.map(order => {
+        if (order.id === orderId) {
+          const updatedOrder = { ...order, status: newStatus };
+          
+          // Agregar timestamp según el nuevo estado
+          if (newStatus === 'en_preparacion') {
+            (updatedOrder as any).acceptedAt = new Date().toISOString();
+          } else if (newStatus === 'listo') {
+            (updatedOrder as any).readyAt = new Date().toISOString();
+          } else if (newStatus === 'entregado') {
+            (updatedOrder as any).deliveredAt = new Date().toISOString();
+          }
+          
+          return updatedOrder;
+        }
+        return order;
+      })
+    );
+    
+    // TODO: Aquí integrar con Firebase para persistir el cambio
+  };
+
+  // *** FUNCIÓN PARA CREAR NUEVA ORDEN CON PRODUCTOS FALTANTES ***
+  const createNewOrderForMissingItems = (originalOrderId: string, incompleteItems: any[]) => {
+    const originalOrder = orders.find(o => o.id === originalOrderId);
+    if (!originalOrder) return;
+
+    const newOrderId = `${originalOrderId}-R${Date.now().toString().slice(-4)}`;
+    const newOrder = {
+      ...originalOrder,
+      id: newOrderId,
+      status: 'pendiente',
+      createdAt: new Date().toISOString(),
+      items: incompleteItems.map(item => ({
+        product: item.product,
+        quantity: item.requestedQuantity - item.sentQuantity,
+        price: item.price
+      })),
+      total: incompleteItems.reduce((sum, item) => 
+        sum + ((item.requestedQuantity - item.sentQuantity) * item.price), 0
+      ),
+      notes: `Orden de reposición del pedido ${originalOrderId}`,
+      orderType: 'reposicion'
+    };
+
+    setOrders(prevOrders => [...prevOrders, newOrder]);
+    
+    console.log('🔄 Nueva orden creada para productos faltantes:', {
+      originalOrder: originalOrderId,
+      newOrder: newOrderId,
+      missingItems: incompleteItems.length
+    });
   };
 
   // *** FUNCIÓN PARA IMPRIMIR PEDIDO ***
@@ -499,7 +551,7 @@ const OrdersPanelContent = () => {
 
             {/* Dashboard */}
             {selectedTab === 'dashboard' && (
-              <OrdersDashboard orders={mockOrders} onExportReport={exportReport} />
+              <OrdersDashboard orders={orders} onExportReport={exportReport} />
             )}
 
             {/* Pendientes */}
@@ -508,11 +560,11 @@ const OrdersPanelContent = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-brown-900">Pedidos Pendientes</h2>
                   <Badge className="bg-yellow-100 text-yellow-800">
-                    {mockOrders.filter(o => o.status === 'pendiente').length} pedidos
+                    {orders.filter(o => o.status === 'pendiente').length} pedidos
                   </Badge>
                 </div>
                 {renderOrderList(
-                  mockOrders.filter(order => {
+                  orders.filter(order => {
                     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'pendiente' && matchesSearch;
@@ -528,11 +580,11 @@ const OrdersPanelContent = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-brown-900">En Preparación</h2>
                   <Badge className="bg-blue-100 text-blue-800">
-                    {mockOrders.filter(o => o.status === 'en_preparacion').length} pedidos
+                    {orders.filter(o => o.status === 'en_preparacion').length} pedidos
                   </Badge>
                 </div>
                 {renderOrderList(
-                  mockOrders.filter(order => {
+                  orders.filter(order => {
                     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'en_preparacion' && matchesSearch;
@@ -549,11 +601,11 @@ const OrdersPanelContent = () => {
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-brown-900">Pedidos Listos</h2>
                   <Badge className="bg-green-100 text-green-800">
-                    {mockOrders.filter(o => o.status === 'listo').length} pedidos
+                    {orders.filter(o => o.status === 'listo').length} pedidos
                   </Badge>
                 </div>
                 {renderOrderList(
-                  mockOrders.filter(order => {
+                  orders.filter(order => {
                     const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
                                          order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'listo' && matchesSearch;
