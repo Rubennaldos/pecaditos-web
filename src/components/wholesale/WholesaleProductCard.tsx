@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Product } from '@/data/mockData';
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
+import { toast } from '@/components/ui/use-toast';
 
 interface WholesaleProductCardProps {
   product: Product;
@@ -12,14 +13,34 @@ interface WholesaleProductCardProps {
 
 export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => {
   const [quantity, setQuantity] = useState(0);
-  const { addItem, updateQuantity } = useWholesaleCart();
+  const { addItem, updateQuantity, removeItem } = useWholesaleCart();
 
   const updateProductQuantity = (newQuantity: number) => {
-    setQuantity(newQuantity);
-    if (newQuantity > 0) {
-      addItem(product, newQuantity);
-    } else {
-      updateQuantity(product.id, 0);
+    // Asegurar que las cantidades sean múltiplos de 6
+    const validQuantity = Math.max(0, Math.floor(newQuantity / 6) * 6);
+    
+    if (newQuantity > 0 && newQuantity !== validQuantity) {
+      toast({
+        title: "Cantidad ajustada",
+        description: "Las cantidades mayoristas deben ser múltiplos de 6 unidades",
+        variant: "default"
+      });
+    }
+    
+    setQuantity(validQuantity);
+    
+    try {
+      if (validQuantity > 0) {
+        addItem(product, validQuantity);
+      } else {
+        removeItem(product.id);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Error al agregar producto",
+        variant: "destructive"
+      });
     }
   };
 
@@ -63,7 +84,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateProductQuantity(Math.max(0, quantity - 1))}
+              onClick={() => updateProductQuantity(Math.max(0, quantity - 6))}
               disabled={quantity <= 0}
               className="h-8 w-8 p-0"
             >
@@ -75,16 +96,22 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
               onChange={(e) => updateProductQuantity(Math.max(0, parseInt(e.target.value) || 0))}
               className="flex-1 text-center h-8"
               min="0"
+              step="6"
+              placeholder="Múltiplos de 6"
             />
             <Button
               variant="outline"
               size="sm"
-              onClick={() => updateProductQuantity(quantity + 1)}
+              onClick={() => updateProductQuantity(quantity + 6)}
               className="h-8 w-8 p-0"
             >
               <Plus className="h-4 w-4" />
             </Button>
           </div>
+          
+          <p className="text-xs text-stone-500 text-center">
+            Cantidades en múltiplos de 6 unidades
+          </p>
           
           {quantity > 0 && (
             <div className="bg-amber-50 p-2 rounded-lg text-center">
