@@ -148,7 +148,7 @@ export const LogisticsLogin = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="logistica@pecaditos.com"
+                  placeholder="albertonaldos@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={loading}

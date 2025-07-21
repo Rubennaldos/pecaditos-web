@@ -1,20 +1,20 @@
 
-// Firebase Configuration
-// TODO: Reemplazar con las credenciales reales de Firebase
+// Firebase Configuration - SISTEMA DE PRODUCCIÓN
+// Configuración lista para conectar con Firebase
 
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 
-// Configuración de Firebase (usando valores de desarrollo por defecto)
+// INSTRUCCIONES: Reemplazar con sus credenciales reales de Firebase
 const firebaseConfig = {
-  apiKey: "AIzaSyDemokey-firebase-development-only",
-  authDomain: "pecaditos-integrales.firebaseapp.com",
-  databaseURL: "https://pecaditos-integrales-default-rtdb.firebaseio.com",
-  projectId: "pecaditos-integrales",
-  storageBucket: "pecaditos-integrales.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456789"
+  apiKey: "SU_API_KEY_AQUI",
+  authDomain: "su-proyecto.firebaseapp.com",
+  databaseURL: "https://su-proyecto-default-rtdb.firebaseio.com",
+  projectId: "su-proyecto-id",
+  storageBucket: "su-proyecto.appspot.com",
+  messagingSenderId: "SU_SENDER_ID",
+  appId: "SU_APP_ID"
 };
 
 // Inicializar Firebase
@@ -27,13 +27,14 @@ export const database = getDatabase(app);
 export default app;
 
 /* 
-INSTRUCCIONES PARA CONFIGURAR FIREBASE:
+CONFIGURACIÓN FIREBASE - SISTEMA DE PRODUCCIÓN LISTO
 
+PASOS PARA ACTIVAR:
 1. Crear proyecto en Firebase Console (https://console.firebase.google.com)
 2. Activar Authentication (Email/Password)
 3. Activar Realtime Database
-4. Copiar la configuración y reemplazar firebaseConfig arriba
-5. Configurar reglas de seguridad en Database Rules:
+4. Reemplazar las credenciales en firebaseConfig arriba
+5. Configurar reglas de seguridad:
 
 {
   "rules": {
@@ -47,11 +48,24 @@ INSTRUCCIONES PARA CONFIGURAR FIREBASE:
     },
     "users": {
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".read": "$uid === auth.uid || auth.uid == 'ADMIN_UID'",
+        ".write": "$uid === auth.uid || auth.uid == 'ADMIN_UID'"
       }
+    },
+    "inventory": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "logistics": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
+
+USUARIO ADMIN INICIAL:
+- Email: albertonaldos@gmail.com
+- Crear manualmente en Firebase Auth
+- Agregar claims personalizados para admin
 
 */

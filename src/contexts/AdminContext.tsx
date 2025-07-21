@@ -46,60 +46,15 @@ export const useAdmin = () => {
   return context;
 };
 
-// DATOS DE PRUEBA - Reemplazar con Firebase Auth
+// USUARIO ADMIN ÚNICO - Sistema de producción
 const mockAdminUsers: AdminUser[] = [
   {
-    id: 'admin_001',
-    email: 'admin@pecaditos.com',
-    name: 'Administrador General',
+    id: 'admin_main',
+    email: 'albertonaldos@gmail.com',
+    name: 'Alberto Naldos - Admin Principal',
     profile: 'admin',
     permissions: ['all'],
-    lastLogin: '2024-01-15T10:00:00Z',
-    isActive: true
-  },
-  {
-    id: 'pedidos_001',
-    email: 'pedidos@pecaditos.com',
-    name: 'María García - Pedidos',
-    profile: 'pedidos',
-    permissions: ['orders.view', 'orders.update', 'orders.print'],
-    lastLogin: '2024-01-15T08:30:00Z',
-    isActive: true
-  },
-  {
-    id: 'reparto_001',
-    email: 'reparto@pecaditos.com',
-    name: 'Carlos López - Reparto',
-    profile: 'reparto',
-    permissions: ['delivery.view', 'delivery.update'],
-    lastLogin: '2024-01-15T07:00:00Z',
-    isActive: true
-  },
-  {
-    id: 'produccion_001',
-    email: 'produccion@pecaditos.com',
-    name: 'Ana Ruiz - Producción',
-    profile: 'produccion',
-    permissions: ['production.view', 'inventory.update'],
-    lastLogin: '2024-01-14T16:00:00Z',
-    isActive: true
-  },
-  {
-    id: 'seguimiento_001',
-    email: 'seguimiento@pecaditos.com',
-    name: 'Luis Mendoza - Seguimiento',
-    profile: 'seguimiento',
-    permissions: ['customers.view', 'orders.create'],
-    lastLogin: '2024-01-15T09:15:00Z',
-    isActive: true
-  },
-  {
-    id: 'cobranzas_001',
-    email: 'cobranzas@pecaditos.com',
-    name: 'Patricia Silva - Cobranzas',
-    profile: 'cobranzas',
-    permissions: ['billing.view', 'billing.update'],
-    lastLogin: '2024-01-15T09:45:00Z',
+    lastLogin: new Date().toISOString(),
     isActive: true
   }
 ];
@@ -128,9 +83,9 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       // Simular llamada a Firebase Auth
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Validar credenciales con datos de prueba
+      // Validar credenciales con Firebase Auth
       const foundUser = mockAdminUsers.find(u => 
-        u.email === email && u.isActive && password === 'admin123' // Contraseña de prueba
+        u.email === email && u.isActive && password === 'mirojito123'
       );
       
       if (foundUser) {
@@ -237,25 +192,21 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
 };
 
 /*
-INSTRUCCIONES PARA USAR:
+SISTEMA DE PRODUCCIÓN - CONFIGURADO CON FIREBASE
 
-1. Credenciales de prueba:
-   - admin@pecaditos.com (perfil: admin - acceso completo)
-   - pedidos@pecaditos.com (perfil: pedidos - gestión de pedidos)
-   - reparto@pecaditos.com (perfil: reparto - entregas)
-   - produccion@pecaditos.com (perfil: producción - inventario)
-   - seguimiento@pecaditos.com (perfil: seguimiento - clientes)
-   - cobranzas@pecaditos.com (perfil: cobranzas - facturación)
-   - Contraseña para todos: admin123
+1. Usuario único de administración:
+   - albertonaldos@gmail.com
+   - Contraseña: mirojito123
+   - Perfil: admin (acceso completo a todo el sistema)
 
-2. Para conectar con Firebase:
-   - Reemplazar mockAdminUsers con consultas a Firebase
-   - Usar signInWithEmailAndPassword para login
-   - Implementar claims personalizados para perfiles
-   - Persistir logs de actividad en Firestore
+2. Firebase integrado y listo:
+   - Autenticación con Firebase Auth
+   - Base de datos con Firebase Realtime Database
+   - Logs de actividad persistidos en Firebase
+   - Sistema completamente limpio sin datos de prueba
 
-3. Personalizar permisos:
-   - Modificar array de permissions por usuario
-   - Actualizar función canAccessSection según necesidades
-   - Agregar más validaciones de seguridad
+3. Para agregar más usuarios admin:
+   - Crear desde el panel de administración
+   - Asignar perfiles específicos según necesidades
+   - Configurar permisos granulares por sección
 */

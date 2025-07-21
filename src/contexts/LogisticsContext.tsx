@@ -130,223 +130,25 @@ type LogisticsAction =
   | { type: 'ACKNOWLEDGE_ALERT'; payload: string }
   | { type: 'INITIALIZE_DATA'; payload: Partial<LogisticsState> };
 
-// DATOS DE EJEMPLO REALISTAS PARA EL SISTEMA DE LOGÍSTICA
-const mockInventory: InventoryItem[] = [
-  {
-    id: 'inv_001',
-    name: 'Harina Integral',
-    category: 'Insumos Básicos',
-    currentQuantity: 15,
-    minQuantity: 10,
-    maxQuantity: 50,
-    needsRefrigeration: false,
-    suppliers: ['Makro', 'Parada'],
-    cost: 3.50,
-    location: 'Almacén A - Estante 1',
-    lot: 'HI-2024-001',
-    createdAt: '2024-07-15',
-    updatedAt: '2024-07-21'
-  },
-  {
-    id: 'inv_002',
-    name: 'Chocolate Premium',
-    category: 'Insumos Especiales',
-    currentQuantity: 5,
-    minQuantity: 8,
-    maxQuantity: 30,
-    needsRefrigeration: true,
-    suppliers: ['Makro'],
-    expirationDate: '2024-08-15',
-    cost: 12.00,
-    location: 'Refrigerador 1',
-    lot: 'CH-2024-002',
-    createdAt: '2024-07-10',
-    updatedAt: '2024-07-20'
-  },
-  {
-    id: 'inv_003',
-    name: 'Avena Orgánica',
-    category: 'Cereales',
-    currentQuantity: 25,
-    minQuantity: 15,
-    maxQuantity: 60,
-    needsRefrigeration: false,
-    suppliers: ['Productores', 'Parada'],
-    cost: 2.80,
-    location: 'Almacén A - Estante 2',
-    lot: 'AV-2024-003',
-    createdAt: '2024-07-12',
-    updatedAt: '2024-07-19'
-  },
-  {
-    id: 'inv_004',
-    name: 'Miel de Abeja',
-    category: 'Endulzantes',
-    currentQuantity: 3,
-    minQuantity: 5,
-    maxQuantity: 20,
-    needsRefrigeration: false,
-    suppliers: ['Productores'],
-    expirationDate: '2025-01-30',
-    cost: 18.00,
-    location: 'Almacén B - Estante 1',
-    lot: 'MI-2024-004',
-    createdAt: '2024-07-08',
-    updatedAt: '2024-07-18'
-  },
-  {
-    id: 'inv_005',
-    name: 'Aceite de Coco',
-    category: 'Aceites',
-    currentQuantity: 0,
-    minQuantity: 6,
-    maxQuantity: 24,
-    needsRefrigeration: false,
-    suppliers: ['Makro', 'Mercado de frutas'],
-    expirationDate: '2024-12-20',
-    cost: 8.50,
-    location: 'Almacén B - Estante 3',
-    lot: 'AC-2024-005',
-    createdAt: '2024-07-05',
-    updatedAt: '2024-07-21'
-  },
-  {
-    id: 'inv_006',
-    name: 'Nueces Pecanas',
-    category: 'Frutos Secos',
-    currentQuantity: 12,
-    minQuantity: 8,
-    maxQuantity: 40,
-    needsRefrigeration: true,
-    suppliers: ['Productores'],
-    expirationDate: '2024-07-25',
-    cost: 25.00,
-    location: 'Refrigerador 2',
-    lot: 'NP-2024-006',
-    createdAt: '2024-07-01',
-    updatedAt: '2024-07-16'
-  }
-];
+// SISTEMA LIMPIO - Sin datos de ejemplo
+const mockInventory: InventoryItem[] = [];
 
-const mockCategories: Category[] = [
-  { id: 'insumos-basicos', name: 'Insumos Básicos', description: 'Harinas, aceites, azúcar básico', color: '#3B82F6' },
-  { id: 'insumos-especiales', name: 'Insumos Especiales', description: 'Chocolate premium, ingredientes gourmet', color: '#8B5CF6' },
-  { id: 'cereales', name: 'Cereales y Granos', description: 'Avena, quinua, semillas variadas', color: '#10B981' },
-  { id: 'endulzantes', name: 'Endulzantes', description: 'Miel, stevia, azúcar orgánica', color: '#F59E0B' },
-  { id: 'aceites', name: 'Aceites y Grasas', description: 'Aceite de coco, mantequilla, ghee', color: '#EF4444' },
-  { id: 'frutos-secos', name: 'Frutos Secos', description: 'Nueces, almendras, pistachos', color: '#06B6D4' }
-];
+const mockCategories: Category[] = [];
 
-const mockSuppliers: Supplier[] = [
-  {
-    id: 'makro',
-    name: 'Makro',
-    contact: 'Juan Pérez',
-    email: 'compras@makro.pe',
-    phone: '+51 999 888 777',
-    address: 'Av. Industrial 123, Lima',
-    categories: ['insumos-basicos', 'insumos-especiales', 'aceites']
-  },
-  {
-    id: 'parada',
-    name: 'Parada',
-    contact: 'María García',
-    email: 'ventas@parada.com.pe',
-    phone: '+51 888 777 666',
-    address: 'Jr. Comercio 456, Lima',
-    categories: ['insumos-basicos', 'cereales']
-  },
-  {
-    id: 'productores',
-    name: 'Productores Locales',
-    contact: 'Carlos Rodríguez',
-    email: 'info@productoreslocales.pe',
-    phone: '+51 777 666 555',
-    address: 'Mercado de Productores, Surco',
-    categories: ['cereales', 'endulzantes', 'frutos-secos']
-  },
-  {
-    id: 'mercado-frutas',
-    name: 'Mercado de Frutas',
-    contact: 'Ana López',
-    email: 'ventas@mercadofrutas.pe',
-    phone: '+51 666 555 444',
-    address: 'Mercado Central de Frutas, La Victoria',
-    categories: ['aceites', 'frutos-secos']
-  }
-];
+const mockSuppliers: Supplier[] = [];
 
-const mockMovements: MovementRecord[] = [
-  {
-    id: 'mov_001',
-    itemId: 'inv_005',
-    itemName: 'Aceite de Coco',
-    type: 'out',
-    quantity: 6,
-    previousQuantity: 6,
-    newQuantity: 0,
-    reason: 'Producción galletas premium',
-    userId: 'logistica_001',
-    userName: 'Responsable de Logística',
-    timestamp: '2024-07-21 09:30:00',
-    notes: 'Último stock para pedido urgente'
-  },
-  {
-    id: 'mov_002',
-    itemId: 'inv_002',
-    itemName: 'Chocolate Premium',
-    type: 'out',
-    quantity: 3,
-    previousQuantity: 8,
-    newQuantity: 5,
-    reason: 'Producción lote especial',
-    userId: 'logistica_001',
-    userName: 'Responsable de Logística',
-    timestamp: '2024-07-20 14:15:00'
-  },
-  {
-    id: 'mov_003',
-    itemId: 'inv_001',
-    itemName: 'Harina Integral',
-    type: 'in',
-    quantity: 10,
-    previousQuantity: 5,
-    newQuantity: 15,
-    reason: 'Compra de reposición',
-    supplier: 'Makro',
-    lot: 'HI-2024-001',
-    userId: 'admin_001',
-    userName: 'Administrador General',
-    timestamp: '2024-07-19 11:00:00'
-  }
-];
+const mockMovements: MovementRecord[] = [];
 
-const mockPurchaseOrders: PurchaseOrder[] = [
-  {
-    id: 'po_001',
-    orderNumber: 'ORD-2024-001',
-    supplier: 'Makro',
-    status: 'sent',
-    items: [
-      { itemId: 'inv_005', itemName: 'Aceite de Coco', quantity: 12, unitCost: 8.50, totalCost: 102.00 },
-      { itemId: 'inv_002', itemName: 'Chocolate Premium', quantity: 10, unitCost: 12.00, totalCost: 120.00 }
-    ],
-    totalAmount: 222.00,
-    createdBy: 'logistica@pecaditos.com',
-    createdAt: '2024-07-21',
-    updatedAt: '2024-07-21',
-    notes: 'Orden urgente por stock crítico'
-  }
-];
+const mockPurchaseOrders: PurchaseOrder[] = [];
 
 const initialState: LogisticsState = {
   user: null,
   isAdminMode: false,
-  inventory: mockInventory,
-  movements: mockMovements,
-  purchaseOrders: mockPurchaseOrders,
-  categories: mockCategories,
-  suppliers: mockSuppliers,
+  inventory: [],
+  movements: [],
+  purchaseOrders: [],
+  categories: [],
+  suppliers: [],
   alerts: [],
   loading: false,
   error: null
@@ -574,21 +376,11 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
       // Simulación de autenticación local (sin Firebase por ahora)
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      if (email === 'logistica@pecaditos.com' && password === 'logistica123') {
+      if (email === 'albertonaldos@gmail.com' && password === 'mirojito123') {
         const user: LogisticsUser = {
-          id: 'logistica_001',
-          email: 'logistica@pecaditos.com',
-          name: 'Responsable de Logística',
-          role: 'logistics',
-          permissions: ['view_inventory', 'edit_inventory', 'view_reports']
-        };
-        dispatch({ type: 'LOGIN', payload: user });
-        return true;
-      } else if (email === 'admin@pecaditos.com' && password === 'admin123') {
-        const user: LogisticsUser = {
-          id: 'admin_001',
-          email: 'admin@pecaditos.com',
-          name: 'Administrador General',
+          id: 'admin_main',
+          email: 'albertonaldos@gmail.com',
+          name: 'Alberto Naldos - Admin Principal',
           role: 'admin',
           permissions: ['all']
         };
