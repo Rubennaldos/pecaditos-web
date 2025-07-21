@@ -73,7 +73,7 @@ export const MessagesModule = () => {
     { value: 'cobranzas', label: 'Módulo Cobranzas', count: 2 }
   ];
 
-  // Los números entre paréntesis indican la cantidad de usuarios activos en cada perfil
+  // Los números entre paréntesis indican usuarios activos en cada perfil
 
   const handleSendMessage = () => {
     if (!newMessage.title || !newMessage.content || newMessage.recipients.length === 0) {
@@ -211,7 +211,7 @@ export const MessagesModule = () => {
               <div>
                 <Label>Destinatarios</Label>
                 <p className="text-xs text-stone-500 mb-3">
-                  Los números entre paréntesis indican usuarios activos en cada perfil
+                  Los números indican usuarios activos en cada perfil
                 </p>
                 <div className="grid grid-cols-1 gap-3 mt-2">
                   {profiles.map((profile) => (
@@ -389,7 +389,9 @@ export const MessagesModule = () => {
             <div className="space-y-4">
               <div className="p-4 border rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50">
                 {selectedMessage.image && (
-                  <img src={selectedMessage.image} alt="Message" className="w-full max-w-sm rounded-lg mb-4" />
+                  <div className="flex justify-center mb-4">
+                    <img src={selectedMessage.image} alt="Message" className="max-w-sm max-h-64 rounded-lg object-contain" />
+                  </div>
                 )}
                 <p className="text-stone-700">{selectedMessage.content}</p>
               </div>
