@@ -85,6 +85,14 @@ export const MessagesModule = () => {
       return;
     }
 
+    // Simular envío de mensaje con notificación de limitación
+    console.log("📨 Simulando envío de mensaje:", {
+      title: newMessage.title,
+      content: newMessage.content,
+      recipients: newMessage.recipients,
+      timestamp: new Date().toISOString()
+    });
+
     const message = {
       id: Date.now(),
       ...newMessage,
@@ -104,8 +112,9 @@ export const MessagesModule = () => {
     }, 0);
 
     toast({
-      title: "Mensaje enviado",
-      description: `Mensaje enviado exitosamente a ${recipientCount} destinatarios.`,
+      title: "⚠️ Funcionalidad limitada",
+      description: `Los mensajes se guardan localmente. Para envío real, necesitas conectar con Supabase.`,
+      variant: "destructive"
     });
   };
 
