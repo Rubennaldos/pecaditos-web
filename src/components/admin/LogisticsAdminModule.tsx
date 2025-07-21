@@ -122,7 +122,7 @@ export const LogisticsAdminModule = () => {
 
   // Filtrar items según criterios
   const filteredItems = items.filter(item => {
-    const matchesCategory = !filters.category || item.category === filters.category;
+    const matchesCategory = !filters.category || filters.category === 'all' || item.category === filters.category;
     const matchesName = !filters.name || item.name.toLowerCase().includes(filters.name.toLowerCase());
     
     let matchesStatus = true;
@@ -401,12 +401,12 @@ export const LogisticsAdminModule = () => {
             </div>
             <div>
               <Label>Categoría</Label>
-              <Select value={filters.category} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}>
+              <Select value={filters.category || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value === 'all' ? '' : value }))}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Todas las categorías" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las categorías</SelectItem>
+                  <SelectItem value="all">Todas las categorías</SelectItem>
                   {categories.map(cat => (
                     <SelectItem key={cat} value={cat}>{cat}</SelectItem>
                   ))}
@@ -415,12 +415,12 @@ export const LogisticsAdminModule = () => {
             </div>
             <div>
               <Label>Estado de Stock</Label>
-              <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+              <Select value={filters.status || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === 'all' ? '' : value }))}>
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Todos los estados" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los estados</SelectItem>
+                  <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="low">Stock Bajo</SelectItem>
                   <SelectItem value="normal">Stock Normal</SelectItem>
                   <SelectItem value="high">Stock Alto</SelectItem>

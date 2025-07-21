@@ -474,7 +474,9 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'SET_LOADING', payload: true });
     
     try {
-      // Mock authentication - in production this would be a real API call
+      // Simulación de autenticación sin Firebase
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Simular tiempo de carga
+      
       if (email === 'logistica@pecaditos.com' && password === 'logistica123') {
         const user: LogisticsUser = {
           id: 'logistica_001',
@@ -496,6 +498,12 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
         dispatch({ type: 'LOGIN', payload: user });
         return true;
       }
+      
+      dispatch({ type: 'SET_ERROR', payload: 'Credenciales incorrectas' });
+      return false;
+    } catch (error) {
+      console.error('Error en login:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Error de conexión' });
       return false;
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
