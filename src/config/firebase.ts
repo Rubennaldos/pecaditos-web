@@ -2,6 +2,7 @@
 
 // 1. Importa los módulos de Firebase que vas a usar
 import { initializeApp } from "firebase/app";
+import { getAuth } from "firebase/auth";
 import { getAnalytics } from "firebase/analytics";
 import { getDatabase } from "firebase/database";
 
@@ -19,11 +20,12 @@ const firebaseConfig = {
 
 // 3. Inicializa Firebase
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);           // Para Authentication
 const analytics = getAnalytics(app); // Opcional: Solo si usas Analytics
 const database = getDatabase(app);   // Para Realtime Database
 
 // 4. Exporta para usar en el resto de tu proyecto
-export { app, analytics, database };
+export { app, auth, analytics, database };
 
 /* 
 CONFIGURACIÓN FIREBASE - SISTEMA DE PRODUCCIÓN LISTO
