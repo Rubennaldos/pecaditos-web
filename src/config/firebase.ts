@@ -1,30 +1,29 @@
+// src/firebase.js (o el nombre de archivo que prefieras)
 
-// Firebase Configuration - SISTEMA DE PRODUCCIÓN
-// Configuración lista para conectar con Firebase
+// 1. Importa los módulos de Firebase que vas a usar
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import { getDatabase } from "firebase/database";
 
-import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getDatabase } from 'firebase/database';
-
-// INSTRUCCIONES: Reemplazar con sus credenciales reales de Firebase
+// 2. Configuración de tu app web en Firebase
 const firebaseConfig = {
-  apiKey: "SU_API_KEY_AQUI",
-  authDomain: "su-proyecto.firebaseapp.com",
-  databaseURL: "https://su-proyecto-default-rtdb.firebaseio.com",
-  projectId: "su-proyecto-id",
-  storageBucket: "su-proyecto.appspot.com",
-  messagingSenderId: "SU_SENDER_ID",
-  appId: "SU_APP_ID"
+  apiKey: "AIzaSyAZdGe8o4ZQtSqHXVWS42Lk7Hb_eltnV4A",
+  authDomain: "crm-pecaditos-integrales.firebaseapp.com",
+  databaseURL: "https://crm-pecaditos-integrales-default-rtdb.firebaseio.com/", // <- MUY IMPORTANTE
+  projectId: "crm-pecaditos-integrales",
+  storageBucket: "crm-pecaditos-integrales.firebasestorage.app",
+  messagingSenderId: "524481504623",
+  appId: "1:524481504623:web:46b76ad2288346435c349a",
+  measurementId: "G-3PV0358P6Y"
 };
 
-// Inicializar Firebase
+// 3. Inicializa Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app); // Opcional: Solo si usas Analytics
+const database = getDatabase(app);   // Para Realtime Database
 
-// Exportar servicios
-export const auth = getAuth(app);
-export const database = getDatabase(app);
-
-export default app;
+// 4. Exporta para usar en el resto de tu proyecto
+export { app, analytics, database };
 
 /* 
 CONFIGURACIÓN FIREBASE - SISTEMA DE PRODUCCIÓN LISTO
