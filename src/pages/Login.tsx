@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,16 +41,13 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Obtener el tipo de login desde URL params
   const searchParams = new URLSearchParams(location.search);
   const loginType = searchParams.get('type');
   
-  // Hooks de autenticación
   const { login: retailLogin } = useAuth();
   const { login: wholesaleLogin } = useWholesaleAuth();
   const { login: adminLogin } = useAdmin();
 
-  // Página a la que redirigir después del login exitoso
   const from = (location.state as any)?.from?.pathname || '/';
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -69,12 +65,10 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      // DETECCIÓN AUTOMÁTICA DEL PERFIL DE USUARIO POR EMAIL
       let loginSuccess = false;
       let userType = '';
       let redirectPath = '/';
 
-      // 1. PERFILES ADMINISTRATIVOS ESPECÍFICOS
       const adminProfiles = {
         'admin@pecaditos.com': { type: 'Admin General', path: '/admin' },
         'pedidos@pecaditos.com': { type: 'Pedidos', path: '/pedidos' },
@@ -83,7 +77,6 @@ const Login = () => {
         'cobranzas@pecaditos.com': { type: 'Cobranzas', path: '/cobranzas' }
       };
 
-      // Verificar si es un perfil administrativo específico
       if (adminProfiles[email as keyof typeof adminProfiles]) {
         try {
           const success = await adminLogin(email, password);
@@ -98,7 +91,6 @@ const Login = () => {
         }
       }
 
-      // 2. MAYORISTAS - Solo si viene del portal mayorista o cumple condiciones
       if (!loginSuccess && (
         loginType === 'wholesale' || 
         email.includes('@ejemplo.com') || 
@@ -118,7 +110,6 @@ const Login = () => {
         }
       }
 
-      // 3. CLIENTE FINAL (RETAIL) - OCULTO
       if (!loginSuccess) {
         try {
           const user = await retailLogin(email, password);
@@ -126,7 +117,6 @@ const Login = () => {
             loginSuccess = true;
             userType = 'Cliente';
             redirectPath = '/';
-            
             toast({
               title: "Catálogo no disponible",
               description: "El catálogo personal está temporalmente fuera de servicio. Contáctanos por WhatsApp.",
@@ -143,11 +133,8 @@ const Login = () => {
           title: `Bienvenido`,
           description: `Has iniciado sesión como ${userType}`
         });
-        
-        // Redirigir a la página solicitada o a la página por defecto del usuario
         navigate(from !== '/' ? from : redirectPath, { replace: true });
       } else if (loginSuccess && redirectPath === '/') {
-        // Usuario retail, redirigir a landing
         navigate('/', { replace: true });
       } else {
         throw new Error('Credenciales inválidas');
@@ -180,28 +167,6 @@ const Login = () => {
         </CardHeader>
         
         <CardContent>
-          {/* CREDENCIALES DE PRUEBA ACTUALIZADAS */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <p className="text-sm text-blue-800 font-medium mb-3">Usuarios de prueba disponibles:</p>
-            <div className="space-y-2 text-xs text-blue-700">
-              <div className="border-b border-blue-200 pb-2">
-                <p className="font-semibold text-blue-800">PERFILES ADMINISTRATIVOS:</p>
-                <p>• <strong>Admin General:</strong> admin@pecaditos.com → /admin</p>
-                <p>• <strong>Pedidos:</strong> pedidos@pecaditos.com → /pedidos</p>
-                <p>• <strong>Reparto:</strong> reparto@pecaditos.com → /reparto</p>
-                <p>• <strong>Producción:</strong> produccion@pecaditos.com → /produccion</p>
-                <p>• <strong>Cobranzas:</strong> cobranzas@pecaditos.com → /cobranzas</p>
-                <p className="text-blue-600 font-medium">Contraseña para todos: admin123</p>
-              </div>
-              <div>
-                <p className="font-semibold text-blue-800">MAYORISTAS:</p>
-                <p>• <strong>Distribuidora:</strong> distribuidora@ejemplo.com → /mayorista</p>
-                <p>• <strong>Minimarket:</strong> minimarket@ejemplo.com → /mayorista</p>
-                <p className="text-blue-600 font-medium">Contraseña para todos: password123</p>
-              </div>
-            </div>
-          </div>
-
           {/* AVISO CATÁLOGO MINORISTA OCULTO */}
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
             <div className="flex items-start gap-3">
