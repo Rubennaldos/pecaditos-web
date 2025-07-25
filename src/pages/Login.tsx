@@ -8,7 +8,7 @@ import { Eye, EyeOff, User, Lock } from 'lucide-react';
 
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { ref, get } from "firebase/database";
-import { auth, db } from "../firebase"; // RUTA RELATIVA
+import { auth, database } from "../config/firebase";
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -40,7 +40,7 @@ const Login = () => {
       const user = userCredential.user;
 
       // 2. Buscar el perfil en Realtime Database
-      const userRef = ref(db, `usuarios/${user.uid}`);
+      const userRef = ref(database, `usuarios/${user.uid}`);
       const snapshot = await get(userRef);
 
       if (!snapshot.exists()) {
