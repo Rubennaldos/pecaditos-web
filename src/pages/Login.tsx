@@ -10,6 +10,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { ref, get } from "firebase/database";
 import { auth, db } from "../config/firebase"; // RUTA RELATIVA
 
+
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
