@@ -6,41 +6,39 @@ import { MessagesModule } from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
 import { ConsolidatedAdminModule } from '@/components/admin/ConsolidatedAdminModule';
 import { Button } from '@/components/ui/button';
-import { 
-  LogOut, 
-  BarChart3, 
-  Package, 
-  Truck, 
-  Factory, 
-  Users, 
+import {
+  LogOut,
+  BarChart3,
+  Package,
+  Truck,
+  Factory,
+  Users,
   DollarSign,
   Settings,
   Menu,
   X,
   Shield,
   Building,
-  Gift,
   MapPin,
-  Database,
-  Eye,
-  Edit,
   MessageSquare
 } from 'lucide-react';
 
-// Import the complete module components
 import OrdersPanel from './OrdersPanel';
 import DeliveryPanel from './DeliveryPanel';
 import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
 import { ClientsManagement } from '@/components/clients/ClientsManagement';
 
+// Cambia aquí si tienes otro perfil admin que quieres que tenga el panel
+const ADMIN_PROFILES = ['admin', 'adminGeneral'];
+
 const AdminPanelContent = () => {
   const { user, logout, canAccessSection } = useAdmin();
   const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  if (!user) {
-    // Mostrar un loader, o simplemente null. El acceso está protegido por ProtectedRoute
+  if (!user || !ADMIN_PROFILES.includes(user.profile)) {
+    // Si no es admin, simplemente no muestra el panel (puedes poner un loader o redirect)
     return null;
   }
 
@@ -129,13 +127,12 @@ const AdminPanelContent = () => {
     }
   ];
 
-  const visibleItems = navigationItems.filter(item => 
-    user.profile === 'admin' && (canAccessSection(item.section) || item.superAdmin)
-  );
+const visibleItems = navigationItems.filter(
+  item => user.profile === 'admin' || user.profile === 'adminGeneral'
+);
 
   const handleLogout = () => {
     logout();
-    // Redirigir a página de bienvenida (landing)
     window.location.href = '/';
   };
 

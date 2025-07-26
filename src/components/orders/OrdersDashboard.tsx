@@ -29,38 +29,31 @@ const OrdersDashboard = ({ orders, onExportReport }: OrdersDashboardProps) => {
   const [dateFilter, setDateFilter] = useState('semana');
   const [showExportDialog, setShowExportDialog] = useState(false);
 
-  // Procesar datos para gráficos
-  const processOrdersData = () => {
-    const today = new Date();
-    const statusCounts = {
-      entregados: orders.filter(o => o.status === 'entregado').length,
-      listos: orders.filter(o => o.status === 'listo').length,
-      preparacion: orders.filter(o => o.status === 'en_preparacion').length,
-      pendientes: orders.filter(o => o.status === 'pendiente').length,
-    };
-
-    const pieData = [
-      { name: 'Entregados', value: statusCounts.entregados, color: '#10B981' },
-      { name: 'Listos', value: statusCounts.listos, color: '#3B82F6' },
-      { name: 'En Preparación', value: statusCounts.preparacion, color: '#F59E0B' },
-      { name: 'Pendientes', value: statusCounts.pendientes, color: '#EF4444' }
-    ];
-
-    // Datos por día de la semana (mock data mejorado)
-    const weeklyData = [
-      { day: 'Lun', entregados: 12, preparacion: 8, pendientes: 3 },
-      { day: 'Mar', entregados: 15, preparacion: 6, pendientes: 2 },
-      { day: 'Mié', entregados: 18, preparacion: 4, pendientes: 1 },
-      { day: 'Jue', entregados: 14, preparacion: 7, pendientes: 4 },
-      { day: 'Vie', entregados: 20, preparacion: 5, pendientes: 2 },
-      { day: 'Sáb', entregados: 16, preparacion: 3, pendientes: 1 },
-      { day: 'Dom', entregados: 8, preparacion: 2, pendientes: 0 }
-    ];
-
-    return { statusCounts, pieData, weeklyData };
+  // --- Todos los datos en cero o vacíos
+  const statusCounts = {
+    entregados: 0,
+    listos: 0,
+    preparacion: 0,
+    pendientes: 0,
   };
 
-  const { statusCounts, pieData, weeklyData } = processOrdersData();
+  const pieData = [
+    { name: 'Entregados', value: 0, color: '#10B981' },
+    { name: 'Listos', value: 0, color: '#3B82F6' },
+    { name: 'En Preparación', value: 0, color: '#F59E0B' },
+    { name: 'Pendientes', value: 0, color: '#EF4444' }
+  ];
+
+  // Todos los días de la semana en cero
+  const weeklyData = [
+    { day: 'Lun', entregados: 0, preparacion: 0, pendientes: 0 },
+    { day: 'Mar', entregados: 0, preparacion: 0, pendientes: 0 },
+    { day: 'Mié', entregados: 0, preparacion: 0, pendientes: 0 },
+    { day: 'Jue', entregados: 0, preparacion: 0, pendientes: 0 },
+    { day: 'Vie', entregados: 0, preparacion: 0, pendientes: 0 },
+    { day: 'Sáb', entregados: 0, preparacion: 0, pendientes: 0 },
+    { day: 'Dom', entregados: 0, preparacion: 0, pendientes: 0 }
+  ];
 
   const exportReports = [
     { id: 'pedidos_mes', name: 'Pedidos del Mes', description: 'Todos los pedidos del mes actual' },
@@ -145,9 +138,9 @@ const OrdersDashboard = ({ orders, onExportReport }: OrdersDashboardProps) => {
             <Package className="h-4 w-4 text-blue-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{orders.length}</div>
+            <div className="text-2xl font-bold">{0}</div>
             <p className="text-xs text-muted-foreground">
-              +12% desde la semana pasada
+              +0% desde la semana pasada
             </p>
           </CardContent>
         </Card>
@@ -158,9 +151,9 @@ const OrdersDashboard = ({ orders, onExportReport }: OrdersDashboardProps) => {
             <CheckCircle className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{statusCounts.entregados}</div>
+            <div className="text-2xl font-bold text-green-600">{0}</div>
             <p className="text-xs text-muted-foreground">
-              85% tasa de entrega
+              0% tasa de entrega
             </p>
           </CardContent>
         </Card>
@@ -171,11 +164,9 @@ const OrdersDashboard = ({ orders, onExportReport }: OrdersDashboardProps) => {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
-              {statusCounts.preparacion + statusCounts.pendientes}
-            </div>
+            <div className="text-2xl font-bold text-yellow-600">{0}</div>
             <p className="text-xs text-muted-foreground">
-              Tiempo promedio: 2.5 días
+              Tiempo promedio: 0 días
             </p>
           </CardContent>
         </Card>
@@ -186,9 +177,9 @@ const OrdersDashboard = ({ orders, onExportReport }: OrdersDashboardProps) => {
             <TrendingUp className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-purple-600">94%</div>
+            <div className="text-2xl font-bold text-purple-600">0%</div>
             <p className="text-xs text-muted-foreground">
-              +5% desde el mes pasado
+              +0% desde el mes pasado
             </p>
           </CardContent>
         </Card>

@@ -11,12 +11,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { 
-  Truck, 
-  Package, 
-  CheckCircle, 
-  QrCode, 
-  MapPin, 
+import {
+  Truck,
+  Package,
+  CheckCircle,
+  QrCode,
+  MapPin,
   Phone,
   User,
   LogOut,
@@ -38,7 +38,7 @@ import DeliveryQRReader from '@/components/delivery/DeliveryQRReader';
 import DeliveryTimer from '@/components/delivery/DeliveryTimer';
 import PrintModal from '@/components/orders/PrintModal';
 
-// Import admin components
+// Admin components
 import { AdminModeToggle } from '@/components/delivery/AdminModeToggle';
 import { DeliveryHistory } from '@/components/delivery/DeliveryHistory';
 import { DeliveryEditModal } from '@/components/delivery/DeliveryEditModal';
@@ -47,13 +47,8 @@ import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
 import { DeliveryPersonsModal } from '@/components/delivery/DeliveryPersonsModal';
 import { SendMessageModal } from '@/components/delivery/SendMessageModal';
 
-// Mock data
-const deliveryPersons = [
-  { id: "1", name: "Carlos Mendoza", phone: "+51 999 111 111", tempCode: "1234" },
-  { id: "2", name: "María López", phone: "+51 999 222 222", tempCode: "5678" },
-  { id: "3", name: "José Ramírez", phone: "+51 999 333 333", tempCode: "9012" },
-  { id: "4", name: "Ana Torres", phone: "+51 999 444 444", tempCode: "3456" }
-];
+// *** DATOS VACÍOS, LISTOS PARA POBLAR DESDE BASE DE DATOS ***
+const deliveryPersons: any[] = [];
 
 interface DeliveryOrder {
   id: string;
@@ -73,54 +68,8 @@ interface DeliveryOrder {
   deliveryNotes?: string;
 }
 
-const mockOrders: DeliveryOrder[] = [
-  {
-    id: "PEC-2024-003",
-    customerName: "Bodega Don Carlos",
-    customerPhone: "+51 999 555 666",
-    customerAddress: "Calle Santa Rosa 789, San Borja",
-    district: "San Borja",
-    coordinates: { lat: -12.1004, lng: -76.9967 },
-    status: "listo",
-    readyAt: "2024-01-14T16:30:00",
-    total: 225.00,
-    paymentMethod: "credito_15",
-    notes: "Incluir material promocional",
-    assignedTo: null,
-    takenAt: null
-  },
-  {
-    id: "PEC-2024-004",
-    customerName: "Minimarket Fresh",
-    customerPhone: "+51 999 777 888",
-    customerAddress: "Av. El Sol 321, Independencia",
-    district: "Independencia",
-    coordinates: { lat: -11.9892, lng: -77.0561 },
-    status: "en_ruta",
-    readyAt: "2024-01-14T14:00:00",
-    assignedTo: "Carlos Mendoza",
-    takenAt: "2024-01-14T17:00:00",
-    total: 480.00,
-    paymentMethod: "contado",
-    notes: "Horario preferido: 2-6 PM"
-  },
-  {
-    id: "PEC-2024-002",
-    customerName: "Distribuidora Los Andes",
-    customerPhone: "+51 999 333 444",
-    customerAddress: "Jr. Las Flores 456, Miraflores",
-    district: "Miraflores",
-    coordinates: { lat: -12.1196, lng: -77.0282 },
-    status: "entregado",
-    readyAt: "2024-01-13T11:00:00",
-    deliveredAt: "2024-01-14T10:30:00",
-    assignedTo: "María López",
-    takenAt: "2024-01-14T08:00:00",
-    total: 345.00,
-    paymentMethod: "contado",
-    deliveryNotes: "Entregado correctamente. Recibido por Sr. García."
-  }
-];
+// SIN MOCKS, INICIA VACÍO
+const mockOrders: DeliveryOrder[] = [];
 
 const DeliveryPanelContent = () => {
   const navigate = useNavigate();
@@ -131,14 +80,14 @@ const DeliveryPanelContent = () => {
   const [selectedTab, setSelectedTab] = useState('pendientes');
   const [showQRReader, setShowQRReader] = useState(false);
   const [orders, setOrders] = useState<DeliveryOrder[]>(mockOrders);
-  
+
   // Admin modals state
   const [showEditModal, setShowEditModal] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [showPersonsModal, setShowPersonsModal] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
-  
+
   // Delivery confirmation modal
   const [showDeliveryModal, setShowDeliveryModal] = useState<string | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
@@ -161,11 +110,11 @@ const DeliveryPanelContent = () => {
     return deliveryDate === today;
   });
 
-  // Listen for admin events
+  // Admin events (no toques si ya tienes lógica real aquí)
   useEffect(() => {
     const handleAdminEdit = (event: any) => {
       const { orderId, updates } = event.detail;
-      setOrders(prev => prev.map(order => 
+      setOrders(prev => prev.map(order =>
         order.id === orderId ? { ...order, ...updates } : order
       ));
     };
@@ -193,25 +142,25 @@ const DeliveryPanelContent = () => {
   };
 
   const takeOrder = (orderId: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
+    setOrders(prev => prev.map(order =>
+      order.id === orderId
         ? { ...order, status: 'en_ruta', assignedTo: currentUser, takenAt: new Date().toISOString() }
         : order
     ));
   };
 
   const handleDeliveryConfirm = (orderId: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId 
-        ? { 
-            ...order, 
-            status: 'entregado',
-            deliveredAt: new Date().toISOString(),
-            deliveryNotes: deliveryNotes
-          }
+    setOrders(prev => prev.map(order =>
+      order.id === orderId
+        ? {
+          ...order,
+          status: 'entregado',
+          deliveredAt: new Date().toISOString(),
+          deliveryNotes: deliveryNotes
+        }
         : order
     ));
-    
+
     setDeliveryNotes('');
     setShowDeliveryModal(null);
   };
@@ -237,8 +186,7 @@ const DeliveryPanelContent = () => {
 
   const renderOrderCard = (order: any, showAdminActions = false, showDeliveryButton = false) => (
     <Card key={order.id} className={`hover:shadow-lg transition-all ${showAdminActions && isAdminMode ? 'relative group' : ''}`}>
-      {
-      showAdminActions && isAdminMode && (
+      {showAdminActions && isAdminMode && (
         <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
           <Button
             onClick={(e) => {
@@ -274,9 +222,8 @@ const DeliveryPanelContent = () => {
             <Trash2 className="h-3 w-3" />
           </Button>
         </div>
-      )
-    }
-      
+      )}
+
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -310,13 +257,11 @@ const DeliveryPanelContent = () => {
           </div>
           <div className="space-y-3">
             <div className="text-sm">
-              <span className="font-medium">Total: S/ {order.total.toFixed(2)}</span>
+              <span className="font-medium">Total: S/ {order.total?.toFixed(2) || '0.00'}</span>
             </div>
             <div className="text-sm">
               <span>Pago: {order.paymentMethod}</span>
             </div>
-            
-            {/* Botón Tomar Pedido - solo en Pedidos Listos */}
             {order.status === 'listo' && !order.assignedTo && (
               <Button
                 onClick={() => takeOrder(order.id)}
@@ -326,8 +271,6 @@ const DeliveryPanelContent = () => {
                 Tomar Pedido
               </Button>
             )}
-            
-            {/* Botón Entregado - solo en En Ruta */}
             {showDeliveryButton && order.status === 'en_ruta' && (
               <Button
                 onClick={() => setShowDeliveryModal(order.id)}
@@ -339,15 +282,13 @@ const DeliveryPanelContent = () => {
             )}
           </div>
         </div>
-        
-        {/* Mostrar notas de entrega si está entregado */}
         {order.status === 'entregado' && order.deliveryNotes && (
           <div className="mt-3 pt-3 border-t border-stone-200">
             <p className="text-sm text-stone-600">
               <strong>Observaciones de entrega:</strong> {order.deliveryNotes}
             </p>
             <p className="text-xs text-stone-500 mt-1">
-              Entregado: {new Date(order.deliveredAt!).toLocaleString()}
+              Entregado: {order.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : ''}
             </p>
           </div>
         )}
@@ -534,7 +475,7 @@ const DeliveryPanelContent = () => {
               <Button variant="outline" onClick={() => setShowDeliveryModal(null)}>
                 Cancelar
               </Button>
-              <Button 
+              <Button
                 onClick={() => showDeliveryModal && handleDeliveryConfirm(showDeliveryModal)}
                 className="bg-green-600 hover:bg-green-700"
               >
@@ -545,7 +486,7 @@ const DeliveryPanelContent = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Modales Admin - Solo visibles para Admin General */}
+      {/* Modales Admin */}
       {showEditModal && (
         <DeliveryEditModal
           delivery={orders.find(o => o.id === showEditModal)}
@@ -553,7 +494,6 @@ const DeliveryPanelContent = () => {
           onClose={() => setShowEditModal(null)}
         />
       )}
-
       {showHistoryModal && (
         <DeliveryHistoryModal
           delivery={orders.find(o => o.id === showHistoryModal)}
@@ -561,7 +501,6 @@ const DeliveryPanelContent = () => {
           onClose={() => setShowHistoryModal(null)}
         />
       )}
-
       {showDeleteModal && (
         <DeliveryDeleteModal
           delivery={orders.find(o => o.id === showDeleteModal)}

@@ -1,19 +1,16 @@
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
+import { ref, get } from "firebase/database";
+import { auth, db } from '../config/firebase'; // Ajusta si cambia el path
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-
-/**
- * CONTEXTO DE ADMINISTRACIÓN
- * 
- * Maneja la autenticación y permisos para el panel de administración
- * Incluye todos los perfiles: Admin, Pedidos, Reparto, Producción, Seguimiento, Cobranzas
- * 
- * PARA PERSONALIZAR:
- * - Conectar con Firebase Auth
- * - Modificar perfiles y permisos
- * - Agregar más validaciones de seguridad
- */
-
-export type AdminProfile = 'admin' | 'pedidos' | 'reparto' | 'produccion' | 'seguimiento' | 'cobranzas';
+export type AdminProfile =
+  | 'admin'
+  | 'adminGeneral'
+  | 'pedidos'
+  | 'reparto'
+  | 'produccion'
+  | 'seguimiento'
+  | 'cobranzas';
 
 interface AdminUser {
   id: string;
@@ -46,19 +43,6 @@ export const useAdmin = () => {
   return context;
 };
 
-// USUARIO ADMIN ÚNICO - Sistema de producción
-const mockAdminUsers: AdminUser[] = [
-  {
-    id: 'admin_main',
-    email: 'albertonaldos@gmail.com',
-    name: 'Alberto Naldos - Admin Principal',
-    profile: 'admin',
-    permissions: ['all'],
-    lastLogin: new Date().toISOString(),
-    isActive: true
-  }
-];
-
 interface AdminProviderProps {
   children: ReactNode;
 }
@@ -76,36 +60,69 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     }
   }, []);
 
+  // Mantener sincronizado el contexto con Firebase Auth (opcional, pero recomendado)
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
+      if (firebaseUser) {
+        // Busca el perfil admin en la DB si cambia el usuario autenticado
+        const adminData = await getAdminProfile(firebaseUser);
+        if (adminData) {
+          setUser(adminData);
+          localStorage.setItem('adminUser', JSON.stringify(adminData));
+        }
+      } else {
+        setUser(null);
+        localStorage.removeItem('adminUser');
+      }
+    });
+    return unsubscribe;
+    // eslint-disable-next-line
+  }, []);
+
+  // ----------- LOGIN CON FIREBASE AUTH + PERFIL EN REALTIME DATABASE -----------
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
-    
     try {
-      // Simular llamada a Firebase Auth
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Validar credenciales con Firebase Auth
-      const foundUser = mockAdminUsers.find(u => 
-        u.email === email && u.isActive && password === 'mirojito123'
-      );
-      
-      if (foundUser) {
-        const userWithUpdatedLogin = {
-          ...foundUser,
-          lastLogin: new Date().toISOString()
-        };
-        
-        setUser(userWithUpdatedLogin);
-        localStorage.setItem('adminUser', JSON.stringify(userWithUpdatedLogin));
-        logActivity('login', { profile: foundUser.profile, email });
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const firebaseUser = userCredential.user;
+      const adminData = await getAdminProfile(firebaseUser);
+      if (adminData && adminData.isActive) {
+        setUser(adminData);
+        localStorage.setItem('adminUser', JSON.stringify(adminData));
+        logActivity('login', { profile: adminData.profile, email });
         return true;
       }
-      
       return false;
     } catch (error) {
       console.error('Error en login admin:', error);
       return false;
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ----------- TRAER PERFIL ADMIN DESDE REALTIME DATABASE -----------
+  const getAdminProfile = async (firebaseUser: FirebaseUser): Promise<AdminUser | null> => {
+    try {
+      const adminRef = ref(db, `usuarios/${firebaseUser.uid}`);
+      const snapshot = await get(adminRef);
+      if (snapshot.exists()) {
+  const data = snapshot.val();
+  return {
+    id: firebaseUser.uid,
+    email: data.correo || firebaseUser.email || '',
+    name: data.nombre || '',
+    profile: data.rol || 'adminGeneral', // tu campo se llama 'rol'
+    permissions: data.permissions || ['all'],
+    lastLogin: new Date().toISOString(),
+    isActive: data.activo !== false, // tu campo se llama 'activo'
+  };
+}
+
+      return null;
+    } catch (e) {
+      console.error('No se pudo traer el perfil admin:', e);
+      return null;
     }
   };
 
@@ -116,23 +133,20 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     setUser(null);
     setOriginalProfile(null);
     localStorage.removeItem('adminUser');
+    signOut(auth);
   };
 
+  // Puedes mantener impersonate y las demás igual
   const impersonate = (targetProfile: AdminProfile) => {
     if (!user || user.profile !== 'admin') {
       console.error('Solo el admin puede impersonar otros perfiles');
       return;
     }
-
     if (!originalProfile) {
       setOriginalProfile(user.profile);
     }
-
-    const targetUser = mockAdminUsers.find(u => u.profile === targetProfile && u.isActive);
-    if (targetUser) {
-      setUser({ ...targetUser, profile: targetProfile });
-      logActivity('impersonate', { from: user.profile, to: targetProfile });
-    }
+    setUser({ ...user, profile: targetProfile });
+    logActivity('impersonate', { from: user.profile, to: targetProfile });
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -144,7 +158,7 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
   const canAccessSection = (section: string): boolean => {
     if (!user) return false;
     if (user.profile === 'admin') return true;
-    
+
     const sectionPermissions: Record<string, string[]> = {
       dashboard: ['all'],
       orders: ['orders.view', 'all'],
@@ -155,7 +169,7 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       users: ['all'],
       reports: ['all']
     };
-    
+
     const requiredPermissions = sectionPermissions[section] || [];
     return requiredPermissions.some(perm => hasPermission(perm));
   };
@@ -168,9 +182,8 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       action,
       details: details || {}
     };
-    
     console.log('Admin Activity Log:', logEntry);
-    // Aquí se enviaría a Firebase para persistir los logs
+    // Puedes agregar aquí la subida a Firebase/Realtime si lo necesitas
   };
 
   const value = {
@@ -190,23 +203,3 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     </AdminContext.Provider>
   );
 };
-
-/*
-SISTEMA DE PRODUCCIÓN - CONFIGURADO CON FIREBASE
-
-1. Usuario único de administración:
-   - albertonaldos@gmail.com
-   - Contraseña: mirojito123
-   - Perfil: admin (acceso completo a todo el sistema)
-
-2. Firebase integrado y listo:
-   - Autenticación con Firebase Auth
-   - Base de datos con Firebase Realtime Database
-   - Logs de actividad persistidos en Firebase
-   - Sistema completamente limpio sin datos de prueba
-
-3. Para agregar más usuarios admin:
-   - Crear desde el panel de administración
-   - Asignar perfiles específicos según necesidades
-   - Configurar permisos granulares por sección
-*/

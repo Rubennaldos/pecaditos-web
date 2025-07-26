@@ -10,35 +10,27 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { Separator } from '@/components/ui/separator';
 import { 
   Search, 
   Plus, 
   Edit, 
   Trash2, 
   Building, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Clock, 
-  CreditCard, 
   FileText, 
   Download, 
   ExternalLink,
   Shield,
   Eye,
-  History,
   CheckCircle,
   AlertTriangle,
   XCircle,
-  User,
   DollarSign,
   Calendar,
   Package
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock data interfaces
+// Interfaces
 interface ClientSede {
   id: string;
   nombre: string;
@@ -80,121 +72,21 @@ interface Client {
   montoDeuda?: number;
 }
 
-// Mock clients data
-const mockClients: Client[] = [
-  {
-    id: '1',
-    razonSocial: 'CORPORACION LIMA SAC',
-    rucDni: '20123456789',
-    direccionFiscal: 'AV. LIMA 123, LIMA, LIMA',
-    sedes: [
-      {
-        id: '1',
-        nombre: 'Sede Principal',
-        direccion: 'AV. LIMA 123, LIMA',
-        responsable: 'Juan Pérez',
-        telefono: '987654321',
-        principal: true,
-        coordenadas: { lat: -12.0464, lng: -77.0428 }
-      }
-    ],
-    contactos: [
-      {
-        tipo: 'pago',
-        nombre: 'María González',
-        dni: '12345678',
-        celular: '987654321',
-        correo: 'pagos@corporacionlima.com'
-      }
-    ],
-    listaPrecio: 'Mayorista A',
-    frecuenciaCompras: 'Semanal',
-    horarioEntrega: 'Lunes a Viernes 8:00-17:00',
-    condicionPago: 'Crédito 30 días',
-    limiteCredito: 50000,
-    emailFacturacion: 'facturacion@corporacionlima.com',
-    observaciones: 'Cliente preferencial, excelente historial de pagos',
-    estado: 'activo',
-    fechaCreacion: '2024-01-15',
-    ultimaCompra: '2024-07-15',
-    montoDeuda: 15750
-  },
-  {
-    id: '2',
-    razonSocial: 'DISTRIBUIDORA NORTE EIRL',
-    rucDni: '20987654321',
-    direccionFiscal: 'JR. COMERCIO 456, TRUJILLO, LA LIBERTAD',
-    sedes: [
-      {
-        id: '2',
-        nombre: 'Almacén Central',
-        direccion: 'JR. COMERCIO 456, TRUJILLO',
-        responsable: 'Carlos Mendoza',
-        telefono: '987123456',
-        principal: true
-      }
-    ],
-    contactos: [
-      {
-        tipo: 'admin',
-        nombre: 'Ana Torres',
-        dni: '87654321',
-        celular: '987123456',
-        correo: 'admin@distribuidoranorte.com'
-      }
-    ],
-    listaPrecio: 'Mayorista B',
-    frecuenciaCompras: 'Quincenal',
-    horarioEntrega: 'Lunes a Sábado 7:00-16:00',
-    condicionPago: 'Crédito 15 días',
-    limiteCredito: 25000,
-    emailFacturacion: 'facturas@distribuidoranorte.com',
-    observaciones: 'Requiere confirmación telefónica antes de entregas',
-    estado: 'activo',
-    fechaCreacion: '2024-02-10',
-    ultimaCompra: '2024-07-10',
-    montoDeuda: 8200
-  }
-];
-
 export const ClientsManagement = () => {
   const { toast } = useToast();
-  const [clients, setClients] = useState<Client[]>(mockClients);
+  const [clients, setClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // Filter clients based on search
+  // Filtrado de clientes
   const filteredClients = clients.filter(client =>
-    client.razonSocial.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.rucDni.includes(searchTerm) ||
-    client.sedes.some(sede => sede.nombre.toLowerCase().includes(searchTerm.toLowerCase()))
+    client.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    client.rucDni?.includes(searchTerm) ||
+    client.sedes?.some(sede => sede.nombre?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-
-  const handleSunatLookup = async (rucDni: string) => {
-    // Simulate SUNAT API call
-    toast({
-      title: "Consultando SUNAT",
-      description: "Buscando datos del RUC/DNI..."
-    });
-
-    setTimeout(() => {
-      toast({
-        title: "Datos encontrados",
-        description: "Información completada automáticamente"
-      });
-    }, 2000);
-  };
-
-  const handleDeleteClient = (clientId: string) => {
-    setClients(clients.filter(c => c.id !== clientId));
-    toast({
-      title: "Cliente eliminado",
-      description: "El cliente ha sido eliminado correctamente"
-    });
-  };
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {
@@ -216,6 +108,8 @@ export const ClientsManagement = () => {
     });
   };
 
+  // Aquí iría tu lógica para traer y sincronizar datos con Firebase y las funciones CRUD
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
@@ -232,7 +126,7 @@ export const ClientsManagement = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-4">
@@ -247,7 +141,6 @@ export const ClientsManagement = () => {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -263,7 +156,6 @@ export const ClientsManagement = () => {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -279,7 +171,6 @@ export const ClientsManagement = () => {
             </div>
           </CardContent>
         </Card>
-
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
@@ -413,32 +304,6 @@ export const ClientsManagement = () => {
                       <Download className="h-4 w-4 mr-1" />
                       Reporte
                     </Button>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" className="text-red-600 hover:text-red-700">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>¿Eliminar cliente?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Esta acción eliminará permanentemente el cliente "{client.razonSocial}". 
-                            ¿Está seguro de continuar?
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => handleDeleteClient(client.id)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
-                            Eliminar
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
                   </div>
                 </div>
               </div>
@@ -450,7 +315,8 @@ export const ClientsManagement = () => {
   );
 };
 
-// Client Form Component
+
+// ClientForm
 const ClientForm = ({ client, onSave, onCancel }: { 
   client?: Client; 
   onSave: () => void; 
@@ -480,21 +346,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
         title: "Consultando SUNAT",
         description: "Obteniendo datos..."
       });
-      
-      // Simulate API response
-      setTimeout(() => {
-        if (formData.rucDni.startsWith('20')) {
-          setFormData(prev => ({
-            ...prev,
-            razonSocial: 'EMPRESA CONSULTADA SAC',
-            direccionFiscal: 'AV. EJEMPLO 123, LIMA, LIMA'
-          }));
-          toast({
-            title: "Datos obtenidos",
-            description: "Información completada desde SUNAT"
-          });
-        }
-      }, 1500);
+      // Aquí iría tu integración real con SUNAT
     }
   };
 
@@ -530,7 +382,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
       });
       return;
     }
-
+    // Tu lógica de guardar/actualizar aquí (Firebase o el backend)
     toast({
       title: client ? "Cliente actualizado" : "Cliente creado",
       description: "Los datos han sido guardados correctamente"
@@ -547,7 +399,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
           <TabsTrigger value="contactos">Contactos</TabsTrigger>
           <TabsTrigger value="comercial">Comercial</TabsTrigger>
         </TabsList>
-
+        {/* General */}
         <TabsContent value="general" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -565,7 +417,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 </Button>
               </div>
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="razonSocial">Razón Social *</Label>
               <Input
@@ -575,7 +426,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 placeholder="Nombre de la empresa"
               />
             </div>
-
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="direccionFiscal">Dirección Fiscal</Label>
               <Input
@@ -585,7 +435,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 placeholder="Dirección completa"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="emailFacturacion">Email Facturación</Label>
               <Input
@@ -596,7 +445,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 placeholder="facturacion@empresa.com"
               />
             </div>
-
             <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
               <Select value={formData.estado} onValueChange={(value: any) => setFormData(prev => ({ ...prev, estado: value }))}>
@@ -610,7 +458,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="observaciones">Observaciones</Label>
               <Textarea
@@ -623,7 +470,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
             </div>
           </div>
         </TabsContent>
-
+        {/* Sedes */}
         <TabsContent value="sedes" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Sedes del Cliente</h3>
@@ -706,7 +553,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
             ))}
           </div>
         </TabsContent>
-
+        {/* Contactos */}
         <TabsContent value="contactos" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Contactos Principales</h3>
@@ -795,7 +642,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
             ))}
           </div>
         </TabsContent>
-
+        {/* Comercial */}
         <TabsContent value="comercial" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
@@ -812,7 +659,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Frecuencia de Compras</Label>
               <Select value={formData.frecuenciaCompras} onValueChange={(value) => setFormData(prev => ({ ...prev, frecuenciaCompras: value }))}>
@@ -828,7 +674,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Condición de Pago</Label>
               <Select value={formData.condicionPago} onValueChange={(value) => setFormData(prev => ({ ...prev, condicionPago: value }))}>
@@ -844,7 +689,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
               <Label>Límite de Crédito</Label>
               <Input
@@ -854,7 +698,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
                 placeholder="0"
               />
             </div>
-
             <div className="space-y-2 md:col-span-2">
               <Label>Horario de Entrega Preferido</Label>
               <Input
@@ -866,7 +709,6 @@ const ClientForm = ({ client, onSave, onCancel }: {
           </div>
         </TabsContent>
       </Tabs>
-
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button variant="outline" onClick={onCancel}>
           Cancelar
@@ -879,7 +721,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
   );
 };
 
-// Client Details Component
+// ClientDetails
 const ClientDetails = ({ client }: { client: Client }) => {
   return (
     <div className="space-y-6">
@@ -890,7 +732,6 @@ const ClientDetails = ({ client }: { client: Client }) => {
           <TabsTrigger value="facturas">Facturas</TabsTrigger>
           <TabsTrigger value="reportes">Reportes</TabsTrigger>
         </TabsList>
-
         <TabsContent value="info" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card>
@@ -920,7 +761,6 @@ const ClientDetails = ({ client }: { client: Client }) => {
                 </div>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader>
                 <CardTitle>Información Comercial</CardTitle>
@@ -945,7 +785,6 @@ const ClientDetails = ({ client }: { client: Client }) => {
               </CardContent>
             </Card>
           </div>
-
           <Card>
             <CardHeader>
               <CardTitle>Sedes</CardTitle>
@@ -965,7 +804,6 @@ const ClientDetails = ({ client }: { client: Client }) => {
               </div>
             </CardContent>
           </Card>
-
           <Card>
             <CardHeader>
               <CardTitle>Contactos</CardTitle>
@@ -993,57 +831,26 @@ const ClientDetails = ({ client }: { client: Client }) => {
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="historial" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Historial de Cambios</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="border-l-4 border-blue-500 pl-4">
-                  <p className="font-medium">Cliente creado</p>
-                  <p className="text-sm text-stone-600">15 Enero 2024 - Admin General</p>
-                </div>
-                <div className="border-l-4 border-green-500 pl-4">
-                  <p className="font-medium">Límite de crédito actualizado</p>
-                  <p className="text-sm text-stone-600">20 Febrero 2024 - Admin General</p>
-                </div>
-                <div className="border-l-4 border-yellow-500 pl-4">
-                  <p className="font-medium">Nueva sede agregada</p>
-                  <p className="text-sm text-stone-600">10 Marzo 2024 - Admin General</p>
-                </div>
-              </div>
+              <div className="text-stone-400 text-sm">Aquí puedes mostrar el historial si lo traes desde tu base de datos.</div>
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="facturas" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Facturas y Pedidos</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">Factura F001-00123</p>
-                    <p className="text-sm text-stone-600">15 Julio 2024 - S/. 2,500.00</p>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800">Pagada</Badge>
-                </div>
-                <div className="flex justify-between items-center p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium">Factura F001-00124</p>
-                    <p className="text-sm text-stone-600">10 Julio 2024 - S/. 1,800.00</p>
-                  </div>
-                  <Badge className="bg-yellow-100 text-yellow-800">Pendiente</Badge>
-                </div>
-              </div>
+              <div className="text-stone-400 text-sm">Aquí puedes mostrar facturas si lo traes desde tu base de datos.</div>
             </CardContent>
           </Card>
         </TabsContent>
-
         <TabsContent value="reportes" className="space-y-4">
           <Card>
             <CardHeader>

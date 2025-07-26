@@ -1,18 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Package, 
-  QrCode, 
+import {
+  Package,
+  QrCode,
   LogOut,
   Search,
   BarChart3,
   Clock,
   CheckCircle,
   AlertTriangle,
-  FileDown,
   Smile,
   Frown,
   Edit,
@@ -24,7 +23,6 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
 import OrdersDashboard from '@/components/orders/OrdersDashboard';
-import CompactOrderList from '@/components/orders/CompactOrderList';
 import QRReaderModal from '@/components/orders/QRReaderModal';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
 import { AdminOrdersProvider, useAdminOrders } from '@/contexts/AdminOrdersContext';
@@ -35,77 +33,10 @@ import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
 import { OrdersHistory } from '@/components/orders/OrdersHistory';
 
-/**
- * PANEL DE PEDIDOS - GESTIÓN Y PREPARACIÓN
- * 
- * Funcionalidades principales:
- * - Dashboard con filtros y estadísticas
- * - Gestión de estados de pedidos
- * - Impresión en múltiples formatos
- * - Lector QR global
- * - Alertas de tiempo por estado
- * - Observaciones y edición
- * 
- * *** MOCK DATA - INTEGRAR CON FIREBASE REALTIME DATABASE ***
- * Para conectar: reemplazar mockOrders con queries de Firebase
+/** 
+ * SIN DATOS DE EJEMPLO - SISTEMA INICIAL VACÍO
  */
-
-// *** MOCK DATA - REEMPLAZAR CON FIREBASE ***
-const mockOrders = [
-  {
-    id: "PEC-2024-001",
-    customerName: "Distribuidora El Sol SAC",
-    customerPhone: "+51 999 111 222",
-    customerAddress: "Av. Los Olivos 123, San Isidro",
-    status: "pendiente",
-    createdAt: "2024-01-15T08:30:00",
-    items: [
-      { product: "Galletas Integrales Avena", quantity: 12, price: 8.50 },
-      { product: "Galletas Integrales Quinua", quantity: 6, price: 9.00 }
-    ],
-    total: 156.00,
-    paymentMethod: "credito_30",
-    orderType: "normal",
-    notes: "",
-    preparationAlert: true // Más de 1 día sin aceptar
-  },
-  {
-    id: "PEC-2024-002",
-    customerName: "Minimarket Los Andes",
-    customerPhone: "+51 999 333 444",
-    customerAddress: "Jr. Las Flores 456, Miraflores",
-    status: "en_preparacion",
-    createdAt: "2024-01-14T14:20:00",
-    acceptedAt: "2024-01-14T15:00:00",
-    items: [
-      { product: "Galletas Integrales Coco", quantity: 24, price: 8.00 },
-      { product: "Galletas Integrales Chía", quantity: 18, price: 8.50 }
-    ],
-    total: 345.00,
-    paymentMethod: "contado",
-    orderType: "reposicion",
-    notes: "Cliente habitual - prioridad",
-    preparationAlert: false
-  },
-  {
-    id: "PEC-2024-003",
-    customerName: "Bodega Don Carlos",
-    customerPhone: "+51 999 555 666",
-    customerAddress: "Calle Santa Rosa 789, San Borja",
-    status: "listo",
-    createdAt: "2024-01-13T10:15:00",
-    acceptedAt: "2024-01-13T11:00:00",
-    readyAt: "2024-01-14T16:30:00",
-    items: [
-      { product: "Galletas Integrales Mix", quantity: 30, price: 7.50 }
-    ],
-    total: 225.00,
-    paymentMethod: "credito_15",
-    orderType: "degustacion",
-    notes: "Incluir material promocional",
-    preparationAlert: false
-  }
-];
+const mockOrders: any[] = [];
 
 const OrdersPanelContent = () => {
   const navigate = useNavigate();
@@ -115,10 +46,10 @@ const OrdersPanelContent = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
-  
-  // Estado local para los pedidos (simula la base de datos)
-  const [orders, setOrders] = useState(mockOrders);
-  
+
+  // Estado local para los pedidos (vacío)
+  const [orders, setOrders] = useState<any[]>(mockOrders);
+
   // Admin modals state
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -126,7 +57,7 @@ const OrdersPanelContent = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
 
-  // *** FUNCIÓN PARA CALCULAR URGENCIA ***
+  // Calcula urgencia (no afectará si orders está vacío)
   const calculateOrderUrgency = (order: any) => {
     const now = new Date();
     let referenceDate: Date;
@@ -135,11 +66,11 @@ const OrdersPanelContent = () => {
     switch (order.status) {
       case 'pendiente':
         referenceDate = new Date(order.createdAt);
-        timeLimit = 24; // 24 horas para aceptar
+        timeLimit = 24;
         break;
       case 'en_preparacion':
         referenceDate = order.acceptedAt ? new Date(order.acceptedAt) : new Date(order.createdAt);
-        timeLimit = 72; // 72 horas para preparación
+        timeLimit = 72;
         break;
       case 'listo':
         referenceDate = order.readyAt ? new Date(order.readyAt) : new Date(order.createdAt);
@@ -149,15 +80,16 @@ const OrdersPanelContent = () => {
         return { isExpired: false, isUrgent: false, hoursLeft: 0 };
     }
 
-    const limitDate = new Date(referenceDate.getTime() + (timeLimit * 60 * 60 * 1000));
+    const limitDate = new Date(referenceDate.getTime() + timeLimit * 60 * 60 * 1000);
     const difference = limitDate.getTime() - now.getTime();
-    const hoursLeft = Math.floor(difference / (1000 * 60 * 60));
+    const hoursLeft = Math.max(0, Math.floor(difference / (1000 * 60 * 60)));
 
     return {
       isExpired: difference <= 0,
-      isUrgent: (order.status === 'en_preparacion' && hoursLeft <= 36) || 
-                (order.status === 'pendiente' && hoursLeft <= 6),
-      hoursLeft: Math.max(0, hoursLeft)
+      isUrgent:
+        (order.status === 'en_preparacion' && hoursLeft <= 36) ||
+        (order.status === 'pendiente' && hoursLeft <= 6),
+      hoursLeft
     };
   };
 
@@ -167,6 +99,7 @@ const OrdersPanelContent = () => {
       urgency: calculateOrderUrgency(order)
     }));
   };
+
   const ordersWithUrgency = getOrdersWithUrgency();
   const stats = {
     total: orders.length,
@@ -178,63 +111,42 @@ const OrdersPanelContent = () => {
     alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length
   };
 
-  // *** FUNCIÓN MEJORADA PARA LEER QR ***
+  // QR/Acciones
   const handleQRRead = (code: string) => {
-    console.log('🔍 QR Escaneado:', code);
-    
-    // Extraer ID del pedido del código QR
     const orderId = code.replace('PECADITOS-ORDER-', '');
     const order = orders.find(o => o.id === orderId);
-    
     if (order) {
       const orderWithUrgency = { ...order, urgency: calculateOrderUrgency(order) };
       setQrScannedOrder(orderWithUrgency);
       setShowQRReader(false);
     } else {
-      console.error('Pedido no encontrado:', orderId);
       setShowQRReader(false);
     }
   };
 
-  // *** FUNCIÓN PARA ACTUALIZAR ESTADO DESDE QR ***
   const updateOrderStatusFromQR = (orderId: string, newStatus: string, reason?: string) => {
-    console.log(`Actualizando pedido ${orderId} a estado: ${newStatus}`, reason ? `Motivo: ${reason}` : '');
     updateOrderStatus(orderId, newStatus);
     setQrScannedOrder(null);
   };
 
-  // *** FUNCIÓN PARA CAMBIAR ESTADO DE PEDIDO ***
   const updateOrderStatus = (orderId: string, newStatus: string) => {
-    console.log(`Actualizando pedido ${orderId} a estado: ${newStatus}`);
-    
-    setOrders(prevOrders => 
+    setOrders(prevOrders =>
       prevOrders.map(order => {
         if (order.id === orderId) {
           const updatedOrder = { ...order, status: newStatus };
-          
-          // Agregar timestamp según el nuevo estado
-          if (newStatus === 'en_preparacion') {
-            (updatedOrder as any).acceptedAt = new Date().toISOString();
-          } else if (newStatus === 'listo') {
-            (updatedOrder as any).readyAt = new Date().toISOString();
-          } else if (newStatus === 'entregado') {
-            (updatedOrder as any).deliveredAt = new Date().toISOString();
-          }
-          
+          if (newStatus === 'en_preparacion') updatedOrder.acceptedAt = new Date().toISOString();
+          else if (newStatus === 'listo') updatedOrder.readyAt = new Date().toISOString();
+          else if (newStatus === 'entregado') updatedOrder.deliveredAt = new Date().toISOString();
           return updatedOrder;
         }
         return order;
       })
     );
-    
-    // TODO: Aquí integrar con Firebase para persistir el cambio
   };
 
-  // *** FUNCIÓN PARA CREAR NUEVA ORDEN CON PRODUCTOS FALTANTES ***
   const createNewOrderForMissingItems = (originalOrderId: string, incompleteItems: any[]) => {
     const originalOrder = orders.find(o => o.id === originalOrderId);
     if (!originalOrder) return;
-
     const newOrderId = `${originalOrderId}-R${Date.now().toString().slice(-4)}`;
     const newOrder = {
       ...originalOrder,
@@ -246,48 +158,27 @@ const OrdersPanelContent = () => {
         quantity: item.requestedQuantity - item.sentQuantity,
         price: item.price
       })),
-      total: incompleteItems.reduce((sum, item) => 
-        sum + ((item.requestedQuantity - item.sentQuantity) * item.price), 0
+      total: incompleteItems.reduce(
+        (sum, item) => sum + (item.requestedQuantity - item.sentQuantity) * item.price,
+        0
       ),
       notes: `Orden de reposición del pedido ${originalOrderId}`,
       orderType: 'reposicion'
     };
-
     setOrders(prevOrders => [...prevOrders, newOrder]);
-    
-    console.log('🔄 Nueva orden creada para productos faltantes:', {
-      originalOrder: originalOrderId,
-      newOrder: newOrderId,
-      missingItems: incompleteItems.length
-    });
   };
 
-  // *** FUNCIÓN PARA IMPRIMIR PEDIDO ***
-  const printOrder = (order: any, format: 'A4' | 'A5' | 'ticket', editedData: any) => {
-    console.log(`Imprimiendo pedido ${order.id} en formato ${format}`, { order, editedData });
-    
-    // Generar QR único
-    const qrData = `PECADITOS-${order.id}-${Date.now()}`;
-    console.log(`QR generado: ${qrData}`);
-  };
+  const printOrder = (order: any, format: 'A4' | 'A5' | 'ticket', editedData: any) => {};
 
-  // *** FUNCIÓN PARA EXPORTAR REPORTES ***
-  const exportReport = (reportType: string) => {
-    console.log(`Exportando reporte: ${reportType}`);
-    // TODO: Implementar exportación real
-  };
+  const exportReport = (reportType: string) => {};
 
-  // *** FUNCIÓN PARA CERRAR SESIÓN ***
   const handleLogout = async () => {
     try {
       await logout();
       navigate('/');
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
+    } catch (error) {}
   };
 
-  // Admin action handlers
   const handleEditOrder = (order: any) => {
     setSelectedOrder(order);
     setShowEditModal(true);
@@ -303,126 +194,114 @@ const OrdersPanelContent = () => {
     setShowHistoryModal(true);
   };
 
-  // Enhanced CompactOrderList with admin actions
-  const renderOrderList = (orders: any[], showTimer = true, timeLimit?: number) => {
-    return (
-      <div className="space-y-4">
-        {orders.map((order) => (
-          <Card key={order.id} className="hover:shadow-lg transition-all">
-            <CardContent className="p-4">
-              {/* Order content */}
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-semibold text-lg">{order.id}</h3>
-                  <p className="text-stone-600 font-medium">{order.customerName}</p>
-                  <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
-                    <Phone className="h-4 w-4" />
-                    <span>{order.customerPhone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
-                    <MapPin className="h-4 w-4" />
-                    <span className="truncate">{order.customerAddress}</span>
-                  </div>
+  const renderOrderList = (orders: any[], showTimer = true, timeLimit?: number) => (
+    <div className="space-y-4">
+      {orders.map(order => (
+        <Card key={order.id} className="hover:shadow-lg transition-all">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="font-semibold text-lg">{order.id}</h3>
+                <p className="text-stone-600 font-medium">{order.customerName}</p>
+                <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
+                  <Phone className="h-4 w-4" />
+                  <span>{order.customerPhone}</span>
                 </div>
-                <div className="text-right">
-                  <Badge className={`mb-2 ${
-                    order.status === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                    order.status === 'en_preparacion' ? 'bg-blue-100 text-blue-800' :
-                    order.status === 'listo' ? 'bg-green-100 text-green-800' :
-                    'bg-stone-100 text-stone-800'
-                  }`}>
-                    {order.status === 'pendiente' ? 'Pendiente' :
-                     order.status === 'en_preparacion' ? 'En Preparación' :
-                     order.status === 'listo' ? 'Listo' : order.status}
-                  </Badge>
-                  <p className="font-bold text-lg">S/ {order.total?.toFixed(2)}</p>
-                  <p className="text-sm text-stone-500">{order.items?.length} productos</p>
+                <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
+                  <MapPin className="h-4 w-4" />
+                  <span className="truncate">{order.customerAddress}</span>
                 </div>
               </div>
-
-              {/* Order Items Summary */}
-              <div className="mb-4 p-3 bg-stone-50 rounded">
-                <div className="space-y-1">
-                  {order.items?.slice(0, 2).map((item: any, idx: number) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span>{item.product}</span>
-                      <span>{item.quantity} x S/ {item.price}</span>
-                    </div>
-                  ))}
-                  {order.items?.length > 2 && (
-                    <p className="text-xs text-stone-500">
-                      y {order.items.length - 2} producto(s) más...
-                    </p>
-                  )}
-                </div>
+              <div className="text-right">
+                <Badge className={`mb-2 ${
+                  order.status === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
+                  order.status === 'en_preparacion' ? 'bg-blue-100 text-blue-800' :
+                  order.status === 'listo' ? 'bg-green-100 text-green-800' :
+                  'bg-stone-100 text-stone-800'
+                }`}>
+                  {order.status === 'pendiente' ? 'Pendiente' :
+                  order.status === 'en_preparacion' ? 'En Preparación' :
+                  order.status === 'listo' ? 'Listo' : order.status}
+                </Badge>
+                <p className="font-bold text-lg">S/ {order.total?.toFixed(2)}</p>
+                <p className="text-sm text-stone-500">{order.items?.length} productos</p>
               </div>
+            </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-200">
-                {/* Main Order Action Buttons */}
-                <OrderActionButtons
-                  orderId={order.id}
-                  currentStatus={order.status}
-                  onStatusChange={updateOrderStatus}
-                  order={order}
-                  onCreateNewOrder={createNewOrderForMissingItems}
-                />
-
-                {/* Admin actions */}
-                {isAdminMode && (
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEditOrder(order)}
-                      className="text-purple-600 border-purple-300 hover:bg-purple-50"
-                    >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Editar
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleViewHistory(order.id)}
-                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
-                    >
-                      <History className="h-3 w-3 mr-1" />
-                      Historial
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDeleteOrder(order)}
-                      className="text-red-600 border-red-300 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Eliminar
-                    </Button>
+            <div className="mb-4 p-3 bg-stone-50 rounded">
+              <div className="space-y-1">
+                {order.items?.slice(0, 2).map((item: any, idx: number) => (
+                  <div key={idx} className="flex justify-between text-sm">
+                    <span>{item.product}</span>
+                    <span>{item.quantity} x S/ {item.price}</span>
                   </div>
+                ))}
+                {order.items?.length > 2 && (
+                  <p className="text-xs text-stone-500">
+                    y {order.items.length - 2} producto(s) más...
+                  </p>
                 )}
               </div>
+            </div>
 
-              {/* Notes if any */}
-              {order.notes && (
-                <div className="pt-2 border-t border-stone-200 mt-2">
-                  <p className="text-xs text-stone-500">
-                    <strong>Notas:</strong> {order.notes}
-                  </p>
+            <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-200">
+              <OrderActionButtons
+                orderId={order.id}
+                currentStatus={order.status}
+                onStatusChange={updateOrderStatus}
+                order={order}
+                onCreateNewOrder={createNewOrderForMissingItems}
+              />
+
+              {isAdminMode && (
+                <div className="flex gap-2 flex-wrap">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEditOrder(order)}
+                    className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                  >
+                    <Edit className="h-3 w-3 mr-1" />
+                    Editar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleViewHistory(order.id)}
+                    className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                  >
+                    <History className="h-3 w-3 mr-1" />
+                    Historial
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDeleteOrder(order)}
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Eliminar
+                  </Button>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  };
+            </div>
+
+            {order.notes && (
+              <div className="pt-2 border-t border-stone-200 mt-2">
+                <p className="text-xs text-stone-500">
+                  <strong>Notas:</strong> {order.notes}
+                </p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
-      {/* Admin Mode Toggle */}
       <AdminModeToggle />
-
-      {/* Header */}
       <div className="bg-white shadow-sm border-b border-sand-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -472,10 +351,8 @@ const OrdersPanelContent = () => {
         </div>
       </div>
 
-      {/* Contenido Principal con navegación lateral */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex gap-8">
-          {/* Navegación lateral */}
           <div className="w-64 space-y-2">
             <nav className="space-y-1">
               {[
@@ -484,11 +361,11 @@ const OrdersPanelContent = () => {
                 { id: 'preparacion', label: 'En Preparación', icon: Package, count: stats.enPreparacion },
                 { id: 'listos', label: 'Listos', icon: CheckCircle, count: stats.listos },
                 { id: 'historial', label: 'Historial', icon: History, count: null }
-              ].map((tab) => (
+              ].map(tab => (
                 <Button
                   key={tab.id}
                   onClick={() => setSelectedTab(tab.id)}
-                  variant={selectedTab === tab.id ? "default" : "ghost"}
+                  variant={selectedTab === tab.id ? 'default' : 'ghost'}
                   className={`w-full justify-start ${
                     selectedTab === tab.id ? 'bg-primary text-primary-foreground' : 'hover:bg-sand-100'
                   }`}
@@ -503,14 +380,12 @@ const OrdersPanelContent = () => {
                 </Button>
               ))}
             </nav>
-
-            {/* Botón de Urgentes Especial */}
             <div className="pt-4 border-t border-sand-200">
               <Button
                 onClick={() => setSelectedTab('urgentes')}
                 className={`w-full h-16 flex flex-col items-center justify-center gap-1 transition-all ${
-                  stats.alertas > 0 
-                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
+                  stats.alertas > 0
+                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
                     : 'bg-green-500 hover:bg-green-600 text-white'
                 }`}
               >
@@ -530,10 +405,7 @@ const OrdersPanelContent = () => {
               </Button>
             </div>
           </div>
-
-          {/* Contenido principal */}
           <div className="flex-1">
-            {/* Filtro de búsqueda para vistas de lista */}
             {selectedTab !== 'dashboard' && (
               <Card className="mb-6">
                 <CardContent className="p-4">
@@ -542,7 +414,7 @@ const OrdersPanelContent = () => {
                     <Input
                       placeholder="Buscar por ID, cliente o sede..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={e => setSearchTerm(e.target.value)}
                       className="pl-10"
                     />
                   </div>
@@ -550,12 +422,10 @@ const OrdersPanelContent = () => {
               </Card>
             )}
 
-            {/* Dashboard */}
             {selectedTab === 'dashboard' && (
               <OrdersDashboard orders={orders} onExportReport={exportReport} />
             )}
 
-            {/* Pendientes */}
             {selectedTab === 'pendientes' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -566,8 +436,9 @@ const OrdersPanelContent = () => {
                 </div>
                 {renderOrderList(
                   orders.filter(order => {
-                    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesSearch =
+                      order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'pendiente' && matchesSearch;
                   }),
                   true
@@ -575,7 +446,6 @@ const OrdersPanelContent = () => {
               </div>
             )}
 
-            {/* En Preparación */}
             {selectedTab === 'preparacion' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -586,8 +456,9 @@ const OrdersPanelContent = () => {
                 </div>
                 {renderOrderList(
                   orders.filter(order => {
-                    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesSearch =
+                      order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'en_preparacion' && matchesSearch;
                   }),
                   true,
@@ -596,7 +467,6 @@ const OrdersPanelContent = () => {
               </div>
             )}
 
-            {/* Listos */}
             {selectedTab === 'listos' && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -607,8 +477,9 @@ const OrdersPanelContent = () => {
                 </div>
                 {renderOrderList(
                   orders.filter(order => {
-                    const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                         order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                    const matchesSearch =
+                      order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
                     return order.status === 'listo' && matchesSearch;
                   }),
                   false,
@@ -617,12 +488,8 @@ const OrdersPanelContent = () => {
               </div>
             )}
 
-            {/* Historial */}
-            {selectedTab === 'historial' && (
-              <OrdersHistory />
-            )}
+            {selectedTab === 'historial' && <OrdersHistory />}
 
-            {/* Urgentes */}
             {selectedTab === 'urgentes' && (
               <div className="space-y-4">
                 <Card className="border-red-200 bg-red-50">
@@ -636,12 +503,12 @@ const OrdersPanelContent = () => {
                     </CardDescription>
                   </CardHeader>
                 </Card>
-                
                 {renderOrderList(
                   ordersWithUrgency
                     .filter(order => {
-                      const matchesSearch = order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                           order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+                      const matchesSearch =
+                        order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        order.customerName?.toLowerCase().includes(searchTerm.toLowerCase());
                       return (order.urgency.isExpired || order.urgency.isUrgent) && matchesSearch;
                     })
                     .sort((a, b) => {
@@ -656,8 +523,6 @@ const OrdersPanelContent = () => {
           </div>
         </div>
       </div>
-
-      {/* Admin Modals */}
       <OrderEditModal
         order={selectedOrder}
         isOpen={showEditModal}
@@ -666,7 +531,6 @@ const OrdersPanelContent = () => {
           setSelectedOrder(null);
         }}
       />
-
       <OrderHistoryModal
         orderId={historyOrderId}
         isOpen={showHistoryModal}
@@ -675,7 +539,6 @@ const OrdersPanelContent = () => {
           setHistoryOrderId(undefined);
         }}
       />
-
       <OrderDeleteModal
         order={selectedOrder}
         isOpen={showDeleteModal}
@@ -684,15 +547,11 @@ const OrdersPanelContent = () => {
           setSelectedOrder(null);
         }}
       />
-
-      {/* Modal QR Reader */}
       <QRReaderModal
         isOpen={showQRReader}
         onClose={() => setShowQRReader(false)}
         onQRRead={handleQRRead}
       />
-
-      {/* Modal QR Order Detail */}
       {qrScannedOrder && (
         <QROrderDetailModal
           order={qrScannedOrder}
@@ -705,12 +564,10 @@ const OrdersPanelContent = () => {
   );
 };
 
-const OrdersPanel = () => {
-  return (
-    <AdminOrdersProvider>
-      <OrdersPanelContent />
-    </AdminOrdersProvider>
-  );
-};
+const OrdersPanel = () => (
+  <AdminOrdersProvider>
+    <OrdersPanelContent />
+  </AdminOrdersProvider>
+);
 
 export default OrdersPanel;
