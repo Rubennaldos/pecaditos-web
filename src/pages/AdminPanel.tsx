@@ -1,7 +1,5 @@
-
 import { useState } from 'react';
-import { AdminProvider, useAdmin } from '@/contexts/AdminContext';
-import { AdminLogin } from '@/components/admin/AdminLogin';
+import { useAdmin } from '@/contexts/AdminContext';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
 import { MessagesModule } from '@/components/admin/MessagesModule';
@@ -42,7 +40,8 @@ const AdminPanelContent = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (!user) {
-    return <AdminLogin onLoginSuccess={() => {}} />;
+    // Mostrar un loader, o simplemente null. El acceso está protegido por ProtectedRoute
+    return null;
   }
 
   const navigationItems = [
@@ -136,7 +135,7 @@ const AdminPanelContent = () => {
 
   const handleLogout = () => {
     logout();
-    // Redirigir a página de bienvenida, no al login
+    // Redirigir a página de bienvenida (landing)
     window.location.href = '/';
   };
 
@@ -144,23 +143,18 @@ const AdminPanelContent = () => {
     switch (activeSection) {
       case 'dashboard':
         return <AdminDashboard />;
-      
-      // Complete module views - exactly as users see them
       case 'orders-admin':
         return (
           <div className="relative">
-            {/* Admin overlay indicator */}
             <div className="absolute top-4 right-4 z-50">
               <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
                 <Shield className="h-3 w-3" />
                 Modo SuperAdmin
               </div>
             </div>
-            {/* Complete Orders Panel */}
             <OrdersPanel />
           </div>
         );
-      
       case 'delivery-admin':
         return (
           <div className="relative">
@@ -173,7 +167,6 @@ const AdminPanelContent = () => {
             <DeliveryPanel />
           </div>
         );
-      
       case 'production-admin':
         return (
           <div className="relative">
@@ -186,7 +179,6 @@ const AdminPanelContent = () => {
             <ProductionPanel />
           </div>
         );
-      
       case 'billing-admin':
         return (
           <div className="relative">
@@ -199,16 +191,12 @@ const AdminPanelContent = () => {
             <BillingPanel />
           </div>
         );
-      
       case 'customers-admin':
         return <ClientsManagement />;
-      
       case 'business-admin':
         return <ConsolidatedAdminModule />;
-      
       case 'system-config':
         return <SystemConfiguration />;
-      
       case 'locations':
         return (
           <div className="space-y-6">
@@ -230,13 +218,10 @@ const AdminPanelContent = () => {
             </div>
           </div>
         );
-      
       case 'audit':
         return <AuditModule />;
-      
       case 'messages':
         return <MessagesModule />;
-      
       default:
         return <AdminDashboard />;
     }
@@ -296,7 +281,7 @@ const AdminPanelContent = () => {
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center">
               <span className="text-xs font-bold text-purple-600">
-                {user.name.split(' ')[0][0]}
+                {user.name?.split(' ')[0][0]}
               </span>
             </div>
             <div className="flex-1 min-w-0">
@@ -349,11 +334,7 @@ const AdminPanelContent = () => {
 };
 
 const AdminPanel = () => {
-  return (
-    <AdminProvider>
-      <AdminPanelContent />
-    </AdminProvider>
-  );
+  return <AdminPanelContent />;
 };
 
 export default AdminPanel;

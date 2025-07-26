@@ -1,12 +1,12 @@
 // Servicios para interactuar con Firebase
 // Sistema completamente integrado con Firebase Realtime Database
 
-import { auth, database } from '@/config/firebase';
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
+import { auth, db } from '@/config/firebase'; // ← CORREGIDO
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signOut,
-  User as FirebaseUser 
+  User as FirebaseUser
 } from 'firebase/auth';
 import { ref, set, get, push, update } from 'firebase/database';
 import { Product, Order, User } from '@/data/mockData';
@@ -15,7 +15,6 @@ import { Product, Order, User } from '@/data/mockData';
 
 export const loginUser = async (email: string, password: string) => {
   try {
-    // Usar Firebase Auth para autenticación real
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     return userCredential.user;
   } catch (error) {
@@ -28,14 +27,14 @@ export const registerUser = async (email: string, password: string, userData: an
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
-    
+
     // Guardar datos adicionales del usuario
-    await set(ref(database, `users/${user.uid}`), {
+    await set(ref(db, `users/${user.uid}`), {
       email: user.email,
       ...userData,
       createdAt: new Date().toISOString()
     });
-    
+
     return user;
   } catch (error) {
     console.error('Error al registrar usuario:', error);
@@ -56,7 +55,7 @@ export const logoutUser = async () => {
 
 export const getProducts = async (): Promise<Product[]> => {
   try {
-    const snapshot = await get(ref(database, 'products'));
+    const snapshot = await get(ref(db, 'products'));
     return snapshot.exists() ? Object.values(snapshot.val()) : [];
   } catch (error) {
     console.error('Error al obtener productos:', error);
@@ -66,7 +65,7 @@ export const getProducts = async (): Promise<Product[]> => {
 
 export const getProductById = async (id: string): Promise<Product | null> => {
   try {
-    const snapshot = await get(ref(database, `products/${id}`));
+    const snapshot = await get(ref(db, `products/${id}`));
     return snapshot.exists() ? snapshot.val() : null;
   } catch (error) {
     console.error('Error al obtener producto:', error);
@@ -84,11 +83,11 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'orderNumber' | 
       orderNumber,
       createdAt: new Date().toISOString()
     };
-    
-    const ordersRef = ref(database, 'orders');
+
+    const ordersRef = ref(db, 'orders');
     const newOrderRef = push(ordersRef);
     await set(newOrderRef, newOrder);
-    
+
     return { ...newOrder, id: newOrderRef.key };
   } catch (error) {
     console.error('Error al crear pedido:', error);
@@ -98,7 +97,7 @@ export const createOrder = async (orderData: Omit<Order, 'id' | 'orderNumber' | 
 
 export const getOrderByNumber = async (orderNumber: string): Promise<Order | null> => {
   try {
-    const snapshot = await get(ref(database, 'orders'));
+    const snapshot = await get(ref(db, 'orders'));
     if (snapshot.exists()) {
       const orders = Object.values(snapshot.val()) as Order[];
       return orders.find(order => order.orderNumber === orderNumber) || null;
@@ -112,7 +111,7 @@ export const getOrderByNumber = async (orderNumber: string): Promise<Order | nul
 
 export const updateOrderStatus = async (orderId: string, status: Order['status']) => {
   try {
-    await update(ref(database, `orders/${orderId}`), { status });
+    await update(ref(db, `orders/${orderId}`), { status });
   } catch (error) {
     console.error('Error al actualizar estado del pedido:', error);
     throw error;
@@ -123,7 +122,7 @@ export const updateOrderStatus = async (orderId: string, status: Order['status']
 
 export const getUserData = async (userId: string): Promise<User | null> => {
   try {
-    const snapshot = await get(ref(database, `users/${userId}`));
+    const snapshot = await get(ref(db, `users/${userId}`));
     return snapshot.exists() ? snapshot.val() : null;
   } catch (error) {
     console.error('Error al obtener datos del usuario:', error);
@@ -133,7 +132,7 @@ export const getUserData = async (userId: string): Promise<User | null> => {
 
 export const updateUserProfile = async (userId: string, userData: Partial<User>) => {
   try {
-    await update(ref(database, `users/${userId}`), userData);
+    await update(ref(db, `users/${userId}`), userData);
   } catch (error) {
     console.error('Error al actualizar perfil:', error);
     throw error;
