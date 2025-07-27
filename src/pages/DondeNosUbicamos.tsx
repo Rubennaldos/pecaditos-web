@@ -1,135 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MapPin, Phone, Clock, ExternalLink, Search, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-
-/**
- * PÁGINA "DÓNDE NOS UBICAMOS" - PUNTOS DE VENTA
- * 
- * Muestra tiendas donde hay productos Pecaditos disponibles.
- * Filtrable por distrito y con opción de búsqueda.
- * 
- * *** MOCK DATA - CAMBIAR POR INTEGRACIÓN CON FIREBASE ***
- * Para conectar con Realtime Database:
- * 1. Reemplazar mockStores con firebase query
- * 2. Cambiar handleSearch por función que consulte Firebase
- * 3. Actualizar filtro de distritos dinámicamente
- * 4. Agregar geolocalización real
- */
-
-// *** MOCK DATA - REEMPLAZAR CON FIREBASE REALTIME DATABASE ***
-// EDITAR AQUÍ: Para cambiar las tiendas mostradas, modifica este array
-// INTEGRACIÓN FIREBASE: Reemplazar con useQuery que consulte /stores en Firebase
-const mockStores = [
-  {
-    id: 1,
-    name: "Minimarket El Amanecer",
-    address: "Av. Los Olivos 123, Urb. El Pinar",
-    district: "San Isidro",
-    phone: "+51 999 111 222",
-    hours: "Lun-Dom: 7:00 AM - 11:00 PM",
-    coordinates: { lat: -12.0464, lng: -77.0428 },
-    category: "Minimarket"
-  },
-  {
-    id: 2,
-    name: "Distribuidora La Esquina",
-    address: "Jr. Las Flores 456, 2do piso",
-    district: "Miraflores",
-    phone: "+51 999 333 444",
-    hours: "Lun-Sab: 8:00 AM - 6:00 PM",
-    coordinates: { lat: -12.1196, lng: -77.0282 },
-    category: "Distribuidora"
-  },
-  {
-    id: 3,
-    name: "Bodega Don Carlos",
-    address: "Calle Santa Rosa 789",
-    district: "San Borja",
-    phone: "+51 999 555 666",
-    hours: "Lun-Dom: 6:00 AM - 12:00 AM",
-    coordinates: { lat: -12.1004, lng: -76.9967 },
-    category: "Bodega"
-  },
-  {
-    id: 4,
-    name: "Supermercado Fresh Market",
-    address: "Av. El Sol 321, Mall Plaza Norte",
-    district: "Independencia",
-    phone: "+51 999 777 888",
-    hours: "Lun-Dom: 9:00 AM - 10:00 PM",
-    coordinates: { lat: -11.9892, lng: -77.0561 },
-    category: "Supermercado"
-  },
-  {
-    id: 5,
-    name: "Tienda Orgánica Vida Sana",
-    address: "Av. Conquistadores 654",
-    district: "San Isidro",
-    phone: "+51 999 999 000",
-    hours: "Lun-Vie: 9:00 AM - 7:00 PM, Sab: 9:00 AM - 5:00 PM",
-    coordinates: { lat: -12.0608, lng: -77.0349 },
-    category: "Tienda Especializada"
-  },
-  {
-    id: 6,
-    name: "Mayorista Los Andes",
-    address: "Av. Industrial 987, Zona Industrial",
-    district: "Ate",
-    phone: "+51 999 111 333",
-    hours: "Lun-Vie: 7:00 AM - 5:00 PM",
-    coordinates: { lat: -12.0432, lng: -76.9478 },
-    category: "Mayorista"
-  }
-];
-
-// *** LISTA DE DISTRITOS - CAMBIAR SEGÚN COBERTURA REAL ***
-// EDITAR AQUÍ: Para agregar/quitar distritos disponibles
-const limeDistricts = [
-  "Todos los distritos",
-  "San Isidro", "Miraflores", "San Borja", "Surco", "La Molina",
-  "Independencia", "Los Olivos", "San Martín de Porres", "Ate",
-  "Santa Anita", "El Agustino", "Breña", "Jesús María",
-  "Magdalena", "Pueblo Libre", "Lince", "Cercado de Lima"
-];
+// FIREBASE
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { app } from '@/config/firebase';
 
 const DondeNosUbicamos = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDistrict, setSelectedDistrict] = useState('Todos los distritos');
-  const [filteredStores, setFilteredStores] = useState(mockStores);
+  const [stores, setStores] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // *** FUNCIÓN DE FILTRADO - INTEGRAR CON FIREBASE ***
-  const handleSearch = () => {
-    let filtered = mockStores;
+  // 1. Lectura en tiempo real desde Firebase
+  useEffect(() => {
+    const db = getDatabase(app);
+    const storesRef = ref(db, 'stores');
+    const unsubscribe = onValue(storesRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setStores([]);
+        setLoading(false);
+        return;
+      }
+      // Convierte a array
+      const arr = Object.entries(data)
+        .map(([id, val]: any) => ({ id, ...val }))
+        .filter(store => store.active !== false); // solo tiendas activas
+      setStores(arr);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    // Filtrar por distrito
+  // 2. Obtiene lista de distritos desde los datos (únicos, ordenados, + 'Todos los distritos')
+  const allDistricts = useMemo(() => {
+    const set = new Set(stores.map(s => s.district));
+    return ['Todos los distritos', ...Array.from(set).sort()];
+  }, [stores]);
+
+  // 3. Filtro y búsqueda
+  const filteredStores = useMemo(() => {
+    let filtered = stores;
     if (selectedDistrict !== 'Todos los distritos') {
       filtered = filtered.filter(store => store.district === selectedDistrict);
     }
-
-    // Filtrar por búsqueda de texto
     if (searchTerm.trim()) {
       filtered = filtered.filter(store =>
-        store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        store.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        store.category.toLowerCase().includes(searchTerm.toLowerCase())
+        (store.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (store.address || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (store.category || '').toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+    return filtered;
+  }, [stores, searchTerm, selectedDistrict]);
 
-    setFilteredStores(filtered);
-  };
-
-  // Buscar automáticamente cuando cambian los filtros
-  useEffect(() => {
-    handleSearch();
-  }, [searchTerm, selectedDistrict]);
-
-  // *** FUNCIÓN PARA ABRIR GOOGLE MAPS ***
   const openInGoogleMaps = (store: any) => {
+    if (!store.coordinates) return;
     const url = `https://www.google.com/maps/search/?api=1&query=${store.coordinates.lat},${store.coordinates.lng}&query_place_id=${encodeURIComponent(store.name + ' ' + store.address)}`;
     window.open(url, '_blank');
   };
@@ -182,7 +113,7 @@ const DondeNosUbicamos = () => {
                   <SelectValue placeholder="Filtrar por distrito" />
                 </SelectTrigger>
                 <SelectContent>
-                  {limeDistricts.map((district) => (
+                  {allDistricts.map((district) => (
                     <SelectItem key={district} value={district}>
                       {district}
                     </SelectItem>
@@ -193,62 +124,66 @@ const DondeNosUbicamos = () => {
           </div>
         </div>
 
+        {/* Loading */}
+        {loading && (
+          <div className="text-center py-12 text-stone-600">Cargando puntos de venta...</div>
+        )}
+
         {/* Resultados */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredStores.map((store) => (
-            <Card key={store.id} className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 hover:border-amber-200">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg font-bold text-stone-800 mb-1">
-                      {store.name}
-                    </CardTitle>
-                    <CardDescription className="text-stone-600">
-                      {store.category} • {store.district}
-                    </CardDescription>
+        {!loading && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredStores.map((store) => (
+              <Card key={store.id} className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 hover:border-amber-200">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <CardTitle className="text-lg font-bold text-stone-800 mb-1">
+                        {store.name}
+                      </CardTitle>
+                      <CardDescription className="text-stone-600">
+                        {store.category} • {store.district}
+                      </CardDescription>
+                    </div>
+                    <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
+                      <MapPin className="h-4 w-4 text-white" />
+                    </div>
                   </div>
-                  <div className="w-8 h-8 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-4 w-4 text-white" />
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  {/* Dirección */}
+                  <div className="flex items-start gap-3">
+                    <MapPin className="h-4 w-4 text-stone-400 mt-1 flex-shrink-0" />
+                    <p className="text-sm text-stone-600">{store.address}</p>
                   </div>
-                </div>
-              </CardHeader>
-
-              <CardContent className="space-y-4">
-                {/* Dirección */}
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-4 w-4 text-stone-400 mt-1 flex-shrink-0" />
-                  <p className="text-sm text-stone-600">{store.address}</p>
-                </div>
-
-                {/* Teléfono */}
-                <div className="flex items-center gap-3">
-                  <Phone className="h-4 w-4 text-stone-400 flex-shrink-0" />
-                  <a href={`tel:${store.phone}`} className="text-sm text-blue-600 hover:text-blue-700">
-                    {store.phone}
-                  </a>
-                </div>
-
-                {/* Horarios */}
-                <div className="flex items-start gap-3">
-                  <Clock className="h-4 w-4 text-stone-400 mt-1 flex-shrink-0" />
-                  <p className="text-sm text-stone-600">{store.hours}</p>
-                </div>
-
-                {/* Botón de Google Maps */}
-                <Button
-                  onClick={() => openInGoogleMaps(store)}
-                  className="w-full bg-green-600 hover:bg-green-700 text-white mt-4"
-                >
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Ir a Google Maps
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  {/* Teléfono */}
+                  <div className="flex items-center gap-3">
+                    <Phone className="h-4 w-4 text-stone-400 flex-shrink-0" />
+                    <a href={`tel:${store.phone}`} className="text-sm text-blue-600 hover:text-blue-700">
+                      {store.phone}
+                    </a>
+                  </div>
+                  {/* Horarios */}
+                  <div className="flex items-start gap-3">
+                    <Clock className="h-4 w-4 text-stone-400 mt-1 flex-shrink-0" />
+                    <p className="text-sm text-stone-600">{store.hours}</p>
+                  </div>
+                  {/* Google Maps */}
+                  <Button
+                    onClick={() => openInGoogleMaps(store)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white mt-4"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Ir a Google Maps
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Sin resultados */}
-        {filteredStores.length === 0 && (
+        {!loading && filteredStores.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <MapPin className="h-8 w-8 text-stone-400" />
@@ -303,50 +238,3 @@ const DondeNosUbicamos = () => {
 };
 
 export default DondeNosUbicamos;
-
-/*
-INSTRUCCIONES PARA INTEGRACIÓN CON FIREBASE:
-
-1. ESTRUCTURA DE DATOS EN FIREBASE REALTIME DATABASE:
-   /stores/{storeId}: {
-     name: string,
-     address: string,
-     district: string,
-     phone: string,
-     hours: string,
-     coordinates: { lat: number, lng: number },
-     category: string,
-     active: boolean
-   }
-
-2. PARA CONECTAR CON FIREBASE:
-   - Reemplazar mockStores con useQuery de @tanstack/react-query
-   - Crear función fetchStores() que consulte Firebase
-   - Actualizar handleSearch() para usar datos reales
-   - Agregar loading states y error handling
-
-3. FUNCIONALIDADES A AGREGAR:
-   - Geolocalización del usuario
-   - Cálculo de distancias
-   - Mapa interactivo con Google Maps API
-   - Favoritos de tiendas
-   - Reviews y calificaciones
-
-4. PERSONALIZACIÓN:
-   - Cambiar limeDistricts según cobertura real
-   - Actualizar estilos y colores según brand
-   - Agregar más filtros (categoría, horarios, etc.)
-   - Integrar con WhatsApp Business API
-
-5. ADMIN PANEL:
-   - Permitir al admin agregar/editar/eliminar tiendas
-   - Panel de gestión de puntos de venta
-   - Estadísticas de consultas por zona
-   - Exportar datos para análisis
-
-DATOS MOCK INCLUIDOS:
-- 6 tiendas de ejemplo en diferentes distritos
-- Diferentes categorías (minimarket, distribuidora, bodega, etc.)
-- Coordenadas reales de Lima para Google Maps
-- Horarios de atención variados
-*/

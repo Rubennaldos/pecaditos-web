@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,13 +14,15 @@ import {
   Calendar,
   Edit,
   Trash2,
-  Eye,
-  History
+  Eye
 } from 'lucide-react';
-import { useAdminBilling } from '@/contexts/AdminBillingContext';
+
+// FIREBASE
+import { getDatabase, ref, onValue, update, remove } from 'firebase/database';
+import { app } from '@/config/firebase'; // Asegúrate de que la ruta esté bien
 
 export const BillingHistory = () => {
-  const { isAdminMode, editMovement, deleteMovement } = useAdminBilling();
+  const [isAdminMode] = useState(true); // O usa tu contexto real
   const [filterType, setFilterType] = useState('todos');
   const [filterClient, setFilterClient] = useState('');
   const [filterMonth, setFilterMonth] = useState('todos');
@@ -28,138 +30,81 @@ export const BillingHistory = () => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [movements, setMovements] = useState<any[]>([]);
+  const [editData, setEditData] = useState<any>({});
+  const [deleteReason, setDeleteReason] = useState('');
 
-  // Mock movements data
-  const movements = [
-    {
-      id: "MOV-001",
-      type: "payment_received",
-      client: "Bodega Don Carlos",
-      amount: 480.00,
-      date: "2024-01-16T10:30:00",
-      description: "Pago de factura FAC-2024-001",
-      method: "Efectivo",
-      user: "cobranzas@pecaditos.com"
-    },
-    {
-      id: "MOV-002",
-      type: "invoice_issued",
-      client: "Restaurante La Plaza",
-      amount: 1200.00,
-      date: "2024-01-15T14:20:00",
-      description: "Factura por pedido PEC-2024-015",
-      method: "Crédito 30 días",
-      user: "pedidos@pecaditos.com"
-    },
-    {
-      id: "MOV-003",
-      type: "payment_commitment",
-      client: "Distribuidora El Sol SAC",
-      amount: 345.00,
-      date: "2024-01-15T09:15:00",
-      description: "Compromiso de pago para el 25/01/2024",
-      method: "Compromiso",
-      user: "cobranzas@pecaditos.com"
-    },
-    {
-      id: "MOV-004",
-      type: "invoice_rejected",
-      client: "Minimarket Los Andes",
-      amount: 750.00,
-      date: "2024-01-14T16:45:00",
-      description: "Factura rechazada por falta de pago",
-      method: "Rechazo",
-      user: "cobranzas@pecaditos.com"
-    },
-    {
-      id: "MOV-005",
-      type: "payment_received",
-      client: "Restaurante La Plaza",
-      amount: 850.00,
-      date: "2024-01-12T11:00:00",
-      description: "Pago de factura FAC-2024-002",
-      method: "Transferencia",
-      user: "cobranzas@pecaditos.com"
-    }
-  ];
+  // Lectura de Firebase RTDB
+  useEffect(() => {
+    const db = getDatabase(app);
+    const movementsRef = ref(db, 'billingMovements');
+    const unsubscribe = onValue(movementsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setMovements([]);
+      // Convierte a array y ordena por fecha descendente
+      const array = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+      array.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setMovements(array);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const getMovementInfo = (type: string) => {
     switch (type) {
       case 'payment_received':
-        return { 
-          color: 'bg-green-100 text-green-800', 
-          text: 'Pago Recibido', 
-          icon: CheckCircle 
-        };
+        return { color: 'bg-green-100 text-green-800', text: 'Pago Recibido', icon: CheckCircle };
       case 'invoice_issued':
-        return { 
-          color: 'bg-blue-100 text-blue-800', 
-          text: 'Factura Emitida', 
-          icon: DollarSign 
-        };
+        return { color: 'bg-blue-100 text-blue-800', text: 'Factura Emitida', icon: DollarSign };
       case 'payment_commitment':
-        return { 
-          color: 'bg-orange-100 text-orange-800', 
-          text: 'Compromiso de Pago', 
-          icon: Calendar 
-        };
+        return { color: 'bg-orange-100 text-orange-800', text: 'Compromiso de Pago', icon: Calendar };
       case 'invoice_rejected':
-        return { 
-          color: 'bg-red-100 text-red-800', 
-          text: 'Factura Rechazada', 
-          icon: X 
-        };
+        return { color: 'bg-red-100 text-red-800', text: 'Factura Rechazada', icon: X };
       default:
-        return { 
-          color: 'bg-gray-100 text-gray-800', 
-          text: type, 
-          icon: Clock 
-        };
+        return { color: 'bg-gray-100 text-gray-800', text: type, icon: Clock };
     }
   };
 
-  const handleEditMovement = (movement: any) => {
-    setSelectedMovement(movement);
-    setShowEditModal(true);
-  };
-
-  const handleDeleteMovement = (movement: any) => {
-    setSelectedMovement(movement);
-    setShowDeleteModal(true);
-  };
-
-  const handleViewDetail = (movement: any) => {
-    setSelectedMovement(movement);
-    setShowDetailModal(true);
-  };
-
-  const confirmEdit = (changes: any) => {
-    editMovement(selectedMovement.id, changes);
+  // Editar movimiento en Firebase
+  const confirmEdit = async () => {
+    const db = getDatabase(app);
+    const refMov = ref(db, `billingMovements/${selectedMovement.id}`);
+    await update(refMov, editData);
     setShowEditModal(false);
     setSelectedMovement(null);
   };
 
-  const confirmDelete = (reason: string) => {
-    deleteMovement(selectedMovement.id, reason);
+  // Eliminar movimiento en Firebase (guarda motivo en log si quieres)
+  const confirmDelete = async () => {
+    const db = getDatabase(app);
+    await remove(ref(db, `billingMovements/${selectedMovement.id}`));
     setShowDeleteModal(false);
     setSelectedMovement(null);
+    setDeleteReason('');
+  };
+
+  const handleEditMovement = (movement: any) => {
+    setSelectedMovement(movement);
+    setEditData({
+      description: movement.description,
+      amount: movement.amount,
+      method: movement.method,
+    });
+    setShowEditModal(true);
   };
 
   const filteredMovements = movements.filter(movement => {
     const matchesType = filterType === 'todos' || movement.type === filterType;
-    const matchesClient = !filterClient || movement.client.toLowerCase().includes(filterClient.toLowerCase());
-    // Add month filter logic here
-    return matchesType && matchesClient;
+    const matchesClient = !filterClient || movement.client?.toLowerCase().includes(filterClient.toLowerCase());
+    const matchesMonth = filterMonth === 'todos' || movement.date?.startsWith(filterMonth);
+    return matchesType && matchesClient && matchesMonth;
   });
 
   const exportToExcel = () => {
-    console.log('Exportando historial a Excel...');
-    // TODO: Implement Excel export
+    alert('Exportando historial a Excel... (aquí va tu lógica)');
   };
 
   const exportToPDF = () => {
-    console.log('Exportando historial a PDF...');
-    // TODO: Implement PDF export
+    alert('Exportando historial a PDF... (aquí va tu lógica)');
   };
 
   return (
@@ -168,7 +113,6 @@ export const BillingHistory = () => {
         <h2 className="text-2xl font-bold text-stone-800 mb-2">Historial de Movimientos</h2>
         <p className="text-stone-600">Registro completo de actividades financieras</p>
       </div>
-
       {/* Filters and Export */}
       <Card>
         <CardHeader>
@@ -202,24 +146,20 @@ export const BillingHistory = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los meses</SelectItem>
-                <SelectItem value="2024-01">Enero 2024</SelectItem>
-                <SelectItem value="2023-12">Diciembre 2023</SelectItem>
+                {/* Genera meses según movimientos */}
+                {[...new Set(movements.map(m => m.date?.slice(0, 7)))].filter(Boolean).map(mes => (
+                  <SelectItem key={mes} value={mes}>
+                    {new Date(mes + '-01').toLocaleString('es-PE', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={exportToExcel}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={exportToExcel} className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
                 Excel
               </Button>
-              <Button
-                variant="outline"
-                onClick={exportToPDF}
-                className="flex-1"
-              >
+              <Button variant="outline" onClick={exportToPDF} className="flex-1">
                 <Download className="h-4 w-4 mr-2" />
                 PDF
               </Button>
@@ -233,7 +173,6 @@ export const BillingHistory = () => {
         {filteredMovements.map((movement) => {
           const movementInfo = getMovementInfo(movement.type);
           const MovementIcon = movementInfo.icon;
-          
           return (
             <Card key={movement.id} className="hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
@@ -265,20 +204,18 @@ export const BillingHistory = () => {
                         'text-stone-800'
                       }`}>
                         {movement.type === 'payment_received' ? '+' : ''}
-                        S/ {movement.amount.toFixed(2)}
+                        S/ {Number(movement.amount).toFixed(2)}
                       </div>
                       <div className="text-sm text-stone-500">
-                        {new Date(movement.date).toLocaleString()}
+                        {movement.date && new Date(movement.date).toLocaleString()}
                       </div>
                     </div>
-
-                    {/* Admin Controls */}
                     {isAdminMode && (
                       <div className="flex gap-1">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleViewDetail(movement)}
+                          onClick={() => { setSelectedMovement(movement); setShowDetailModal(true); }}
                           className="text-blue-600 border-blue-300 hover:bg-blue-50"
                         >
                           <Eye className="h-4 w-4" />
@@ -294,7 +231,7 @@ export const BillingHistory = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleDeleteMovement(movement)}
+                          onClick={() => { setSelectedMovement(movement); setShowDeleteModal(true); }}
                           className="text-red-600 border-red-300 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -353,11 +290,11 @@ export const BillingHistory = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Monto</label>
-                  <p className="font-semibold">S/ {selectedMovement.amount.toFixed(2)}</p>
+                  <p className="font-semibold">S/ {Number(selectedMovement.amount).toFixed(2)}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Fecha</label>
-                  <p className="font-semibold">{new Date(selectedMovement.date).toLocaleString()}</p>
+                  <p className="font-semibold">{selectedMovement.date && new Date(selectedMovement.date).toLocaleString()}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Método</label>
@@ -368,12 +305,10 @@ export const BillingHistory = () => {
                   <p className="font-semibold">{selectedMovement.user}</p>
                 </div>
               </div>
-              
               <div>
                 <label className="text-sm font-medium text-stone-600">Descripción</label>
                 <p className="bg-stone-50 p-3 rounded-lg">{selectedMovement.description}</p>
               </div>
-
               <div className="flex gap-2">
                 <Button
                   variant="outline"
@@ -411,15 +346,25 @@ export const BillingHistory = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Descripción</label>
-                <Input defaultValue={selectedMovement.description} />
+                <Input
+                  value={editData.description || ''}
+                  onChange={e => setEditData({ ...editData, description: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Monto</label>
-                <Input type="number" defaultValue={selectedMovement.amount} />
+                <Input
+                  type="number"
+                  value={editData.amount || ''}
+                  onChange={e => setEditData({ ...editData, amount: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Método</label>
-                <Select defaultValue={selectedMovement.method}>
+                <Select
+                  value={editData.method || ''}
+                  onValueChange={v => setEditData({ ...editData, method: v })}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -431,10 +376,9 @@ export const BillingHistory = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
               <div className="flex gap-2">
                 <Button
-                  onClick={() => confirmEdit({})}
+                  onClick={confirmEdit}
                   className="bg-green-600 hover:bg-green-700 text-white flex-1"
                 >
                   Guardar Cambios
@@ -462,13 +406,17 @@ export const BillingHistory = () => {
               <p>¿Está seguro de eliminar este movimiento? Esta acción no se puede deshacer.</p>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Motivo de eliminación</label>
-                <Input placeholder="Ingrese el motivo..." />
+                <Input
+                  placeholder="Ingrese el motivo..."
+                  value={deleteReason}
+                  onChange={e => setDeleteReason(e.target.value)}
+                />
               </div>
-              
               <div className="flex gap-2">
                 <Button
-                  onClick={() => confirmDelete("Motivo de prueba")}
+                  onClick={confirmDelete}
                   className="bg-red-600 hover:bg-red-700 text-white flex-1"
+                  disabled={!deleteReason}
                 >
                   Confirmar Eliminación
                 </Button>

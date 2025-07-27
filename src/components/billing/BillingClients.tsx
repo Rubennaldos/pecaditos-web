@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -9,10 +9,7 @@ import {
   Phone, 
   MessageSquare, 
   Edit, 
-  User, 
   Mail,
-  TrendingUp,
-  TrendingDown,
   AlertTriangle,
   CheckCircle,
   Clock,
@@ -25,6 +22,10 @@ import {
 } from 'lucide-react';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
 
+// ---- FIREBASE ----
+import { getDatabase, ref, onValue, update } from 'firebase/database';
+import { app } from '@/config/firebase'; // Ajusta la ruta si es diferente
+
 export const BillingClients = () => {
   const { isAdminMode, sendWarningMessage } = useAdminBilling();
   const [filterStatus, setFilterStatus] = useState('todos');
@@ -33,72 +34,23 @@ export const BillingClients = () => {
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [showMorosityWarning, setShowMorosityWarning] = useState(false);
 
-  // Enhanced mock clients data with rating system
-  const clients = [
-    {
-      id: "CLI-001",
-      name: "Distribuidora El Sol SAC",
-      comercialName: "El Sol Distribuciones",
-      ruc: "20123456789",
-      phone: "+51 999 111 222",
-      email: "pagos@elsol.com",
-      status: "moroso",
-      rating: 1.5, // 0-5 star rating
-      paymentTerms: "credito_30",
-      creditLimit: 2000.00,
-      currentDebt: 780.00,
-      lastPayment: "2023-12-15",
-      avgPaymentDays: 35,
-      promotionEligible: false,
-      paymentHistory: [
-        { date: "2024-01-10", status: "very_late", days: 20 },
-        { date: "2023-12-15", status: "very_late", days: 25 },
-        { date: "2023-11-20", status: "late", days: 10 }
-      ]
-    },
-    {
-      id: "CLI-002",
-      name: "Bodega Don Carlos",
-      comercialName: "Bodega Carlos",
-      ruc: "20555666777",
-      phone: "+51 999 555 666",
-      email: "carlos@bodega.com",
-      status: "excelente",
-      rating: 5.0,
-      paymentTerms: "contado",
-      creditLimit: 500.00,
-      currentDebt: 0.00,
-      lastPayment: "2024-01-16",
-      avgPaymentDays: 0,
-      promotionEligible: true,
-      paymentHistory: [
-        { date: "2024-01-16", status: "on_time", days: 0 },
-        { date: "2024-01-14", status: "early", days: -1 },
-        { date: "2024-01-12", status: "on_time", days: 0 }
-      ]
-    },
-    {
-      id: "CLI-003",
-      name: "Restaurante La Plaza",
-      comercialName: "La Plaza Restaurant",
-      ruc: "20777888999",
-      phone: "+51 999 777 888",
-      email: "admin@laplaza.com",
-      status: "puntual",
-      rating: 4.5,
-      paymentTerms: "credito_15",
-      creditLimit: 1500.00,
-      currentDebt: 450.00,
-      lastPayment: "2024-01-12",
-      avgPaymentDays: 12,
-      promotionEligible: true,
-      paymentHistory: [
-        { date: "2024-01-12", status: "on_time", days: 0 },
-        { date: "2024-01-05", status: "early", days: -2 },
-        { date: "2023-12-28", status: "on_time", days: 0 }
-      ]
-    }
-  ];
+  // ---- Datos desde Firebase ----
+  const [clients, setClients] = useState<any[]>([]);
+
+  useEffect(() => {
+    const db = getDatabase(app);
+    const clientsRef = ref(db, 'clients');
+    const unsubscribe = onValue(clientsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        // Si tu estructura es un objeto: {id1: {...}, id2: {...}}
+        setClients(Object.values(data));
+      } else {
+        setClients([]);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
 
   const getStatusInfo = (status: string, rating: number) => {
     if (rating >= 4.5) {
@@ -127,7 +79,7 @@ export const BillingClients = () => {
     else return <Frown className="h-6 w-6 text-red-500" />;
   };
 
-  const renderPaymentHistory = (history: any[]) => {
+  const renderPaymentHistory = (history: any[] = []) => {
     return (
       <div className="flex gap-1">
         {history.slice(0, 10).map((payment, index) => {
@@ -157,26 +109,45 @@ export const BillingClients = () => {
 
   const sendPromotion = (client: any) => {
     const discount = getPromotionPercentage(client.rating);
-    console.log(`Enviando promoción de ${discount}% a ${client.name}...`);
-    // TODO: Send automatic promotion based on rating
+    // Aquí debes implementar el envío real por WhatsApp/SMS/email
+    alert(`Enviando promoción de ${discount}% a ${client.name}`);
   };
 
   const sendMorosityWarning = (client: any) => {
     const message = `AVISO IMPORTANTE: ${client.name}, su cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos. Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar.`;
-    
-    console.log(`Enviando advertencia de morosidad a ${client.name}: ${message}`);
-    sendWarningMessage(client.ruc, message);
+    sendWarningMessage(client.ruc, message); // Custom, según tu lógica
     setShowMorosityWarning(false);
     setSelectedClient(null);
   };
 
-  // Intelligent filtering
+  // ---- ACTUALIZACIÓN EN FIREBASE (editar cliente) ----
+  const handleSaveEdit = (updatedFields: any) => {
+    if (!selectedClient) return;
+    const db = getDatabase(app);
+    update(ref(db, `clients/${selectedClient.id}`), updatedFields)
+      .then(() => {
+        setShowEditModal(false);
+        setSelectedClient(null);
+      })
+      .catch((err) => {
+        alert('Error actualizando cliente');
+      });
+  };
+
+  // ---- Filtrar clientes ----
   const filteredClients = clients.filter(client => {
-    const matchesStatus = filterStatus === 'todos' || client.status === filterStatus;
+    // Define status según rating:
+    let realStatus = client.status;
+    if (client.rating >= 4.5) realStatus = 'excelente';
+    else if (client.rating >= 3.5) realStatus = 'puntual';
+    else if (client.rating >= 2) realStatus = 'regular';
+    else realStatus = 'moroso';
+
+    const matchesStatus = filterStatus === 'todos' || realStatus === filterStatus;
     const matchesSearch = !searchTerm || 
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.comercialName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.ruc.includes(searchTerm);
+      client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.comercialName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.ruc?.includes(searchTerm);
     return matchesStatus && matchesSearch;
   });
 
@@ -187,7 +158,7 @@ export const BillingClients = () => {
         <p className="text-stone-600">Estado financiero, comportamiento de pago y sistema de promociones</p>
       </div>
 
-      {/* Enhanced Filters */}
+      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -220,13 +191,13 @@ export const BillingClients = () => {
         </CardContent>
       </Card>
 
-      {/* Enhanced Clients List */}
+      {/* Lista de clientes */}
       <div className="space-y-4">
         {filteredClients.map((client) => {
           const statusInfo = getStatusInfo(client.status, client.rating);
           const StatusIcon = statusInfo.icon;
           const promotionDiscount = getPromotionPercentage(client.rating);
-          
+
           return (
             <Card key={client.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
@@ -236,7 +207,7 @@ export const BillingClients = () => {
                       {renderPaymentFace(client.rating)}
                     </div>
                     <div>
-                      <CardTitle className={`flex items-center gap-2 ${client.status === 'moroso' ? 'text-lg' : ''}`}>
+                      <CardTitle className="flex items-center gap-2">
                         {client.name}
                         <Badge className={statusInfo.color}>
                           <StatusIcon className="h-3 w-3 mr-1" />
@@ -261,10 +232,10 @@ export const BillingClients = () => {
                       </span>
                     </div>
                     <div className="text-sm text-stone-500">
-                      Último pago: {new Date(client.lastPayment).toLocaleDateString()}
+                      Último pago: {client.lastPayment ? new Date(client.lastPayment).toLocaleDateString() : '-'}
                     </div>
                     <div className="text-xs text-stone-400">
-                      Promedio: {client.avgPaymentDays} días
+                      Promedio: {client.avgPaymentDays ?? 0} días
                     </div>
                   </div>
                 </div>
@@ -282,23 +253,21 @@ export const BillingClients = () => {
                       <span className="truncate">{client.email}</span>
                     </div>
                   </div>
-
                   {/* Financial Info */}
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-medium">Límite:</span> S/ {client.creditLimit.toFixed(2)}
+                      <span className="font-medium">Límite:</span> S/ {client.creditLimit?.toFixed(2) ?? '0.00'}
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">Deuda:</span> 
                       <span className={client.currentDebt > 0 ? 'text-red-600 font-bold ml-1' : 'text-green-600 ml-1'}>
-                        S/ {client.currentDebt.toFixed(2)}
+                        S/ {client.currentDebt?.toFixed(2) ?? '0.00'}
                       </span>
                     </div>
                     <div className="text-sm">
                       <span className="font-medium">Términos:</span> {client.paymentTerms}
                     </div>
                   </div>
-
                   {/* Payment Behavior with Visual History */}
                   <div className="space-y-2">
                     <div className="text-sm">
@@ -312,7 +281,6 @@ export const BillingClients = () => {
                       Verde: Puntual | Amarillo: Tardío | Rojo: Muy tardío
                     </div>
                   </div>
-
                   {/* Actions with Promotion System and Morosity Warning */}
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
@@ -359,7 +327,6 @@ export const BillingClients = () => {
                       </Button>
                     )}
                     
-                    {/* Mostrar estado de crédito desactivado para 0 estrellas */}
                     {client.rating === 0 && (
                       <div className="w-full bg-red-50 border border-red-200 rounded p-2 text-center">
                         <p className="text-xs text-red-800 font-medium">
@@ -398,7 +365,7 @@ export const BillingClients = () => {
         })}
       </div>
 
-      {/* Enhanced Edit Modal */}
+      {/* Edit Modal */}
       {showEditModal && selectedClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg mx-4">
@@ -414,7 +381,10 @@ export const BillingClients = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Términos de Pago</label>
-                  <Select defaultValue={selectedClient.paymentTerms}>
+                  <Select
+                    defaultValue={selectedClient.paymentTerms}
+                    onValueChange={(value) => setSelectedClient({ ...selectedClient, paymentTerms: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -432,7 +402,8 @@ export const BillingClients = () => {
                   <label className="text-sm font-medium">Límite de Crédito</label>
                   <Input
                     type="number"
-                    defaultValue={selectedClient.creditLimit}
+                    value={selectedClient.creditLimit}
+                    onChange={e => setSelectedClient({ ...selectedClient, creditLimit: Number(e.target.value) })}
                     placeholder="S/ 0.00"
                   />
                 </div>
@@ -455,6 +426,12 @@ export const BillingClients = () => {
               <div className="flex gap-2">
                 <Button
                   className="bg-green-600 hover:bg-green-700 text-white flex-1"
+                  onClick={() =>
+                    handleSaveEdit({
+                      paymentTerms: selectedClient.paymentTerms,
+                      creditLimit: selectedClient.creditLimit,
+                    })
+                  }
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Guardar Cambios

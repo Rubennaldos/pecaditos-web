@@ -1,4 +1,4 @@
-
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -6,73 +6,128 @@ import {
   AlertTriangle, 
   Clock, 
   TrendingUp,
-  Users,
-  Calendar,
   Download,
   BarChart3,
   PieChart,
   Trophy
 } from 'lucide-react';
 
+// FIREBASE
+import { getDatabase, ref, onValue } from 'firebase/database';
+import { app } from '@/config/firebase'; // Ajusta la ruta según tu estructura
+
 export const BillingDashboard = () => {
-  // Mock KPIs data with more detailed metrics
-  const kpis = [
-    {
-      title: "Total por Cobrar",
-      value: "S/ 8,450.00",
-      icon: DollarSign,
-      color: "text-orange-600",
-      bgColor: "bg-orange-100",
-      trend: "+12%"
-    },
-    {
-      title: "Morosidad",
-      value: "12.5%",
-      icon: AlertTriangle,
-      color: "text-red-600",
-      bgColor: "bg-red-100",
-      trend: "-3%"
-    },
-    {
-      title: "Tiempo Promedio",
-      value: "18 días",
-      icon: Clock,
-      color: "text-blue-600",
-      bgColor: "bg-blue-100",
-      trend: "+2 días"
-    },
-    {
-      title: "Cobrado Este Mes",
-      value: "S/ 15,230.00",
-      icon: TrendingUp,
-      color: "text-green-600",
-      bgColor: "bg-green-100",
-      trend: "+25%"
-    }
-  ];
+  // Estados para datos de dashboard
+  const [kpis, setKpis] = useState<any[]>([]);
+  const [topPayers, setTopPayers] = useState<any[]>([]);
+  const [worstPayers, setWorstPayers] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<any[]>([]);
 
-  // Mock ranking data
-  const topPayers = [
-    { name: "Bodega Don Carlos", score: 5, amount: "S/ 2,400" },
-    { name: "Restaurante La Plaza", score: 4.5, amount: "S/ 1,850" },
-    { name: "Minimarket Central", score: 4, amount: "S/ 1,200" }
-  ];
+  // Lectura desde RTDB
+  useEffect(() => {
+    const db = getDatabase(app);
 
-  const worstPayers = [
-    { name: "Distribuidora El Sol SAC", overdue: 15, amount: "S/ 780" },
-    { name: "Minimarket Los Andes", overdue: 7, amount: "S/ 450" }
-  ];
+    // KPIs
+    onValue(ref(db, 'billingDashboard/kpis'), (snapshot) => {
+      const data = snapshot.val();
+      setKpis(Array.isArray(data) ? data : (data ? Object.values(data) : []));
+    });
 
+    // Mejores pagadores
+    onValue(ref(db, 'billingDashboard/topPayers'), (snapshot) => {
+      const data = snapshot.val();
+      setTopPayers(Array.isArray(data) ? data : (data ? Object.values(data) : []));
+    });
+
+    // Peores pagadores
+    onValue(ref(db, 'billingDashboard/worstPayers'), (snapshot) => {
+      const data = snapshot.val();
+      setWorstPayers(Array.isArray(data) ? data : (data ? Object.values(data) : []));
+    });
+
+    // Alertas y compromisos
+    onValue(ref(db, 'billingDashboard/alerts'), (snapshot) => {
+      const data = snapshot.val();
+      setAlerts(Array.isArray(data) ? data : (data ? Object.values(data) : []));
+    });
+  }, []);
+
+  // Excel Export
   const exportDashboard = () => {
-    console.log('Exportando dashboard a Excel...');
-    // TODO: Implement Excel export with current filters
+    alert('Exportando dashboard a Excel (implementa aquí tu lógica de exportación)');
   };
 
+  // Renderiza estrellas
   const renderStars = (score: number) => {
     return Array.from({ length: 5 }, (_, i) => (
       <span key={i} className={i < score ? "text-yellow-500" : "text-gray-300"}>★</span>
     ));
   };
+
+  // Renderiza resumen de distribución de deuda
+  const renderDistribution = () => {
+    if (!kpis || kpis.length === 0) return null;
+    // Busca los 3 KPIs principales para la gráfica
+    // Puedes adaptar los nombres según tu RTDB
+    const vencidas = kpis.find(k => k.key === 'debtOverdue');
+    const porVencer = kpis.find(k => k.key === 'debtDueSoon');
+    const vigentes = kpis.find(k => k.key === 'debtCurrent');
+    return (
+      <div className="space-y-4">
+        {vencidas && (
+          <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
+            <span className="text-red-800 font-medium">Vencidas</span>
+            <span className="text-red-700 font-bold">{vencidas.value} ({vencidas.percent})</span>
+          </div>
+        )}
+        {porVencer && (
+          <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
+            <span className="text-yellow-800 font-medium">Por Vencer (7 días)</span>
+            <span className="text-yellow-700 font-bold">{porVencer.value} ({porVencer.percent})</span>
+          </div>
+        )}
+        {vigentes && (
+          <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+            <span className="text-green-800 font-medium">Vigentes</span>
+            <span className="text-green-700 font-bold">{vigentes.value} ({vigentes.percent})</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Renderiza histórico mensual ficticio (¡puedes traerlo también de Firebase!)
+  const renderMonthlyHistoric = () => (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm">Enero 2024</span>
+        <div className="flex items-center gap-2">
+          <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
+            <div className="w-4/5 h-full bg-green-500"></div>
+          </div>
+          <span className="text-sm font-medium">80%</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm">Diciembre 2023</span>
+        <div className="flex items-center gap-2">
+          <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
+            <div className="w-3/5 h-full bg-yellow-500"></div>
+          </div>
+          <span className="text-sm font-medium">65%</span>
+        </div>
+      </div>
+      <div className="flex items-center justify-between">
+        <span className="text-sm">Noviembre 2023</span>
+        <div className="flex items-center gap-2">
+          <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
+            <div className="w-full h-full bg-green-600"></div>
+          </div>
+          <span className="text-sm font-medium">95%</span>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -89,8 +144,14 @@ export const BillingDashboard = () => {
 
       {/* KPIs Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {kpis.map((kpi, index) => {
-          const Icon = kpi.icon;
+        {kpis.map((kpi: any, index: number) => {
+          const Icon = {
+            DollarSign,
+            AlertTriangle,
+            Clock,
+            TrendingUp
+          }[kpi.icon as keyof typeof import('lucide-react')];
+
           return (
             <Card key={index} className="hover:shadow-lg transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -98,7 +159,7 @@ export const BillingDashboard = () => {
                   {kpi.title}
                 </CardTitle>
                 <div className={`p-2 rounded-full ${kpi.bgColor}`}>
-                  <Icon className={`h-4 w-4 ${kpi.color}`} />
+                  {Icon ? <Icon className={`h-4 w-4 ${kpi.color}`} /> : null}
                 </div>
               </CardHeader>
               <CardContent>
@@ -125,20 +186,7 @@ export const BillingDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                <span className="text-red-800 font-medium">Vencidas</span>
-                <span className="text-red-700 font-bold">S/ 1,230 (14.5%)</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                <span className="text-yellow-800 font-medium">Por Vencer (7 días)</span>
-                <span className="text-yellow-700 font-bold">S/ 2,450 (29%)</span>
-              </div>
-              <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                <span className="text-green-800 font-medium">Vigentes</span>
-                <span className="text-green-700 font-bold">S/ 4,770 (56.5%)</span>
-              </div>
-            </div>
+            {renderDistribution()}
           </CardContent>
         </Card>
 
@@ -151,35 +199,7 @@ export const BillingDashboard = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Enero 2024</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-                    <div className="w-4/5 h-full bg-green-500"></div>
-                  </div>
-                  <span className="text-sm font-medium">80%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Diciembre 2023</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-                    <div className="w-3/5 h-full bg-yellow-500"></div>
-                  </div>
-                  <span className="text-sm font-medium">65%</span>
-                </div>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm">Noviembre 2023</span>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-                    <div className="w-full h-full bg-green-600"></div>
-                  </div>
-                  <span className="text-sm font-medium">95%</span>
-                </div>
-              </div>
-            </div>
+            {renderMonthlyHistoric()}
           </CardContent>
         </Card>
       </div>
@@ -196,7 +216,7 @@ export const BillingDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {topPayers.map((client, index) => (
+              {topPayers.map((client: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg">
                   <div>
                     <p className="font-medium text-green-800">{client.name}</p>
@@ -225,7 +245,7 @@ export const BillingDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {worstPayers.map((client, index) => (
+              {worstPayers.map((client: any, index: number) => (
                 <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg animate-pulse">
                   <div>
                     <p className="font-medium text-red-800">{client.name}</p>
@@ -252,20 +272,18 @@ export const BillingDashboard = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-red-500">
-              <div>
-                <p className="font-medium text-red-800">Compromiso vencido: Distribuidora El Sol SAC</p>
-                <p className="text-sm text-red-600">Compromiso para el 15/01 - S/ 345.00</p>
+            {alerts.map((alert: any, idx: number) => (
+              <div key={idx}
+                className={`flex items-center justify-between p-3 bg-white rounded-lg border-l-4
+                  ${alert.type === 'vencido' ? 'border-red-500' : 'border-orange-500'}`}>
+                <div>
+                  <p className={`font-medium ${alert.type === 'vencido' ? 'text-red-800' : 'text-orange-800'}`}>{alert.title}</p>
+                  <p className={`text-sm ${alert.type === 'vencido' ? 'text-red-600' : 'text-orange-600'}`}>{alert.desc}</p>
+                </div>
+                <div className={`animate-pulse h-3 w-3 rounded-full
+                  ${alert.type === 'vencido' ? 'bg-red-500' : 'bg-orange-500'}`}></div>
               </div>
-              <div className="animate-pulse bg-red-500 h-3 w-3 rounded-full"></div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-white rounded-lg border-l-4 border-orange-500">
-              <div>
-                <p className="font-medium text-orange-800">Compromiso hoy: Minimarket Los Andes</p>
-                <p className="text-sm text-orange-600">Debe contactar hoy - S/ 750.00</p>
-              </div>
-              <div className="animate-pulse bg-orange-500 h-3 w-3 rounded-full"></div>
-            </div>
+            ))}
           </div>
         </CardContent>
       </Card>

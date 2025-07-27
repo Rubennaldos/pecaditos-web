@@ -1,5 +1,4 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,58 +17,38 @@ import {
   Search
 } from 'lucide-react';
 
+// FIREBASE
+import { getDatabase, ref, onValue, update } from 'firebase/database';
+import { app } from '@/config/firebase';
+
+type Order = {
+  id: string;
+  client: string;
+  comercialName: string;
+  ruc: string;
+  amount: number;
+  date: string;
+  status: string;
+  paymentMethod: string;
+  dueDate: string;
+  phone: string;
+  whatsapp: string;
+  rejectionReason?: string;
+  rejectionObservations?: string;
+};
+
 export const BillingOrders = () => {
   const [filterStatus, setFilterStatus] = useState('todos');
   const [filterClient, setFilterClient] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [rejectObs, setRejectObs] = useState('');
   const [showQRScanner, setShowQRScanner] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
 
-  // Mock orders data with enhanced information
-  const orders = [
-    {
-      id: "PEC-2024-001",
-      client: "Distribuidora El Sol SAC",
-      comercialName: "El Sol Distribuciones",
-      ruc: "20123456789",
-      amount: 450.00,
-      date: "2024-01-15",
-      status: "pending_payment",
-      paymentMethod: "credito_30",
-      dueDate: "2024-02-14",
-      phone: "+51 999 111 222",
-      whatsapp: "+51 999 111 222"
-    },
-    {
-      id: "PEC-2024-002",
-      client: "Minimarket Los Andes",
-      comercialName: "Los Andes Market",
-      ruc: "20555666777",
-      amount: 780.00,
-      date: "2024-01-14",
-      status: "payment_overdue",
-      paymentMethod: "credito_15",
-      dueDate: "2024-01-29",
-      phone: "+51 999 333 444",
-      whatsapp: "+51 999 333 444"
-    },
-    {
-      id: "PEC-2024-003",
-      client: "Bodega Don Carlos",
-      comercialName: "Bodega Carlos",
-      ruc: "20777888999",
-      amount: 320.00,
-      date: "2024-01-16",
-      status: "paid",
-      paymentMethod: "contado",
-      dueDate: "2024-01-16",
-      phone: "+51 999 555 666",
-      whatsapp: "+51 999 555 666"
-    }
-  ];
-
+  // Rechazo
   const rejectReasons = [
     "Cliente no tiene fondos suficientes",
     "Producto no disponible en stock",
@@ -79,6 +58,25 @@ export const BillingOrders = () => {
     "Otro motivo (especificar en observaciones)"
   ];
 
+  // Lectura realtime
+  useEffect(() => {
+    const db = getDatabase(app);
+    const ordersRef = ref(db, 'orders');
+    const unsubscribe = onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) return setOrders([]);
+      const array = Object.entries(data).map(([id, val]) =>
+        typeof val === 'object' && val !== null
+          ? { id, ...val }
+          : { id }
+      ) as Order[];
+      array.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setOrders(array);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Estado visual
   const getStatusInfo = (status: string) => {
     switch (status) {
       case 'pending_payment':
@@ -94,37 +92,45 @@ export const BillingOrders = () => {
     }
   };
 
-  const handleRejectOrder = () => {
-    if (!rejectReason.trim()) {
+  // RECHAZAR PEDIDO
+  const handleRejectOrder = async () => {
+    if (!selectedOrder || !rejectReason.trim()) {
       alert('Debe seleccionar el motivo del rechazo');
       return;
     }
-    
-    console.log(`Rechazando pedido ${selectedOrder?.id}:`, {
-      reason: rejectReason,
-      timestamp: new Date().toISOString(),
-      user: 'cobranzas@pecaditos.com'
+    const db = getDatabase(app);
+    const orderRef = ref(db, `orders/${selectedOrder.id}`);
+    await update(orderRef, {
+      status: 'rejected',
+      rejectionReason: rejectReason,
+      rejectionObservations: rejectReason === "Otro motivo (especificar en observaciones)" ? rejectObs : "",
+      rejectionTimestamp: new Date().toISOString(),
+      rejectionUser: 'cobranzas@pecaditos.com'
     });
-    
-    // TODO: This rejection will be visible to all profiles and the client
-    
     setShowRejectModal(false);
     setSelectedOrder(null);
     setRejectReason('');
+    setRejectObs('');
   };
 
-  const handleAcceptOrder = (order: any) => {
-    console.log(`Aceptando pedido ${order.id} automáticamente`);
-    // TODO: Process order acceptance
+  // ACEPTAR PEDIDO
+  const handleAcceptOrder = async (order: Order) => {
+    const db = getDatabase(app);
+    const orderRef = ref(db, `orders/${order.id}`);
+    await update(orderRef, {
+      status: 'paid',
+      paymentConfirmedAt: new Date().toISOString(),
+      paymentConfirmedBy: 'cobranzas@pecaditos.com'
+    });
   };
 
+  // QR (demo)
   const handleQRScan = () => {
     setShowQRScanner(true);
-    // TODO: Implement QR scanner functionality
-    console.log('Abriendo escáner QR...');
+    // Aquí se implementaría un escáner QR real si lo necesitas
   };
 
-  // Intelligent search filtering
+  // Filtrado avanzado
   const filteredOrders = orders.filter(order => {
     const matchesStatus = filterStatus === 'todos' || order.status === filterStatus;
     const matchesClient = !filterClient || 
@@ -135,7 +141,6 @@ export const BillingOrders = () => {
       order.ruc.includes(searchTerm) ||
       order.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.comercialName.toLowerCase().includes(searchTerm.toLowerCase());
-    
     return matchesStatus && matchesClient && matchesSearch;
   });
 
@@ -146,7 +151,7 @@ export const BillingOrders = () => {
         <p className="text-stone-600">Control y validación de todos los pedidos del sistema</p>
       </div>
 
-      {/* Enhanced Filters */}
+      {/* Filtros */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -199,7 +204,6 @@ export const BillingOrders = () => {
         {filteredOrders.map((order) => {
           const statusInfo = getStatusInfo(order.status);
           const isOverdue = order.status === 'payment_overdue';
-          
           return (
             <Card 
               key={order.id} 
@@ -241,6 +245,14 @@ export const BillingOrders = () => {
                       <span><span className="font-medium">Tel:</span> {order.phone}</span>
                       <span><span className="font-medium">WhatsApp:</span> {order.whatsapp}</span>
                     </div>
+                    {order.status === 'rejected' && order.rejectionReason && (
+                      <div className="mt-2 p-2 rounded bg-gray-50 border text-xs text-gray-700">
+                        <b>Motivo de rechazo:</b> {order.rejectionReason}
+                        {order.rejectionObservations && (
+                          <div><b>Obs.:</b> {order.rejectionObservations}</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <Button
@@ -291,7 +303,7 @@ export const BillingOrders = () => {
         })}
       </div>
 
-      {/* Enhanced Reject Modal */}
+      {/* Reject Modal */}
       {showRejectModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md mx-4">
@@ -319,13 +331,14 @@ export const BillingOrders = () => {
                   </SelectContent>
                 </Select>
               </div>
-              
               {rejectReason === "Otro motivo (especificar en observaciones)" && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Observaciones adicionales</label>
                   <Textarea
                     placeholder="Especifique el motivo..."
                     className="min-h-20"
+                    value={rejectObs}
+                    onChange={e => setRejectObs(e.target.value)}
                   />
                 </div>
               )}
@@ -337,7 +350,6 @@ export const BillingOrders = () => {
                   y el cliente recibirá una notificación automática.
                 </p>
               </div>
-              
               <div className="flex gap-2">
                 <Button
                   onClick={handleRejectOrder}
@@ -352,6 +364,7 @@ export const BillingOrders = () => {
                   onClick={() => {
                     setShowRejectModal(false);
                     setRejectReason('');
+                    setRejectObs('');
                   }}
                 >
                   Cancelar
