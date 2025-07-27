@@ -7,6 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 
+// Importa tu instancia de firebase
+import { database } from '@/firebase';
+import { ref, get, child } from 'firebase/database';
+
 interface OrderStatus {
   id: string;
   name: string;
@@ -37,51 +41,12 @@ const OrderTracking = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  // Mock data - EDITAR AQUÍ para conectar con Firebase
-  const mockOrders: OrderDetails[] = [
-    {
-      orderNumber: 'PEC-2024-001',
-      items: [
-        { name: 'Galletas Chocochips Integrales', quantity: 6 },
-        { name: 'Galletas de Avena y Pasas', quantity: 3 }
-      ],
-      deliveryAddress: 'Av. Los Olivos 123, San Borja, Lima',
-      customerName: 'María García',
-      total: 142.50,
-      status: 'en_reparto',
-      createdAt: '2024-01-15T10:30:00Z'
-    },
-    {
-      orderNumber: 'PEC-2024-002',
-      items: [
-        { name: 'Combo Familiar', quantity: 2 }
-      ],
-      deliveryAddress: 'Jr. Las Flores 456, Miraflores, Lima',
-      customerName: 'Carlos López',
-      total: 130.00,
-      status: 'entregado',
-      createdAt: '2024-01-14T15:00:00Z'
-    },
-    {
-      orderNumber: 'PEC-2024-003',
-      items: [
-        { name: 'Galletas de Maracuyá', quantity: 4 },
-        { name: 'Galletas de Higo', quantity: 2 }
-      ],
-      deliveryAddress: 'Av. Principal 789, Surco, Lima',
-      customerName: 'Ana Silva',
-      total: 106.00,
-      status: 'observado',
-      observations: 'Cliente no se encontraba en el domicilio. Se reagendó entrega para mañana.',
-      createdAt: '2024-01-15T08:15:00Z'
-    }
-  ];
-
-  // Efecto para buscar automáticamente si hay orderId en la URL
+  // Búsqueda automática si hay orderId en URL
   useEffect(() => {
     if (orderId) {
       handleSearch();
     }
+    // eslint-disable-next-line
   }, [orderId]);
 
   const getOrderStatuses = (currentStatus: string): OrderStatus[] => {
@@ -127,7 +92,6 @@ const OrderTracking = () => {
         current: currentStatus === 'entregado'
       }
     ];
-
     if (currentStatus === 'observado') {
       allStatuses.push({
         id: 'observado',
@@ -138,10 +102,10 @@ const OrderTracking = () => {
         current: true
       });
     }
-
     return allStatuses;
   };
 
+  // CONSULTA A FIREBASE RTDB POR orderNumber
   const handleSearch = async () => {
     if (!orderNumber.trim()) {
       toast({
@@ -151,30 +115,40 @@ const OrderTracking = () => {
       });
       return;
     }
-
     setIsLoading(true);
     setNotFound(false);
     setOrderDetails(null);
 
     try {
-      // Simular búsqueda en Firebase
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const foundOrder = mockOrders.find(order => 
-        order.orderNumber.toLowerCase() === orderNumber.trim().toLowerCase()
-      );
+      // Accede a la rama 'orders'
+      const ordersRef = ref(database, 'orders');
+      const snapshot = await get(ordersRef);
+
+      let foundOrder: any = null;
+      if (snapshot.exists()) {
+        const ordersObj = snapshot.val();
+        // Busca el pedido por orderNumber (case insensitive)
+        for (const key in ordersObj) {
+          if (
+            ordersObj[key]?.orderNumber &&
+            ordersObj[key].orderNumber.trim().toLowerCase() === orderNumber.trim().toLowerCase()
+          ) {
+            foundOrder = ordersObj[key];
+            break;
+          }
+        }
+      }
 
       if (foundOrder) {
         setOrderDetails(foundOrder);
         toast({
           title: "Pedido encontrado",
-          description: `Estado actual: ${foundOrder.status.replace('_', ' ')}`
+          description: `Estado actual: ${foundOrder.status?.replace('_', ' ')}`
         });
       } else {
         setNotFound(true);
       }
     } catch (error) {
-      console.error('Error buscando pedido:', error);
       toast({
         title: "Error",
         description: "Hubo un problema al buscar tu pedido",
@@ -186,7 +160,7 @@ const OrderTracking = () => {
   };
 
   const handleDownloadPDF = () => {
-    // Simular descarga de PDF
+    // Aquí iría tu lógica real
     toast({
       title: "Descarga iniciada",
       description: "Tu orden de pedido se está descargando"
@@ -194,12 +168,11 @@ const OrderTracking = () => {
   };
 
   const handleRepeatOrder = () => {
-    // Redirigir al catálogo con productos en el carrito
     toast({
       title: "Redirigiendo",
       description: "Te llevaremos al catálogo para repetir tu pedido"
     });
-    // Aquí iría: window.location.href = '/catalogo?repeat=' + orderDetails.orderNumber;
+    // window.location.href = '/catalogo?repeat=' + orderDetails?.orderNumber;
   };
 
   const handleContactSupport = () => {
@@ -211,7 +184,6 @@ const OrderTracking = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-sand-50 to-sand-100 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
-        
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -233,7 +205,7 @@ const OrderTracking = () => {
               Buscar Pedido
             </CardTitle>
             <CardDescription className="text-brown-700">
-              {orderId ? 
+              {orderId ?
                 `Buscando información del pedido: ${orderId}` :
                 'Ingresa el número de pedido que recibiste al confirmar tu compra'
               }
@@ -251,7 +223,7 @@ const OrderTracking = () => {
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
-              <Button 
+              <Button
                 onClick={handleSearch}
                 disabled={isLoading}
                 className="h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
@@ -287,7 +259,6 @@ const OrderTracking = () => {
         {/* Detalles del pedido */}
         {orderDetails && (
           <div className="space-y-6">
-            
             {/* Información general */}
             <Card className="border-sand-200 bg-white/80">
               <CardHeader>
@@ -340,11 +311,11 @@ const OrderTracking = () => {
                     return (
                       <div key={status.id} className="flex items-start gap-4">
                         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border-2 ${
-                          status.completed 
+                          status.completed
                             ? 'bg-green-100 border-green-500 text-green-600'
                             : status.current
-                            ? 'bg-primary/10 border-primary text-primary'
-                            : 'bg-sand-100 border-sand-300 text-sand-500'
+                              ? 'bg-primary/10 border-primary text-primary'
+                              : 'bg-sand-100 border-sand-300 text-sand-500'
                         }`}>
                           <Icon className="h-5 w-5" />
                         </div>
@@ -376,7 +347,6 @@ const OrderTracking = () => {
                     );
                   })}
                 </div>
-
                 {/* Observaciones */}
                 {orderDetails.observations && (
                   <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
@@ -398,18 +368,15 @@ const OrderTracking = () => {
                 <Download className="h-4 w-4 mr-2" />
                 Descargar Orden
               </Button>
-              
               <Button onClick={handleRepeatOrder} className="h-12 bg-green-600 hover:bg-green-700 text-white">
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Repetir Pedido
               </Button>
-              
               <Button onClick={handleContactSupport} variant="outline" className="h-12 border-sand-300 text-brown-700 hover:bg-sand-50">
                 <MessageCircle className="h-4 w-4 mr-2" />
                 Contactar Soporte
               </Button>
             </div>
-
           </div>
         )}
 
@@ -433,7 +400,6 @@ const OrderTracking = () => {
             </div>
           </CardContent>
         </Card>
-
       </div>
     </div>
   );

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Package, DollarSign, RotateCcw } from 'lucide-react';
+import { Calendar, Package, RotateCcw } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -22,30 +22,28 @@ interface WholesaleOrderHistoryProps {
   onRepeatOrder: (orderId: string) => void;
 }
 
-const mockOrders: Order[] = [
-  {
-    id: 'WH-2024-001',
-    date: '2024-01-15',
-    total: 450.00,
-    status: 'completado',
-    items: [
-      { name: 'Alfajor de Chocolate', quantity: 12, price: 15.00 },
-      { name: 'Alfajor de Dulce de Leche', quantity: 18, price: 18.00 }
-    ]
-  },
-  {
-    id: 'WH-2024-002', 
-    date: '2024-01-10',
-    total: 320.00,
-    status: 'completado',
-    items: [
-      { name: 'Alfajor de Fresa', quantity: 12, price: 16.00 },
-      { name: 'Alfajor Triple', quantity: 6, price: 21.00 }
-    ]
-  }
-];
+export const WholesaleOrderHistory = ({
+  isOpen,
+  onClose,
+  onRepeatOrder
+}: WholesaleOrderHistoryProps) => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export const WholesaleOrderHistory = ({ isOpen, onClose, onRepeatOrder }: WholesaleOrderHistoryProps) => {
+  useEffect(() => {
+    // --- INTEGRACIÓN CON FIREBASE ---
+    // Reemplaza este bloque por tu fetch de pedidos desde Firebase.
+    // Por ahora, no se muestran pedidos hasta que conectes el backend.
+    setLoading(true);
+    // Ejemplo:
+    // fetchOrdersFromFirebase().then(data => {
+    //   setOrders(data);
+    //   setLoading(false);
+    // });
+    setOrders([]);
+    setLoading(false);
+  }, [isOpen]);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completado': return 'bg-green-100 text-green-800';
@@ -64,9 +62,18 @@ export const WholesaleOrderHistory = ({ isOpen, onClose, onRepeatOrder }: Wholes
             Historial de Pedidos Mayoristas
           </DialogTitle>
         </DialogHeader>
-
         <div className="space-y-4">
-          {mockOrders.map((order) => (
+          {loading && (
+            <div className="text-center py-12 text-stone-400">
+              Cargando pedidos...
+            </div>
+          )}
+          {!loading && orders.length === 0 && (
+            <div className="text-center py-12 text-stone-400">
+              No hay pedidos aún.
+            </div>
+          )}
+          {orders.map((order) => (
             <div key={order.id} className="border border-stone-200 rounded-lg p-4 bg-stone-50">
               <div className="flex justify-between items-start mb-3">
                 <div>
@@ -77,7 +84,9 @@ export const WholesaleOrderHistory = ({ isOpen, onClose, onRepeatOrder }: Wholes
                   <Badge className={getStatusColor(order.status)}>
                     {order.status}
                   </Badge>
-                  <p className="text-lg font-bold text-stone-800 mt-1">S/ {order.total.toFixed(2)}</p>
+                  <p className="text-lg font-bold text-stone-800 mt-1">
+                    S/ {order.total.toFixed(2)}
+                  </p>
                 </div>
               </div>
 
@@ -90,7 +99,9 @@ export const WholesaleOrderHistory = ({ isOpen, onClose, onRepeatOrder }: Wholes
                   {order.items.map((item, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span>{item.name} x{item.quantity}</span>
-                      <span className="font-medium">S/ {(item.quantity * item.price).toFixed(2)}</span>
+                      <span className="font-medium">
+                        S/ {(item.quantity * item.price).toFixed(2)}
+                      </span>
                     </div>
                   ))}
                 </div>

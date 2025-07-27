@@ -8,37 +8,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import {
-  Truck,
-  Package,
-  CheckCircle,
-  QrCode,
-  MapPin,
-  Phone,
-  User,
-  LogOut,
-  Clock,
-  RotateCcw,
-  CreditCard,
-  AlertTriangle,
-  X,
-  Calendar,
-  Printer,
-  FileText,
-  Edit,
-  History,
-  Trash2
+  Truck, Package, CheckCircle, QrCode, MapPin, Phone, User, LogOut,
+  History, Edit, Trash2
 } from 'lucide-react';
 
 import DeliveryPersonLogin from '@/components/delivery/DeliveryPersonLogin';
 import DeliveryQRReader from '@/components/delivery/DeliveryQRReader';
-import DeliveryTimer from '@/components/delivery/DeliveryTimer';
-import PrintModal from '@/components/orders/PrintModal';
-
-// Admin components
 import { AdminModeToggle } from '@/components/delivery/AdminModeToggle';
 import { DeliveryHistory } from '@/components/delivery/DeliveryHistory';
 import { DeliveryEditModal } from '@/components/delivery/DeliveryEditModal';
@@ -47,29 +25,10 @@ import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
 import { DeliveryPersonsModal } from '@/components/delivery/DeliveryPersonsModal';
 import { SendMessageModal } from '@/components/delivery/SendMessageModal';
 
-// *** DATOS VACÍOS, LISTOS PARA POBLAR DESDE BASE DE DATOS ***
-const deliveryPersons: any[] = [];
-
-interface DeliveryOrder {
-  id: string;
-  customerName: string;
-  customerPhone: string;
-  customerAddress: string;
-  district: string;
-  coordinates: { lat: number; lng: number };
-  status: string;
-  readyAt: string;
-  total: number;
-  paymentMethod: string;
-  notes?: string;
-  assignedTo?: string | null;
-  takenAt?: string | null;
-  deliveredAt?: string;
-  deliveryNotes?: string;
-}
-
-// SIN MOCKS, INICIA VACÍO
-const mockOrders: DeliveryOrder[] = [];
+// INTEGRACIÓN CON FIREBASE:
+// Descomenta e implementa según tu tipo de base de datos
+// import { database } from '@/firebase';
+// import { ref, onValue } from "firebase/database";
 
 const DeliveryPanelContent = () => {
   const navigate = useNavigate();
@@ -79,59 +38,58 @@ const DeliveryPanelContent = () => {
   const [showLogin, setShowLogin] = useState(true);
   const [selectedTab, setSelectedTab] = useState('pendientes');
   const [showQRReader, setShowQRReader] = useState(false);
-  const [orders, setOrders] = useState<DeliveryOrder[]>(mockOrders);
 
-  // Admin modals state
+  // Vacío, para poblar desde Firebase
+  const [deliveryPersons, setDeliveryPersons] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+
+  // Modals
   const [showEditModal, setShowEditModal] = useState<string | null>(null);
   const [showHistoryModal, setShowHistoryModal] = useState<string | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [showPersonsModal, setShowPersonsModal] = useState(false);
   const [showMessageModal, setShowMessageModal] = useState(false);
 
-  // Delivery confirmation modal
   const [showDeliveryModal, setShowDeliveryModal] = useState<string | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
 
-  // Filtrar pedidos según estado
+  // --------------------------
+  // INTEGRACIÓN FIREBASE AQUÍ:
+  // --------------------------
+  // Descomenta y ajusta según tu base
+  /*
+  useEffect(() => {
+    // Ejemplo con Realtime Database
+    const personsRef = ref(database, "deliveryPersons");
+    onValue(personsRef, (snapshot) => {
+      const data = snapshot.val();
+      setDeliveryPersons(data ? Object.values(data) : []);
+    });
+
+    const ordersRef = ref(database, "deliveryOrders");
+    onValue(ordersRef, (snapshot) => {
+      const data = snapshot.val();
+      setOrders(data ? Object.values(data) : []);
+    });
+  }, []);
+  */
+
+  // Filtros
   const pendingOrders = orders.filter(o => o.status === 'listo' && !o.assignedTo);
   const inRouteOrders = orders.filter(o => o.status === 'en_ruta' && o.assignedTo === currentUser);
   const deliveredOrders = orders.filter(o => o.status === 'entregado' && o.assignedTo === currentUser);
 
-  // Admin puede ver todos los pedidos si está en modo admin
   const adminPendingOrders = isAdminMode ? orders.filter(o => o.status === 'listo') : pendingOrders;
   const adminInRouteOrders = isAdminMode ? orders.filter(o => o.status === 'en_ruta') : inRouteOrders;
   const adminDeliveredOrders = isAdminMode ? orders.filter(o => o.status === 'entregado') : deliveredOrders;
 
-  // Filtrar entregas solo del día actual para el módulo "Entregados"
+  // Solo entregas de hoy
   const todayDeliveredOrders = adminDeliveredOrders.filter(order => {
     if (!order.deliveredAt) return false;
     const deliveryDate = new Date(order.deliveredAt).toDateString();
     const today = new Date().toDateString();
     return deliveryDate === today;
   });
-
-  // Admin events (no toques si ya tienes lógica real aquí)
-  useEffect(() => {
-    const handleAdminEdit = (event: any) => {
-      const { orderId, updates } = event.detail;
-      setOrders(prev => prev.map(order =>
-        order.id === orderId ? { ...order, ...updates } : order
-      ));
-    };
-
-    const handleAdminDelete = (event: any) => {
-      const { orderId } = event.detail;
-      setOrders(prev => prev.filter(order => order.id !== orderId));
-    };
-
-    window.addEventListener('adminEditDelivery', handleAdminEdit);
-    window.addEventListener('adminDeleteDelivery', handleAdminDelete);
-
-    return () => {
-      window.removeEventListener('adminEditDelivery', handleAdminEdit);
-      window.removeEventListener('adminDeleteDelivery', handleAdminDelete);
-    };
-  }, []);
 
   const handleLogin = (personId: string) => {
     const person = deliveryPersons.find(p => p.id === personId);
@@ -141,7 +99,10 @@ const DeliveryPanelContent = () => {
     }
   };
 
+  // Toma de pedidos (puedes reemplazarlo por tu lógica de update en Firebase)
   const takeOrder = (orderId: string) => {
+    // Aquí tu update en la base
+    // Actualizar en Firebase, luego refrescar
     setOrders(prev => prev.map(order =>
       order.id === orderId
         ? { ...order, status: 'en_ruta', assignedTo: currentUser, takenAt: new Date().toISOString() }
@@ -150,6 +111,8 @@ const DeliveryPanelContent = () => {
   };
 
   const handleDeliveryConfirm = (orderId: string) => {
+    // Aquí tu update en la base
+    // Actualizar en Firebase, luego refrescar
     setOrders(prev => prev.map(order =>
       order.id === orderId
         ? {
@@ -188,42 +151,17 @@ const DeliveryPanelContent = () => {
     <Card key={order.id} className={`hover:shadow-lg transition-all ${showAdminActions && isAdminMode ? 'relative group' : ''}`}>
       {showAdminActions && isAdminMode && (
         <div className="absolute top-2 right-2 flex gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowEditModal(order.id);
-            }}
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 bg-blue-100 hover:bg-blue-200 text-blue-600"
-          >
-            <Edit className="h-3 w-3" />
-          </Button>
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowHistoryModal(order.id);
-            }}
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 bg-green-100 hover:bg-green-200 text-green-600"
-          >
-            <History className="h-3 w-3" />
-          </Button>
-          <Button
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowDeleteModal(order.id);
-            }}
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 bg-red-100 hover:bg-red-200 text-red-600"
-          >
-            <Trash2 className="h-3 w-3" />
-          </Button>
+          <Button onClick={(e) => { e.stopPropagation(); setShowEditModal(order.id); }}
+            variant="ghost" size="sm" className="h-8 w-8 p-0 bg-blue-100 hover:bg-blue-200 text-blue-600"
+          ><Edit className="h-3 w-3" /></Button>
+          <Button onClick={(e) => { e.stopPropagation(); setShowHistoryModal(order.id); }}
+            variant="ghost" size="sm" className="h-8 w-8 p-0 bg-green-100 hover:bg-green-200 text-green-600"
+          ><History className="h-3 w-3" /></Button>
+          <Button onClick={(e) => { e.stopPropagation(); setShowDeleteModal(order.id); }}
+            variant="ghost" size="sm" className="h-8 w-8 p-0 bg-red-100 hover:bg-red-200 text-red-600"
+          ><Trash2 className="h-3 w-3" /></Button>
         </div>
       )}
-
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
@@ -263,19 +201,15 @@ const DeliveryPanelContent = () => {
               <span>Pago: {order.paymentMethod}</span>
             </div>
             {order.status === 'listo' && !order.assignedTo && (
-              <Button
-                onClick={() => takeOrder(order.id)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-              >
+              <Button onClick={() => takeOrder(order.id)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white">
                 <Truck className="h-4 w-4 mr-2" />
                 Tomar Pedido
               </Button>
             )}
             {showDeliveryButton && order.status === 'en_ruta' && (
-              <Button
-                onClick={() => setShowDeliveryModal(order.id)}
-                className="w-full bg-green-600 hover:bg-green-700 text-white"
-              >
+              <Button onClick={() => setShowDeliveryModal(order.id)}
+                className="w-full bg-green-600 hover:bg-green-700 text-white">
                 <CheckCircle className="h-4 w-4 mr-2" />
                 Marcar Entregado
               </Button>
@@ -312,26 +246,18 @@ const DeliveryPanelContent = () => {
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <Button
-                onClick={() => setShowQRReader(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
+              <Button onClick={() => setShowQRReader(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white">
                 <QrCode className="h-4 w-4 mr-2" />
                 Leer QR
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowLogin(true)}
-                className="text-blue-600 border-blue-300 hover:bg-blue-50"
-              >
+              <Button variant="outline" onClick={() => setShowLogin(true)}
+                className="text-blue-600 border-blue-300 hover:bg-blue-50">
                 <User className="h-4 w-4 mr-2" />
                 Cambiar Usuario
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleLogout}
-                className="text-stone-600 border-stone-300 hover:bg-stone-50"
-              >
+              <Button variant="outline" onClick={handleLogout}
+                className="text-stone-600 border-stone-300 hover:bg-stone-50">
                 <LogOut className="h-4 w-4 mr-2" />
                 Salir
               </Button>
@@ -444,7 +370,7 @@ const DeliveryPanelContent = () => {
         </div>
       </div>
 
-      {/* Admin Mode Toggle - Solo para Admin General */}
+      {/* Admin Mode Toggle */}
       <AdminModeToggle
         onEditDelivery={(orderId) => setShowEditModal(orderId)}
         onViewHistory={(orderId) => setShowHistoryModal(orderId)}
@@ -532,12 +458,10 @@ const DeliveryPanelContent = () => {
   );
 };
 
-const DeliveryPanel = () => {
-  return (
-    <AdminDeliveryProvider>
-      <DeliveryPanelContent />
-    </AdminDeliveryProvider>
-  );
-};
+const DeliveryPanel = () => (
+  <AdminDeliveryProvider>
+    <DeliveryPanelContent />
+  </AdminDeliveryProvider>
+);
 
 export default DeliveryPanel;
