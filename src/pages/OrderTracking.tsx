@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { Search, Download, RotateCcw, MessageCircle, CheckCircle, Clock, Truck, Package, AlertCircle } from 'lucide-react';
+import {
+  Search, Download, RotateCcw, MessageCircle, CheckCircle,
+  Clock, Truck, Package, AlertCircle
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 
-// Importa tu instancia de firebase
-import { database } from '@/firebase';
+// Firebase imports
+import { db } from '@/config/firebase'; // Asegúrate que este alias esté bien configurado
 import { ref, get, child } from 'firebase/database';
 
 interface OrderStatus {
@@ -22,17 +25,17 @@ interface OrderStatus {
 
 interface OrderDetails {
   orderNumber: string;
-  items: Array<{
-    name: string;
-    quantity: number;
-  }>;
-  deliveryAddress: string;
-  customerName: string;
-  total: number;
-  status: string;
+  items?: Array<{ name: string; quantity: number }>;
+  deliveryAddress?: string;
+  customerName?: string;
+  total?: number;
+  status?: string;
   observations?: string;
-  createdAt: string;
+  createdAt?: string;
 }
+
+const SUPPORT_PHONE = '51999888777';
+const SUPPORT_EMAIL = 'soporte@pecaditos.com';
 
 const OrderTracking = () => {
   const { orderId } = useParams();
@@ -41,73 +44,79 @@ const OrderTracking = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  // Búsqueda automática si hay orderId en URL
+  // Busca automáticamente si hay orderId en la URL
   useEffect(() => {
     if (orderId) {
-      handleSearch();
+      setOrderNumber(orderId);
+      handleSearch(orderId);
     }
     // eslint-disable-next-line
   }, [orderId]);
 
-  const getOrderStatuses = (currentStatus: string): OrderStatus[] => {
-    const allStatuses = [
+  // Estados de la orden
+  const getOrderStatuses = (currentStatus?: string): OrderStatus[] => {
+    const status = currentStatus || '';
+    const allStatuses: OrderStatus[] = [
       {
         id: 'recibido',
         name: 'Recibido',
         description: 'Tu pedido ha sido recibido y está en cola de preparación',
         icon: CheckCircle,
-        completed: true,
-        current: false
+        completed: ['recibido', 'en_preparacion', 'listo_envio', 'en_reparto', 'entregado', 'observado'].includes(status),
+        current: status === 'recibido',
       },
       {
         id: 'en_preparacion',
         name: 'En Preparación',
         description: 'Estamos preparando tus galletas con mucho cariño',
         icon: Package,
-        completed: ['en_preparacion', 'listo_envio', 'en_reparto', 'entregado', 'observado'].includes(currentStatus),
-        current: currentStatus === 'en_preparacion'
+        completed: ['en_preparacion', 'listo_envio', 'en_reparto', 'entregado', 'observado'].includes(status),
+        current: status === 'en_preparacion',
       },
       {
         id: 'listo_envio',
         name: 'Listo para Envío',
         description: 'Tu pedido está listo y será enviado pronto',
         icon: Clock,
-        completed: ['listo_envio', 'en_reparto', 'entregado'].includes(currentStatus),
-        current: currentStatus === 'listo_envio'
+        completed: ['listo_envio', 'en_reparto', 'entregado', 'observado'].includes(status),
+        current: status === 'listo_envio',
       },
       {
         id: 'en_reparto',
         name: 'En Reparto',
         description: 'Tu pedido está en camino hacia tu dirección',
         icon: Truck,
-        completed: ['en_reparto', 'entregado'].includes(currentStatus),
-        current: currentStatus === 'en_reparto'
+        completed: ['en_reparto', 'entregado', 'observado'].includes(status),
+        current: status === 'en_reparto',
       },
       {
         id: 'entregado',
         name: 'Entregado',
         description: '¡Tu pedido ha sido entregado exitosamente!',
         icon: CheckCircle,
-        completed: currentStatus === 'entregado',
-        current: currentStatus === 'entregado'
-      }
+        completed: status === 'entregado',
+        current: status === 'entregado',
+      },
     ];
-    if (currentStatus === 'observado') {
+
+    if (status === 'observado') {
       allStatuses.push({
         id: 'observado',
         name: 'Observado',
         description: 'Hay una observación importante sobre tu pedido',
         icon: AlertCircle,
         completed: false,
-        current: true
+        current: true,
       });
     }
+
     return allStatuses;
   };
 
-  // CONSULTA A FIREBASE RTDB POR orderNumber
-  const handleSearch = async () => {
-    if (!orderNumber.trim()) {
+  // Buscar la orden por número
+  const handleSearch = async (customOrderNumber?: string) => {
+    const numberToSearch = typeof customOrderNumber === 'string' ? customOrderNumber : orderNumber;
+    if (!numberToSearch.trim()) {
       toast({
         title: "Error",
         description: "Por favor ingresa un número de pedido",
@@ -115,23 +124,22 @@ const OrderTracking = () => {
       });
       return;
     }
+
     setIsLoading(true);
     setNotFound(false);
     setOrderDetails(null);
 
     try {
-      // Accede a la rama 'orders'
-      const ordersRef = ref(database, 'orders');
+      const ordersRef = ref(db, 'orders');
       const snapshot = await get(ordersRef);
 
       let foundOrder: any = null;
       if (snapshot.exists()) {
         const ordersObj = snapshot.val();
-        // Busca el pedido por orderNumber (case insensitive)
         for (const key in ordersObj) {
           if (
             ordersObj[key]?.orderNumber &&
-            ordersObj[key].orderNumber.trim().toLowerCase() === orderNumber.trim().toLowerCase()
+            ordersObj[key].orderNumber.trim().toLowerCase() === numberToSearch.trim().toLowerCase()
           ) {
             foundOrder = ordersObj[key];
             break;
@@ -159,12 +167,13 @@ const OrderTracking = () => {
     }
   };
 
+  // Acciones
   const handleDownloadPDF = () => {
-    // Aquí iría tu lógica real
     toast({
       title: "Descarga iniciada",
       description: "Tu orden de pedido se está descargando"
     });
+    // Aquí implementa la lógica real de descarga
   };
 
   const handleRepeatOrder = () => {
@@ -177,8 +186,14 @@ const OrderTracking = () => {
 
   const handleContactSupport = () => {
     const message = encodeURIComponent(`Hola, necesito ayuda con mi pedido ${orderNumber}`);
-    const whatsappUrl = `https://wa.me/51999888777?text=${message}`;
-    window.open(whatsappUrl, '_blank');
+    window.open(`https://wa.me/${SUPPORT_PHONE}?text=${message}`, '_blank');
+  };
+
+  // Formatea fecha segura
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Fecha desconocida';
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? 'Fecha desconocida' : d.toLocaleDateString();
   };
 
   return (
@@ -224,7 +239,7 @@ const OrderTracking = () => {
                 />
               </div>
               <Button
-                onClick={handleSearch}
+                onClick={() => handleSearch()}
                 disabled={isLoading}
                 className="h-12 px-8 bg-primary hover:bg-primary/90 text-primary-foreground"
               >
@@ -264,13 +279,13 @@ const OrderTracking = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-brown-900">Pedido {orderDetails.orderNumber}</CardTitle>
+                    <CardTitle className="text-brown-900">Pedido {orderDetails.orderNumber || 'Desconocido'}</CardTitle>
                     <CardDescription className="text-brown-700">
-                      Realizado el {new Date(orderDetails.createdAt).toLocaleDateString()}
+                      Realizado el {formatDate(orderDetails.createdAt)}
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="text-sm border-primary/20 text-primary">
-                    Total: S/ {orderDetails.total}
+                    Total: S/ {orderDetails.total ?? '--'}
                   </Badge>
                 </div>
               </CardHeader>
@@ -279,18 +294,22 @@ const OrderTracking = () => {
                   <div>
                     <h4 className="font-semibold text-brown-900 mb-2">Productos:</h4>
                     <div className="space-y-2">
-                      {orderDetails.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm text-brown-700">
-                          <span>{item.name}</span>
-                          <span className="font-medium">x{item.quantity}</span>
-                        </div>
-                      ))}
+                      {orderDetails.items && orderDetails.items.length > 0 ? (
+                        orderDetails.items.map((item, index) => (
+                          <div key={index} className="flex justify-between text-sm text-brown-700">
+                            <span>{item.name}</span>
+                            <span className="font-medium">x{item.quantity}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-sand-500 text-sm">No hay productos registrados en este pedido.</div>
+                      )}
                     </div>
                   </div>
                   <div>
                     <h4 className="font-semibold text-brown-900 mb-2">Entrega:</h4>
-                    <p className="text-sm text-brown-700">{orderDetails.deliveryAddress}</p>
-                    <p className="text-sm text-brown-700 mt-1">Cliente: {orderDetails.customerName}</p>
+                    <p className="text-sm text-brown-700">{orderDetails.deliveryAddress || 'No registrada'}</p>
+                    <p className="text-sm text-brown-700 mt-1">Cliente: {orderDetails.customerName || 'No registrado'}</p>
                   </div>
                 </div>
               </CardContent>
@@ -305,11 +324,11 @@ const OrderTracking = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
-                  {getOrderStatuses(orderDetails.status).map((status, index) => {
+                <div className="space-y-6 relative">
+                  {getOrderStatuses(orderDetails.status).map((status, index, arr) => {
                     const Icon = status.icon;
                     return (
-                      <div key={status.id} className="flex items-start gap-4">
+                      <div key={status.id} className="flex items-start gap-4 relative">
                         <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center border-2 ${
                           status.completed
                             ? 'bg-green-100 border-green-500 text-green-600'
@@ -327,7 +346,7 @@ const OrderTracking = () => {
                               {status.name}
                             </h4>
                             {status.current && (
-                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary">
+                              <Badge className="text-xs bg-primary/10 text-primary border border-primary/10">
                                 Actual
                               </Badge>
                             )}
@@ -338,7 +357,7 @@ const OrderTracking = () => {
                             {status.description}
                           </p>
                         </div>
-                        {index < getOrderStatuses(orderDetails.status).length - 1 && (
+                        {index < arr.length - 1 && (
                           <div className={`absolute left-9 mt-10 w-0.5 h-6 ${
                             status.completed ? 'bg-green-300' : 'bg-sand-200'
                           }`} />
@@ -393,8 +412,13 @@ const OrderTracking = () => {
                   <MessageCircle className="h-4 w-4 mr-2" />
                   WhatsApp: +51 999 888 777
                 </Button>
-                <Button size="sm" variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100">
-                  Email: soporte@pecaditos.com
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-100"
+                  onClick={() => window.open(`mailto:${SUPPORT_EMAIL}`)}
+                >
+                  Email: {SUPPORT_EMAIL}
                 </Button>
               </div>
             </div>
