@@ -1,5 +1,10 @@
 
+import LivePreview from '../LivePreview';
 import { useState } from 'react';
+import { db } from '../../config/firebase'; // Ajusta el path si tu archivo es diferente
+import { ref, onValue, push, update, remove } from "firebase/database";
+import { useEffect } from "react";
+
 import { 
   Settings, 
   Users, 
@@ -48,6 +53,33 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 
+// --- Types para notificaciones y auditoría ---
+// (Pega esto después de los imports)
+
+type NotificationModule = {
+  email: boolean;
+  whatsapp: boolean;
+  system: boolean;
+};
+
+type Notifications = {
+  orders?: NotificationModule;
+  payments?: NotificationModule;
+  stock?: NotificationModule;
+  deliveries?: NotificationModule;
+  general?: NotificationModule;
+};
+
+type AuditLog = {
+  id: string;
+  user: string;
+  action: string;
+  module: string;
+  timestamp: string;
+  details: string;
+};
+
+
 export const SystemConfiguration = () => {
   const [companyInfo, setCompanyInfo] = useState({
     name: 'Pecaditos Dulces',
@@ -90,34 +122,35 @@ export const SystemConfiguration = () => {
     whatsappIntegration: false,
     emailNotifications: true
   });
+const [users, setUsers] = useState([]);
 
-  const [users, setUsers] = useState([
-    { id: 1, name: 'Admin General', email: 'admin@pecaditos.com', profile: 'admin', active: true, createdAt: '2024-01-15' },
-    { id: 2, name: 'María García', email: 'pedidos@pecaditos.com', profile: 'pedidos', active: true, createdAt: '2024-02-20' },
-    { id: 3, name: 'Carlos López', email: 'reparto@pecaditos.com', profile: 'reparto', active: true, createdAt: '2024-03-10' },
-    { id: 4, name: 'Ana Rodríguez', email: 'cobranzas@pecaditos.com', profile: 'cobranzas', active: false, createdAt: '2024-04-05' },
-    { id: 5, name: 'Jorge Silva', email: 'produccion@pecaditos.com', profile: 'produccion', active: true, createdAt: '2024-05-12' }
-  ]);
 
   const [userSearch, setUserSearch] = useState('');
   const [showUserModal, setShowUserModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const [notifications, setNotifications] = useState({
-    orders: { email: true, whatsapp: true, system: true },
-    payments: { email: true, whatsapp: false, system: true },
-    stock: { email: true, whatsapp: false, system: true },
-    deliveries: { email: false, whatsapp: true, system: true },
-    general: { email: true, whatsapp: false, system: true }
+const [notifications, setNotifications] = useState<Notifications>({});
+const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+
+useEffect(() => {
+  // Cargar notificaciones
+  const notificationsRef = ref(db, 'notifications');
+  onValue(notificationsRef, (snapshot) => {
+    const data = snapshot.val();
+    setNotifications(data || {});
   });
 
-  const [auditLogs] = useState([
-    { id: 1, user: 'Admin General', action: 'Creó cliente', module: 'Clientes', timestamp: '2024-07-18 10:30:00', details: 'Cliente: Empresa ABC S.A.C.' },
-    { id: 2, user: 'María García', action: 'Editó pedido', module: 'Pedidos', timestamp: '2024-07-18 09:15:22', details: 'Pedido #PD-001 - Cambió estado a En Preparación' },
-    { id: 3, user: 'Carlos López', action: 'Completó entrega', module: 'Reparto', timestamp: '2024-07-18 08:45:10', details: 'Entrega #E-001 - Cliente satisfecho' },
-    { id: 4, user: 'Admin General', action: 'Configuró usuario', module: 'Sistema', timestamp: '2024-07-17 16:20:33', details: 'Desactivó usuario Ana Rodríguez' },
-    { id: 5, user: 'Jorge Silva', action: 'Actualizó stock', module: 'Producción', timestamp: '2024-07-17 14:10:15', details: 'Producto: Galletas de Chocolate - Stock: 150 unidades' }
-  ]);
+  // Cargar auditoría
+  const auditRef = ref(db, 'auditLogs');
+  onValue(auditRef, (snapshot) => {
+    const data = snapshot.val();
+    // Convierte el objeto en array y añade el id de la key
+    const logs = data
+      ? Object.entries(data).map(([id, value]: [string, any]) => ({ id, ...(value as AuditLog) }))
+      : [];
+    setAuditLogs(logs);
+  });
+}, []);
 
   const [auditFilter, setAuditFilter] = useState({ user: '', module: 'all', dateFrom: '', dateTo: '' });
 
@@ -194,6 +227,7 @@ export const SystemConfiguration = () => {
         <h1 className="text-3xl font-bold text-stone-800">Configuración del Sistema</h1>
         <p className="text-stone-600 mt-1">Administra usuarios, parámetros y configuración general</p>
       </div>
+      <LivePreview companyInfo={companyInfo} />
 
       <Tabs defaultValue="company" className="space-y-6">
         <TabsList className="grid w-full grid-cols-5">
@@ -207,123 +241,150 @@ export const SystemConfiguration = () => {
         {/* Información de Empresa */}
         <TabsContent value="company" className="space-y-6">
           {/* Vista Previa del Dispositivo */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span className="flex items-center gap-2">
-                  <Eye className="h-5 w-5" />
-                  Vista Previa del Sistema
-                </span>
-                <div className="flex gap-2">
-                  <Button 
-                    variant={devicePreview === 'desktop' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setDevicePreview('desktop')}
-                  >
-                    <Monitor className="h-4 w-4 mr-1" />
-                    Ver como PC
-                  </Button>
-                  <Button 
-                    variant={devicePreview === 'mobile' ? 'default' : 'outline'} 
-                    size="sm"
-                    onClick={() => setDevicePreview('mobile')}
-                  >
-                    <Smartphone className="h-4 w-4 mr-1" />
-                    Ver como Móvil
-                  </Button>
-                </div>
-              </CardTitle>
-              <CardDescription>
-                Previsualiza cómo se verá el sistema completo con la información de tu empresa
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className={`border-2 rounded-lg overflow-hidden bg-white shadow-lg ${
-                devicePreview === 'mobile' ? 'max-w-sm mx-auto' : 'w-full max-w-4xl mx-auto'
-              } transition-all duration-300`}>
-                {/* Header simulado */}
-                <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {companyInfo.logo ? (
-                        <img src={companyInfo.logo} alt="Logo" className="w-10 h-10 rounded-full bg-white p-1" />
-                      ) : (
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">
-                            {companyInfo.name.charAt(0)}
-                          </span>
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="font-bold text-lg">{companyInfo.name}</h3>
-                        {devicePreview === 'desktop' && (
-                          <p className="text-amber-100 text-sm">{companyInfo.slogan}</p>
-                        )}
-                      </div>
-                    </div>
-                    {devicePreview === 'desktop' && (
-                      <div className="flex gap-4 text-sm">
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-4 w-4" />
-                          {companyInfo.phone}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-4 w-4" />
-                          {companyInfo.email}
-                        </span>
-                      </div>
-                    )}
+         <Card>
+  <CardHeader>
+    <CardTitle className="flex items-center justify-between">
+      <span className="flex items-center gap-2">
+        <Eye className="h-5 w-5" />
+        Vista Previa del Sistema
+      </span>
+      <div className="flex gap-2">
+        <Button
+          variant={devicePreview === 'desktop' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDevicePreview('desktop')}
+        >
+          <Monitor className="h-4 w-4 mr-1" />
+          Ver como PC
+        </Button>
+        <Button
+          variant={devicePreview === 'mobile' ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setDevicePreview('mobile')}
+        >
+          <Smartphone className="h-4 w-4 mr-1" />
+          Ver como Móvil
+        </Button>
+      </div>
+    </CardTitle>
+    <CardDescription>
+      Previsualiza cómo se verá el sistema completo con la información de tu empresa
+    </CardDescription>
+  </CardHeader>
+  <CardContent>
+    <div className="flex justify-center items-center w-full min-h-[500px] py-6">
+      <div
+        className={`
+          bg-gray-100 shadow-2xl flex justify-center items-start
+          ${devicePreview === 'desktop'
+            ? 'w-[1080px] h-[700px] rounded-2xl border-4 border-gray-300'
+            : 'w-[360px] h-[740px] rounded-[2.5rem] border-[10px] border-stone-300'}
+          relative transition-all duration-300
+        `}
+        style={{
+          overflow: 'hidden',
+          background: '#fff',
+          position: 'relative'
+        }}
+      >
+        {/* Simula barra superior del navegador (PC) */}
+        {devicePreview === 'desktop' && (
+          <div className="h-10 w-full flex items-center gap-2 bg-stone-200 px-6 rounded-t-xl border-b">
+            <span className="w-3 h-3 bg-red-400 rounded-full"></span>
+            <span className="w-3 h-3 bg-yellow-300 rounded-full"></span>
+            <span className="w-3 h-3 bg-green-400 rounded-full"></span>
+            <span className="ml-4 text-xs text-stone-600">pecaditosdulces.com</span>
+          </div>
+        )}
+
+        {/* Simula notch del móvil */}
+        {devicePreview === 'mobile' && (
+          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-24 h-3 bg-stone-300 rounded-b-xl z-10 mt-2"></div>
+        )}
+
+        {/* ---- CONTENIDO INTERACTIVO DEL PREVIEW ---- */}
+        <div
+          className={`
+            w-full h-full overflow-y-auto flex flex-col
+            ${devicePreview === 'desktop' ? 'pt-0' : 'pt-6'}
+          `}
+        >
+          {/* Header */}
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {companyInfo.logo ? (
+                  <img
+                    src={companyInfo.logo}
+                    alt="Logo"
+                    className="w-12 h-12 rounded-full bg-white p-1"
+                  />
+                ) : (
+                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                    <span className="text-white font-bold text-lg">
+                      {companyInfo.name.charAt(0)}
+                    </span>
                   </div>
-                </div>
-                
-                {/* Contenido simulado */}
-                <div className="p-6 space-y-4">
-                  <div className="text-center">
-                    <h4 className="text-xl font-semibold text-stone-800 mb-2">
-                      {companyInfo.welcomeMessage}
-                    </h4>
-                    <p className="text-stone-600">{companyInfo.description}</p>
-                  </div>
-                  
-                  {devicePreview === 'desktop' ? (
-                    <div className="grid grid-cols-3 gap-4 mt-6">
-                      <div className="bg-blue-50 p-4 rounded-lg text-center">
-                        <div className="w-12 h-12 bg-blue-500 rounded-full mx-auto mb-2"></div>
-                        <p className="font-medium">Pedidos</p>
-                      </div>
-                      <div className="bg-green-50 p-4 rounded-lg text-center">
-                        <div className="w-12 h-12 bg-green-500 rounded-full mx-auto mb-2"></div>
-                        <p className="font-medium">Producción</p>
-                      </div>
-                      <div className="bg-purple-50 p-4 rounded-lg text-center">
-                        <div className="w-12 h-12 bg-purple-500 rounded-full mx-auto mb-2"></div>
-                        <p className="font-medium">Reparto</p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="bg-blue-50 p-3 rounded-lg flex items-center gap-3">
-                        <div className="w-8 h-8 bg-blue-500 rounded-full"></div>
-                        <span className="font-medium">Pedidos</span>
-                      </div>
-                      <div className="bg-green-50 p-3 rounded-lg flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-500 rounded-full"></div>
-                        <span className="font-medium">Producción</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Footer simulado */}
-                <div className="bg-stone-100 p-4 text-center text-sm text-stone-600">
-                  <p>{companyInfo.fiscalAddress}</p>
-                  {devicePreview === 'desktop' && companyInfo.businessName && (
-                    <p className="mt-1">{companyInfo.businessName} - RUC: {companyInfo.ruc}</p>
-                  )}
+                )}
+                <div>
+                  <h3 className="font-bold text-xl">{companyInfo.name}</h3>
+                  <p className="text-amber-100 text-sm">{companyInfo.slogan}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              {devicePreview === 'desktop' && (
+                <div className="flex gap-4 text-sm">
+                  <span className="flex items-center gap-1">
+                    <Phone className="h-4 w-4" />
+                    {companyInfo.phone}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-4 w-4" />
+                    {companyInfo.email}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Contenido */}
+          <div className="flex-1 p-10 flex flex-col items-center justify-center gap-6">
+            <div className="text-center">
+              <h4 className="text-2xl font-semibold text-stone-800 mb-2">
+                {companyInfo.welcomeMessage}
+              </h4>
+              <p className="text-stone-600">{companyInfo.description}</p>
+            </div>
+            <div className={`mt-4 ${devicePreview === 'desktop' ? 'flex gap-8' : 'flex flex-col gap-4 w-full'}`}>
+              <div className="bg-blue-50 p-6 rounded-lg text-center flex-1 min-w-[120px]">
+                <div className="w-14 h-14 bg-blue-500 rounded-full mx-auto mb-3"></div>
+                <p className="font-medium">Pedidos</p>
+              </div>
+              <div className="bg-green-50 p-6 rounded-lg text-center flex-1 min-w-[120px]">
+                <div className="w-14 h-14 bg-green-500 rounded-full mx-auto mb-3"></div>
+                <p className="font-medium">Producción</p>
+              </div>
+              <div className={`bg-purple-50 p-6 rounded-lg text-center flex-1 min-w-[120px] ${devicePreview === 'mobile' ? 'hidden' : ''}`}>
+                <div className="w-14 h-14 bg-purple-500 rounded-full mx-auto mb-3"></div>
+                <p className="font-medium">Reparto</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="bg-stone-100 py-4 px-8 text-center text-sm text-stone-600">
+            <p>{companyInfo.fiscalAddress}</p>
+            {devicePreview === 'desktop' && companyInfo.businessName && (
+              <p className="mt-1">
+                {companyInfo.businessName} - RUC: {companyInfo.ruc}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  </CardContent>
+</Card>
+
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {/* Información General */}
@@ -555,73 +616,7 @@ export const SystemConfiguration = () => {
                 </CardContent>
               </Card>
             </div>
-          </div>
-
-          {/* Horarios de Atención */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Horarios de Atención
-              </CardTitle>
-              <CardDescription>Configura los horarios de atención por día</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {daysOfWeek.map(day => (
-                  <div key={day.key} className="flex items-center gap-4 p-3 border rounded-lg">
-                    <div className="w-24">
-                      <Label className="font-medium">{day.label}</Label>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Switch 
-                        checked={companyInfo.businessHours[day.key].active}
-                        onCheckedChange={(checked) => setCompanyInfo({
-                          ...companyInfo,
-                          businessHours: {
-                            ...companyInfo.businessHours,
-                            [day.key]: { ...companyInfo.businessHours[day.key], active: checked }
-                          }
-                        })}
-                      />
-                      {companyInfo.businessHours[day.key].active && (
-                        <>
-                          <Input 
-                            type="time"
-                            value={companyInfo.businessHours[day.key].open}
-                            onChange={(e) => setCompanyInfo({
-                              ...companyInfo,
-                              businessHours: {
-                                ...companyInfo.businessHours,
-                                [day.key]: { ...companyInfo.businessHours[day.key], open: e.target.value }
-                              }
-                            })}
-                            className="w-32"
-                          />
-                          <span className="text-muted-foreground">a</span>
-                          <Input 
-                            type="time"
-                            value={companyInfo.businessHours[day.key].close}
-                            onChange={(e) => setCompanyInfo({
-                              ...companyInfo,
-                              businessHours: {
-                                ...companyInfo.businessHours,
-                                [day.key]: { ...companyInfo.businessHours[day.key], close: e.target.value }
-                              }
-                            })}
-                            className="w-32"
-                          />
-                        </>
-                      )}
-                      {!companyInfo.businessHours[day.key].active && (
-                        <span className="text-muted-foreground text-sm">Cerrado</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+          </div> 
 
           <div className="flex justify-end">
             <Button onClick={handleSaveCompany} className="px-8">

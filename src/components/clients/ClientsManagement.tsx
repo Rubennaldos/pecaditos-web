@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { db } from '@/config/firebase';
+import { ref, onValue, push, set, update, remove } from "firebase/database";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,7 +11,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { 
   Search, 
   Plus, 
@@ -17,7 +18,7 @@ import {
   Trash2, 
   Building, 
   FileText, 
-  Download, 
+  Download,
   ExternalLink,
   Shield,
   Eye,
@@ -26,11 +27,19 @@ import {
   XCircle,
   DollarSign,
   Calendar,
-  Package
+  Package,
+  Star
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// Interfaces
+interface SedeComment {
+  id: string;
+  user: string;
+  comment: string;
+  rating: number;
+  createdAt: number;
+}
+
 interface ClientSede {
   id: string;
   nombre: string;
@@ -38,10 +47,9 @@ interface ClientSede {
   responsable: string;
   telefono: string;
   principal: boolean;
-  coordenadas?: {
-    lat: number;
-    lng: number;
-  };
+  googleMapsUrl?: string;
+  distrito?: string;
+  comentarios?: SedeComment[];
 }
 
 interface ClientContact {
@@ -81,13 +89,72 @@ export const ClientsManagement = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // Filtrado de clientes
+  // --- Cargar clientes desde Firebase al iniciar
+  useEffect(() => {
+    const clientsRef = ref(db, 'clients');
+    const unsubscribe = onValue(clientsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
+        setClients([]);
+        return;
+      }
+      // Convertir objeto a array
+      const arr: Client[] = Object.entries(data).map(([id, client]: any) => ({
+        ...client,
+        id,
+        sedes: client.sedes
+          ? Object.entries(client.sedes).map(([sid, sede]: any) => ({
+              ...sede,
+              id: sid,
+              comentarios: sede.comentarios
+                ? Object.values(sede.comentarios)
+                : []
+            }))
+          : [],
+      }));
+      setClients(arr);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // --- Guardar cliente (nuevo o edición)
+  const saveClient = (client: Partial<Client>, isEdit?: boolean) => {
+    const clientsRef = ref(db, 'clients');
+    if (isEdit && client.id) {
+      // Actualiza cliente existente
+      update(ref(db, `clients/${client.id}`), {
+        ...client,
+        sedes: undefined, // No actualices sedes aquí
+        contactos: undefined // Ni contactos (los manejamos aparte)
+      });
+      toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
+    } else {
+      // Nuevo cliente
+      const newClientRef = push(clientsRef);
+      set(newClientRef, {
+        ...client,
+        fechaCreacion: Date.now(),
+        sedes: {}, // empieza vacío
+        contactos: {},
+      });
+      toast({ title: "Cliente creado", description: "Guardado correctamente" });
+    }
+  };
+
+  // --- Eliminar cliente
+  const deleteClient = (id: string) => {
+    remove(ref(db, `clients/${id}`));
+    toast({ title: "Cliente eliminado" });
+  };
+
+  // --- Filtrar clientes para buscar
   const filteredClients = clients.filter(client =>
     client.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.rucDni?.includes(searchTerm) ||
     client.sedes?.some(sede => sede.nombre?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
+  // --- Mostrar estado
   const getStatusBadge = (estado: string) => {
     switch (estado) {
       case 'activo':
@@ -101,6 +168,7 @@ export const ClientsManagement = () => {
     }
   };
 
+  // --- Generar reporte (mock)
   const generateClientReport = (client: Client) => {
     toast({
       title: "Generando reporte",
@@ -108,15 +176,13 @@ export const ClientsManagement = () => {
     });
   };
 
-  // Aquí iría tu lógica para traer y sincronizar datos con Firebase y las funciones CRUD
-
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-stone-800">Gestión de Clientes</h1>
-          <p className="text-stone-600 mt-1">Administración completa de clientes mayoristas y generales</p>
+          <p className="text-stone-600 mt-1">Administración completa de clientes y ubicaciones</p>
         </div>
         <div className="flex gap-2">
           <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
@@ -124,68 +190,6 @@ export const ClientsManagement = () => {
             SuperAdmin
           </div>
         </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Building className="h-4 w-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-stone-600">Total Clientes</p>
-                <p className="text-2xl font-bold text-blue-600">{clients.length}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-stone-600">Activos</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {clients.filter(c => c.estado === 'activo').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-yellow-100 rounded-lg">
-                <AlertTriangle className="h-4 w-4 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-sm text-stone-600">En Seguimiento</p>
-                <p className="text-2xl font-bold text-yellow-600">
-                  {clients.filter(c => c.estado === 'suspendido').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-red-100 rounded-lg">
-                <XCircle className="h-4 w-4 text-red-600" />
-              </div>
-              <div>
-                <p className="text-sm text-stone-600">Morosos</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {clients.filter(c => c.estado === 'moroso').length}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Search and Actions */}
@@ -210,7 +214,7 @@ export const ClientsManagement = () => {
             <DialogHeader>
               <DialogTitle>Crear Nuevo Cliente</DialogTitle>
             </DialogHeader>
-            <ClientForm onSave={() => setIsCreateModalOpen(false)} onCancel={() => setIsCreateModalOpen(false)} />
+            <ClientForm onSave={saveClient} onFinish={() => setIsCreateModalOpen(false)} />
           </DialogContent>
         </Dialog>
       </div>
@@ -289,8 +293,8 @@ export const ClientsManagement = () => {
                         {selectedClient && (
                           <ClientForm 
                             client={selectedClient}
-                            onSave={() => setIsEditModalOpen(false)} 
-                            onCancel={() => setIsEditModalOpen(false)} 
+                            onSave={saveClient}
+                            onFinish={() => setIsEditModalOpen(false)} 
                           />
                         )}
                       </DialogContent>
@@ -304,6 +308,15 @@ export const ClientsManagement = () => {
                       <Download className="h-4 w-4 mr-1" />
                       Reporte
                     </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => deleteClient(client.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -316,14 +329,15 @@ export const ClientsManagement = () => {
 };
 
 
-// ClientForm
-const ClientForm = ({ client, onSave, onCancel }: { 
+// --- FORMULARIO DE CLIENTE, AGREGAR/EDITAR, SEDES Y COMENTARIOS ---
+const ClientForm = ({ client, onSave, onFinish }: { 
   client?: Client; 
-  onSave: () => void; 
-  onCancel: () => void; 
+  onSave: (data: Partial<Client>, isEdit?: boolean) => void; 
+  onFinish: () => void;
 }) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
+    id: client?.id || '',
     razonSocial: client?.razonSocial || '',
     rucDni: client?.rucDni || '',
     direccionFiscal: client?.direccionFiscal || '',
@@ -337,42 +351,11 @@ const ClientForm = ({ client, onSave, onCancel }: {
     estado: client?.estado || 'activo'
   });
 
+  // Guardar sedes como objeto para compatibilidad Firebase
   const [sedes, setSedes] = useState<ClientSede[]>(client?.sedes || []);
   const [contactos, setContactos] = useState<ClientContact[]>(client?.contactos || []);
 
-  const handleSunatLookup = () => {
-    if (formData.rucDni.length >= 8) {
-      toast({
-        title: "Consultando SUNAT",
-        description: "Obteniendo datos..."
-      });
-      // Aquí iría tu integración real con SUNAT
-    }
-  };
-
-  const addSede = () => {
-    const newSede: ClientSede = {
-      id: Date.now().toString(),
-      nombre: '',
-      direccion: '',
-      responsable: '',
-      telefono: '',
-      principal: sedes.length === 0
-    };
-    setSedes([...sedes, newSede]);
-  };
-
-  const addContacto = () => {
-    const newContacto: ClientContact = {
-      tipo: 'admin',
-      nombre: '',
-      dni: '',
-      celular: '',
-      correo: ''
-    };
-    setContactos([...contactos, newContacto]);
-  };
-
+  // --- Guardar en Firebase
   const handleSave = () => {
     if (!formData.razonSocial || !formData.rucDni) {
       toast({
@@ -382,12 +365,50 @@ const ClientForm = ({ client, onSave, onCancel }: {
       });
       return;
     }
-    // Tu lógica de guardar/actualizar aquí (Firebase o el backend)
-    toast({
-      title: client ? "Cliente actualizado" : "Cliente creado",
-      description: "Los datos han sido guardados correctamente"
-    });
-    onSave();
+    const data: Partial<Client> = {
+      ...formData,
+      sedes: undefined,
+      contactos: undefined,
+    };
+    // Save main data (resto lo maneja el editor de sedes/contactos, para simplicidad)
+    onSave({ ...data, sedes, contactos }, !!client);
+    onFinish();
+  };
+
+  // --- Agregar Sede
+  const addSede = () => {
+    setSedes([
+      ...sedes,
+      {
+        id: Date.now().toString(),
+        nombre: '',
+        direccion: '',
+        responsable: '',
+        telefono: '',
+        principal: sedes.length === 0,
+        googleMapsUrl: '',
+        distrito: '',
+        comentarios: [],
+      }
+    ]);
+  };
+
+  // --- Eliminar Sede
+  const deleteSede = (id: string) => {
+    setSedes(sedes.filter(s => s.id !== id));
+  };
+
+  // --- Agregar Contacto
+  const addContacto = () => {
+    setContactos([
+      ...contactos,
+      { tipo: 'admin', nombre: '', dni: '', celular: '', correo: '' }
+    ]);
+  };
+
+  // --- Eliminar Contacto
+  const deleteContacto = (idx: number) => {
+    setContactos(contactos.filter((_, i) => i !== idx));
   };
 
   return (
@@ -411,7 +432,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                   onChange={(e) => setFormData(prev => ({ ...prev, rucDni: e.target.value }))}
                   placeholder="20123456789"
                 />
-                <Button variant="outline" onClick={handleSunatLookup}>
+                <Button variant="outline">
                   <ExternalLink className="h-4 w-4 mr-1" />
                   SUNAT
                 </Button>
@@ -480,7 +501,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
             </Button>
           </div>
           <div className="space-y-4">
-            {sedes.map((sede, index) => (
+            {sedes.map((sede, idx) => (
               <Card key={sede.id}>
                 <CardContent className="p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -490,7 +511,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={sede.nombre}
                         onChange={(e) => {
                           const newSedes = [...sedes];
-                          newSedes[index].nombre = e.target.value;
+                          newSedes[idx].nombre = e.target.value;
                           setSedes(newSedes);
                         }}
                         placeholder="Sede Principal"
@@ -502,7 +523,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={sede.responsable}
                         onChange={(e) => {
                           const newSedes = [...sedes];
-                          newSedes[index].responsable = e.target.value;
+                          newSedes[idx].responsable = e.target.value;
                           setSedes(newSedes);
                         }}
                         placeholder="Nombre del responsable"
@@ -514,7 +535,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={sede.direccion}
                         onChange={(e) => {
                           const newSedes = [...sedes];
-                          newSedes[index].direccion = e.target.value;
+                          newSedes[idx].direccion = e.target.value;
                           setSedes(newSedes);
                         }}
                         placeholder="Dirección completa de la sede"
@@ -526,10 +547,34 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={sede.telefono}
                         onChange={(e) => {
                           const newSedes = [...sedes];
-                          newSedes[index].telefono = e.target.value;
+                          newSedes[idx].telefono = e.target.value;
                           setSedes(newSedes);
                         }}
                         placeholder="987654321"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Distrito</Label>
+                      <Input
+                        value={sede.distrito}
+                        onChange={(e) => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].distrito = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="Ej: Miraflores"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Link Google Maps</Label>
+                      <Input
+                        value={sede.googleMapsUrl}
+                        onChange={(e) => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].googleMapsUrl = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="https://maps.google.com/..."
                       />
                     </div>
                     <div className="space-y-2">
@@ -539,13 +584,19 @@ const ClientForm = ({ client, onSave, onCancel }: {
                           onCheckedChange={(checked) => {
                             const newSedes = sedes.map((s, i) => ({
                               ...s,
-                              principal: i === index ? checked : false
+                              principal: i === idx ? checked : false
                             }));
                             setSedes(newSedes);
                           }}
                         />
                         Sede Principal
                       </Label>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <Button variant="outline" className="text-red-600" onClick={() => deleteSede(sede.id)}>
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Eliminar
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -563,8 +614,8 @@ const ClientForm = ({ client, onSave, onCancel }: {
             </Button>
           </div>
           <div className="space-y-4">
-            {contactos.map((contacto, index) => (
-              <Card key={index}>
+            {contactos.map((contacto, idx) => (
+              <Card key={idx}>
                 <CardContent className="p-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
@@ -573,7 +624,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={contacto.tipo} 
                         onValueChange={(value: any) => {
                           const newContactos = [...contactos];
-                          newContactos[index].tipo = value;
+                          newContactos[idx].tipo = value;
                           setContactos(newContactos);
                         }}
                       >
@@ -593,7 +644,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={contacto.nombre}
                         onChange={(e) => {
                           const newContactos = [...contactos];
-                          newContactos[index].nombre = e.target.value;
+                          newContactos[idx].nombre = e.target.value;
                           setContactos(newContactos);
                         }}
                         placeholder="Nombre del contacto"
@@ -605,7 +656,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={contacto.dni}
                         onChange={(e) => {
                           const newContactos = [...contactos];
-                          newContactos[index].dni = e.target.value;
+                          newContactos[idx].dni = e.target.value;
                           setContactos(newContactos);
                         }}
                         placeholder="12345678"
@@ -617,7 +668,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={contacto.celular}
                         onChange={(e) => {
                           const newContactos = [...contactos];
-                          newContactos[index].celular = e.target.value;
+                          newContactos[idx].celular = e.target.value;
                           setContactos(newContactos);
                         }}
                         placeholder="987654321"
@@ -630,12 +681,18 @@ const ClientForm = ({ client, onSave, onCancel }: {
                         value={contacto.correo}
                         onChange={(e) => {
                           const newContactos = [...contactos];
-                          newContactos[index].correo = e.target.value;
+                          newContactos[idx].correo = e.target.value;
                           setContactos(newContactos);
                         }}
                         placeholder="contacto@empresa.com"
                       />
                     </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <Button variant="outline" className="text-red-600" onClick={() => deleteContacto(idx)}>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Eliminar
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -710,7 +767,7 @@ const ClientForm = ({ client, onSave, onCancel }: {
         </TabsContent>
       </Tabs>
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={onCancel}>
+        <Button variant="outline" onClick={onFinish}>
           Cancelar
         </Button>
         <Button onClick={handleSave}>
@@ -721,16 +778,17 @@ const ClientForm = ({ client, onSave, onCancel }: {
   );
 };
 
-// ClientDetails
+
+// --- DETALLES DE CLIENTE, MOSTRAR SEDES, COMENTARIOS ---
 const ClientDetails = ({ client }: { client: Client }) => {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="info" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="info">Información</TabsTrigger>
-          <TabsTrigger value="historial">Historial</TabsTrigger>
-          <TabsTrigger value="facturas">Facturas</TabsTrigger>
-          <TabsTrigger value="reportes">Reportes</TabsTrigger>
+          <TabsTrigger value="sedes">Sedes</TabsTrigger>
+          <TabsTrigger value="contactos">Contactos</TabsTrigger>
+          <TabsTrigger value="comercial">Comercial</TabsTrigger>
         </TabsList>
         <TabsContent value="info" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -761,57 +819,50 @@ const ClientDetails = ({ client }: { client: Client }) => {
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Información Comercial</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <Label className="text-stone-600">Lista de Precios</Label>
-                  <p className="font-medium">{client.listaPrecio}</p>
-                </div>
-                <div>
-                  <Label className="text-stone-600">Condición de Pago</Label>
-                  <p className="font-medium">{client.condicionPago}</p>
-                </div>
-                <div>
-                  <Label className="text-stone-600">Límite de Crédito</Label>
-                  <p className="font-medium">S/. {client.limiteCredito?.toFixed(2) || '0.00'}</p>
-                </div>
-                <div>
-                  <Label className="text-stone-600">Deuda Actual</Label>
-                  <p className="font-medium text-red-600">S/. {client.montoDeuda?.toFixed(2) || '0.00'}</p>
-                </div>
-              </CardContent>
-            </Card>
           </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Sedes</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {client.sedes.map((sede) => (
-                  <div key={sede.id} className="border rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-medium">{sede.nombre}</h4>
-                      {sede.principal && <Badge variant="secondary">Principal</Badge>}
-                    </div>
-                    <p className="text-sm text-stone-600 mb-1">{sede.direccion}</p>
-                    <p className="text-sm text-stone-600">Responsable: {sede.responsable} - {sede.telefono}</p>
+        </TabsContent>
+        {/* SEDES CON COMENTARIOS */}
+        <TabsContent value="sedes" className="space-y-4">
+          <div className="space-y-6">
+            {client.sedes.map((sede) => (
+              <Card key={sede.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>{sede.nombre}</CardTitle>
+                    {sede.principal && <Badge variant="secondary">Principal</Badge>}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-2">
+                    <div className="text-sm text-stone-600">{sede.direccion}</div>
+                    <div className="text-sm text-stone-600">Responsable: {sede.responsable} - {sede.telefono}</div>
+                    {sede.distrito && (
+                      <div className="text-xs text-stone-500">Distrito: {sede.distrito}</div>
+                    )}
+                    {sede.googleMapsUrl && (
+                      <div className="mt-2">
+                        <a href={sede.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                          Ver en Google Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                  <hr className="my-3" />
+                  <SedeComments sedeId={sede.id} comentarios={sede.comentarios || []} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+        <TabsContent value="contactos" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle>Contactos</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {client.contactos.map((contacto, index) => (
-                  <div key={index} className="border rounded-lg p-3">
+                {client.contactos.map((contacto, idx) => (
+                  <div key={idx} className="border rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline">
                         {contacto.tipo === 'pago' && 'Pagos'}
@@ -831,58 +882,136 @@ const ClientDetails = ({ client }: { client: Client }) => {
             </CardContent>
           </Card>
         </TabsContent>
-        <TabsContent value="historial" className="space-y-4">
+        <TabsContent value="comercial" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Historial de Cambios</CardTitle>
+              <CardTitle>Información Comercial</CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="text-stone-400 text-sm">Aquí puedes mostrar el historial si lo traes desde tu base de datos.</div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="facturas" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Facturas y Pedidos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-stone-400 text-sm">Aquí puedes mostrar facturas si lo traes desde tu base de datos.</div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="reportes" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reportes Disponibles</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Button variant="outline" className="h-auto p-4 flex-col">
-                  <FileText className="h-6 w-6 mb-2" />
-                  <span>Reporte Completo</span>
-                  <span className="text-xs text-stone-600">PDF con toda la información</span>
-                </Button>
-                <Button variant="outline" className="h-auto p-4 flex-col">
-                  <Package className="h-6 w-6 mb-2" />
-                  <span>Historial de Compras</span>
-                  <span className="text-xs text-stone-600">Excel con pedidos y facturas</span>
-                </Button>
-                <Button variant="outline" className="h-auto p-4 flex-col">
-                  <DollarSign className="h-6 w-6 mb-2" />
-                  <span>Estado de Cuenta</span>
-                  <span className="text-xs text-stone-600">Resumen financiero</span>
-                </Button>
-                <Button variant="outline" className="h-auto p-4 flex-col">
-                  <Calendar className="h-6 w-6 mb-2" />
-                  <span>Análisis Temporal</span>
-                  <span className="text-xs text-stone-600">Comportamiento por período</span>
-                </Button>
+            <CardContent className="space-y-3">
+              <div>
+                <Label className="text-stone-600">Lista de Precios</Label>
+                <p className="font-medium">{client.listaPrecio}</p>
+              </div>
+              <div>
+                <Label className="text-stone-600">Condición de Pago</Label>
+                <p className="font-medium">{client.condicionPago}</p>
+              </div>
+              <div>
+                <Label className="text-stone-600">Límite de Crédito</Label>
+                <p className="font-medium">S/. {client.limiteCredito?.toFixed(2) || '0.00'}</p>
+              </div>
+              <div>
+                <Label className="text-stone-600">Deuda Actual</Label>
+                <p className="font-medium text-red-600">S/. {client.montoDeuda?.toFixed(2) || '0.00'}</p>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+};
+
+
+// --- COMPONENTE PARA COMENTARIOS DE SEDE ---
+const SedeComments = ({
+  sedeId,
+  comentarios
+}: {
+  sedeId: string;
+  comentarios: SedeComment[];
+}) => {
+  const [allComments, setAllComments] = useState<SedeComment[]>(comentarios || []);
+  const [showAll, setShowAll] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [newRating, setNewRating] = useState(5);
+  const [user, setUser] = useState('');
+
+  // Simulación de paginación simple (5 por página)
+  const paginated = showAll ? allComments : allComments.slice(0, 5);
+
+  useEffect(() => {
+    // Se recomienda leer comentarios desde Firebase para producción, por ahora toma los props
+    setAllComments(comentarios.sort((a, b) => b.createdAt - a.createdAt));
+  }, [comentarios]);
+
+  // --- Calcular promedio
+  const avg =
+    allComments.length > 0
+      ? (allComments.reduce((acc, c) => acc + c.rating, 0) / allComments.length).toFixed(2)
+      : "0";
+
+  // --- Agregar comentario (en Firebase)
+  const handleSend = async () => {
+    if (!newComment || !user) return;
+    // Encuentra referencia a sede (depende de cómo guardes en Firebase, aquí sería: clients/{clientId}/sedes/{sedeId}/comentarios)
+    // Este demo asume una ruta global: sedesComentarios/{sedeId}
+    const comentario: SedeComment = {
+      id: Date.now().toString(),
+      user,
+      comment: newComment,
+      rating: newRating,
+      createdAt: Date.now(),
+    };
+    // TODO: Puedes hacer el push directo a tu ruta Firebase si tu estructura lo permite
+    setAllComments([comentario, ...allComments]);
+    setNewComment('');
+    setUser('');
+    setNewRating(5);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <Star className="h-5 w-5 text-yellow-400" />
+        <span className="font-bold">{avg} / 5</span>
+        <span className="text-xs text-stone-500">({allComments.length} calificaciones)</span>
+      </div>
+      {/* AGREGAR COMENTARIO */}
+      <div className="mb-3 flex flex-col md:flex-row gap-2">
+        <Input
+          placeholder="Tu nombre"
+          value={user}
+          onChange={e => setUser(e.target.value)}
+          className="max-w-xs"
+        />
+        <Input
+          placeholder="Escribe un comentario"
+          value={newComment}
+          onChange={e => setNewComment(e.target.value)}
+        />
+        <Select value={String(newRating)} onValueChange={v => setNewRating(Number(v))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Puntaje" />
+          </SelectTrigger>
+          <SelectContent>
+            {[5, 4, 3, 2, 1].map(n => (
+              <SelectItem key={n} value={String(n)}>{n} estrellas</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleSend}>Enviar</Button>
+      </div>
+      {/* LISTA DE COMENTARIOS */}
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {paginated.map((c) => (
+          <div key={c.id} className="border rounded-lg p-2 bg-gray-50">
+            <div className="flex items-center gap-1">
+              {Array.from({ length: c.rating }).map((_, i) => (
+                <Star key={i} className="h-4 w-4 text-yellow-400" />
+              ))}
+              <span className="text-xs ml-2 text-gray-800 font-bold">{c.user}</span>
+              <span className="text-xs text-gray-400 ml-2">{new Date(c.createdAt).toLocaleString()}</span>
+            </div>
+            <div className="text-sm">{c.comment}</div>
+          </div>
+        ))}
+      </div>
+      {allComments.length > 5 && (
+        <Button variant="ghost" className="mt-2" onClick={() => setShowAll((v) => !v)}>
+          {showAll ? 'Ver menos' : 'Ver todos'}
+        </Button>
+      )}
     </div>
   );
 };

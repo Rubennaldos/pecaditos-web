@@ -1,15 +1,12 @@
-import { useState } from 'react';
-import { 
-  Settings, 
-  Package, 
-  DollarSign, 
-  Users,
+import { useState, useEffect } from 'react';
+import {
+  Settings,
+  Package,
   Tag,
   Edit3,
   Save,
   Plus,
   Trash2,
-  Upload
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,23 +14,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { mockProducts } from '@/data/mockData';
 
-/**
- * MÓDULO CONSOLIDADO DE ADMINISTRACIÓN GENERAL
- * 
- * Integra en una sola interfaz:
- * 1. Editor de Catálogo Mayorista
- * 2. Portal Mayorista (configuración)
- * 3. Promociones
- * 4. Gestión de Sedes/Puntos de Venta
- * 
- * Diseño simplificado y sin redundancia
- */
+// ----------- INTEGRA TU DB REALTIME (EJEMPLO CON FIREBASE) -----------
+import { db } from '../../config/firebase'; // Ajusta el import según tu estructura
+import { ref, onValue, remove } from 'firebase/database';
 
 interface Product {
   id: string;
@@ -45,17 +32,6 @@ interface Product {
   category: string;
   stock: number;
   minOrder: number;
-  isActive: boolean;
-  isEditing?: boolean;
-}
-
-interface SalesLocation {
-  id: string;
-  name: string;
-  address: string;
-  phone: string;
-  hours: string;
-  type: 'tienda' | 'distribuidor' | 'punto_venta';
   isActive: boolean;
   isEditing?: boolean;
 }
@@ -72,35 +48,45 @@ interface Promotion {
 
 export const ConsolidatedAdminModule = () => {
   const { toast } = useToast();
-  
-  // Estados para productos - usar datos reales del mockData
+
+  // Estado productos
   const [products, setProducts] = useState<Product[]>(
     mockProducts.map(product => ({
       id: product.id,
       name: product.name,
       description: product.description,
       price: product.price,
-      wholesalePrice: product.wholesalePrice || product.price * 0.75, // 25% descuento mayorista por defecto
+      wholesalePrice: product.wholesalePrice || product.price * 0.75,
       image: product.image,
       category: product.category,
-      stock: 100, // Stock inicial
-      minOrder: 6, // Cantidad mínima para mayoristas
+      stock: 100,
+      minOrder: 6,
       isActive: product.available
     }))
   );
 
-  // Estados para promociones
-  const [promotions, setPromotions] = useState<Promotion[]>([
-    {
-      id: '1',
-      title: 'Descuento Enero 2024',
-      description: '15% adicional en pedidos mayores a S/ 500',
-      discount: 15,
-      validUntil: '2024-01-31',
-      products: ['prod_001'],
-      isActive: true
-    }
-  ]);
+  // Estado promociones (leer de realtime database)
+  const [promotions, setPromotions] = useState<Promotion[]>([]);
+  const [loadingPromos, setLoadingPromos] = useState(true);
+
+  useEffect(() => {
+    // Suponiendo la ruta en Firebase: /promotions
+    const promosRef = ref(db, 'promotions');
+    const unsubscribe = onValue(promosRef, snapshot => {
+      const data = snapshot.val();
+      if (!data) {
+        setPromotions([]);
+      } else {
+        const arrayPromos = Object.entries(data).map(([id, value]: any) => ({
+          id,
+          ...value
+        }));
+        setPromotions(arrayPromos);
+      }
+      setLoadingPromos(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
   // Configuración general
   const [config, setConfig] = useState({
@@ -112,7 +98,7 @@ export const ConsolidatedAdminModule = () => {
 
   // FUNCIONES PARA PRODUCTOS
   const handleEditProduct = (productId: string) => {
-    setProducts(prev => prev.map(p => 
+    setProducts(prev => prev.map(p =>
       p.id === productId ? { ...p, isEditing: true } : { ...p, isEditing: false }
     ));
   };
@@ -154,6 +140,24 @@ export const ConsolidatedAdminModule = () => {
     setProducts(prev => [newProduct, ...prev]);
   };
 
+  // FUNCIONES PARA PROMOCIONES
+  const handleDeletePromotion = async (promotionId: string) => {
+    if (confirm('¿Eliminar esta promoción?')) {
+      try {
+        await remove(ref(db, `promotions/${promotionId}`));
+        toast({
+          title: "Promoción eliminada",
+          description: "La promoción ha sido eliminada.",
+        });
+      } catch {
+        toast({
+          title: "Error",
+          description: "No se pudo eliminar la promoción.",
+        });
+      }
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -188,7 +192,6 @@ export const ConsolidatedAdminModule = () => {
               Nuevo Producto
             </Button>
           </div>
-
           <div className="grid gap-4">
             {products.map((product) => (
               <ProductCard
@@ -211,8 +214,13 @@ export const ConsolidatedAdminModule = () => {
               Nueva Promoción
             </Button>
           </div>
-
           <div className="grid gap-4">
+            {loadingPromos && (
+              <div className="text-center text-gray-400">Cargando promociones...</div>
+            )}
+            {!loadingPromos && promotions.length === 0 && (
+              <div className="text-center text-gray-500">No hay promociones activas.</div>
+            )}
             {promotions.map((promotion) => (
               <Card key={promotion.id}>
                 <CardContent className="p-4">
@@ -229,10 +237,12 @@ export const ConsolidatedAdminModule = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
+                      {/* Botón Editar (lógica futura) */}
                       <Button size="sm" variant="outline">
                         <Edit3 className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="outline" className="text-red-600">
+                      {/* Botón Eliminar promoción */}
+                      <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDeletePromotion(promotion.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -275,7 +285,6 @@ export const ConsolidatedAdminModule = () => {
                     />
                   </div>
                 </div>
-
                 <div>
                   <Label>Mensaje de Bienvenida</Label>
                   <Textarea
@@ -287,7 +296,6 @@ export const ConsolidatedAdminModule = () => {
                     rows={3}
                   />
                 </div>
-
                 <div>
                   <Label>Términos y Condiciones</Label>
                   <Textarea
@@ -299,8 +307,7 @@ export const ConsolidatedAdminModule = () => {
                     rows={6}
                   />
                 </div>
-
-                <Button 
+                <Button
                   onClick={() => {
                     toast({
                       title: "Configuración guardada",
@@ -351,7 +358,6 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
               </p>
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <div>
@@ -364,7 +370,6 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
                   onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
                 />
               </div>
-              
               <div>
                 <label className="text-sm font-medium text-gray-700 mb-1 block">
                   Descripción del producto
@@ -376,7 +381,6 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
                   rows={3}
                 />
               </div>
-              
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-sm font-medium text-gray-700 mb-1 block">
@@ -409,7 +413,6 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
                 </div>
               </div>
             </div>
-            
             <div className="flex flex-col justify-between">
               <div className="bg-gray-50 p-3 rounded-lg">
                 <h5 className="font-medium text-gray-800 mb-2">📋 Resumen</h5>
@@ -424,10 +427,9 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
                   )}
                 </div>
               </div>
-              
               <div className="flex gap-2 mt-4">
-                <Button 
-                  size="sm" 
+                <Button
+                  size="sm"
                   onClick={() => onSave(editData)}
                   disabled={!editData.name || editData.price <= 0 || editData.wholesalePrice <= 0}
                   className="flex-1"

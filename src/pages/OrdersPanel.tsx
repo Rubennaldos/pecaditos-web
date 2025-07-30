@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Package, QrCode, LogOut, Search, BarChart3, Clock, CheckCircle, AlertTriangle, Smile, Frown,
+  Package, QrCode, LogOut, BarChart3, Clock, CheckCircle, AlertTriangle, Smile,
   Edit, Trash2, History, MapPin, Phone
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -18,9 +18,8 @@ import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
 import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
-import { OrdersHistory } from '@/components/orders/OrdersHistory';
 
-// 1. IMPORTA FIREBASE Y LOS MÉTODOS QUE USAS
+// FIREBASE
 import { db } from '../config/firebase';
 import { ref, onValue, update, push } from 'firebase/database';
 
@@ -33,7 +32,7 @@ const OrdersPanelContent = () => {
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
 
-  // Estado de pedidos (VACÍO, listo para poblar desde Firebase)
+  // Estado de pedidos
   const [orders, setOrders] = useState<any[]>([]);
 
   // Admin modals state
@@ -43,7 +42,7 @@ const OrdersPanelContent = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
 
-  // 2. ESCUCHA LOS CAMBIOS EN TIEMPO REAL DE LA BD
+  // Escucha en tiempo real
   useEffect(() => {
     const ordersRef = ref(db, 'orders');
     const unsubscribe = onValue(ordersRef, (snapshot) => {
@@ -52,15 +51,18 @@ const OrdersPanelContent = () => {
         setOrders([]);
         return;
       }
-      // Si tus pedidos están en formato de objeto, conviértelos a array
+      // Ordena por createdAt descendente (más reciente primero)
       const ordersArray = Object.values(data);
-      setOrders(ordersArray.sort((a: any, b: any) => (b.createdAt || 0).localeCompare(a.createdAt || 0)));
+      setOrders(
+        ordersArray.sort(
+          (a: any, b: any) => (b.createdAt || 0).localeCompare(a.createdAt || 0)
+        )
+      );
     });
-    // Cleanup
     return () => unsubscribe();
   }, []);
 
-  // Calcula urgencia
+  // Urgencia
   const calculateOrderUrgency = (order: any) => {
     const now = new Date();
     let referenceDate: Date;
@@ -101,6 +103,7 @@ const OrdersPanelContent = () => {
   };
 
   const ordersWithUrgency = getOrdersWithUrgency();
+
   const stats = {
     total: orders.length,
     pendientes: orders.filter(o => o.status === 'pendiente').length,
@@ -124,7 +127,7 @@ const OrdersPanelContent = () => {
     }
   };
 
-  // 3. ACTUALIZA ESTADO DEL PEDIDO EN FIREBASE
+  // Actualiza estado
   const updateOrderStatus = (orderId: string, newStatus: string) => {
     const orderRef = ref(db, `orders/${orderId}`);
     const updates: any = { status: newStatus };
@@ -140,7 +143,7 @@ const OrdersPanelContent = () => {
     setQrScannedOrder(null);
   };
 
-  // Crea pedido de reposición (como ejemplo, usando push)
+  // Crea pedido de reposición (ejemplo)
   const createNewOrderForMissingItems = (originalOrderId: string, incompleteItems: any[]) => {
     const originalOrder = orders.find(o => o.id === originalOrderId);
     if (!originalOrder) return;
@@ -166,10 +169,6 @@ const OrdersPanelContent = () => {
     update(ref(db, `orders/${newOrderId}`), newOrder);
   };
 
-  const printOrder = (order: any, format: 'A4' | 'A5' | 'ticket', editedData: any) => {};
-
-  const exportReport = (reportType: string) => {};
-
   const handleLogout = async () => {
     try {
       await logout();
@@ -192,6 +191,7 @@ const OrdersPanelContent = () => {
     setShowHistoryModal(true);
   };
 
+  // Renderiza la lista de pedidos
   const renderOrderList = (orders: any[], showTimer = true, timeLimit?: number) => (
     <div className="space-y-4">
       {orders.map(order => (
@@ -350,12 +350,125 @@ const OrdersPanelContent = () => {
       </div>
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex gap-8">
-          {/* ... Menú y tabs igual que antes ... */}
-          {/* ... Resto del render, igual ... */}
-          {/* Usa el mismo código de tabs, renderOrderList, etc. que ya tienes */}
-          {/* OMITIDO POR ESPACIO */}
+          {/* CONTENIDO PRINCIPAL */}
+          <div className="flex-1 min-w-0">
+            {/* Barra de búsqueda y tabs */}
+            <div className="flex flex-col md:flex-row items-start gap-4 mb-6">
+              <Input
+                className="md:w-72"
+                placeholder="Buscar por cliente, pedido o teléfono..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2 justify-start w-full md:w-auto">
+
+                <Button
+                  size="sm"
+                  variant={selectedTab === "dashboard" ? "default" : "outline"}
+                  onClick={() => setSelectedTab("dashboard")}
+                >
+                  <BarChart3 className="h-4 w-4 mr-1" />
+                  Dashboard
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedTab === "pendientes" ? "default" : "outline"}
+                  onClick={() => setSelectedTab("pendientes")}
+                >
+                  <Clock className="h-4 w-4 mr-1" />
+                  Pendientes
+                  <Badge className="ml-1">{stats.pendientes}</Badge>
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedTab === "en_preparacion" ? "default" : "outline"}
+                  onClick={() => setSelectedTab("en_preparacion")}
+                >
+                  <Smile className="h-4 w-4 mr-1" />
+                  En preparación
+                  <Badge className="ml-1">{stats.enPreparacion}</Badge>
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedTab === "listos" ? "default" : "outline"}
+                  onClick={() => setSelectedTab("listos")}
+                >
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Listos
+                  <Badge className="ml-1">{stats.listos}</Badge>
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedTab === "alertas" ? "default" : "outline"}
+                  onClick={() => setSelectedTab("alertas")}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  Urgentes/Vencidos
+                  <Badge className="ml-1">{stats.alertas}</Badge>
+                </Button>
+                <Button
+                  size="sm"
+                  variant={selectedTab === "todos" ? "default" : "outline"}
+                  onClick={() => setSelectedTab("todos")}
+                >
+                  Todos
+                  <Badge className="ml-1">{stats.total}</Badge>
+                </Button>
+              </div>
+            </div>
+
+            {/* Dashboard, listado o alertas según el tab */}
+            {selectedTab === "dashboard" && (
+              <OrdersDashboard stats={stats} orders={ordersWithUrgency} />
+            )}
+
+            {selectedTab === "pendientes" && renderOrderList(
+              ordersWithUrgency.filter(o =>
+                o.status === "pendiente" &&
+                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.customerPhone?.includes(searchTerm))
+              )
+            )}
+
+            {selectedTab === "en_preparacion" && renderOrderList(
+              ordersWithUrgency.filter(o =>
+                o.status === "en_preparacion" &&
+                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.customerPhone?.includes(searchTerm))
+              )
+            )}
+
+            {selectedTab === "listos" && renderOrderList(
+              ordersWithUrgency.filter(o =>
+                o.status === "listo" &&
+                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.customerPhone?.includes(searchTerm))
+              )
+            )}
+
+            {selectedTab === "alertas" && renderOrderList(
+              ordersWithUrgency.filter(o =>
+                (o.urgency.isUrgent || o.urgency.isExpired) &&
+                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.customerPhone?.includes(searchTerm))
+              )
+            )}
+
+            {selectedTab === "todos" && renderOrderList(
+              ordersWithUrgency.filter(o =>
+                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  o.customerPhone?.includes(searchTerm))
+              )
+            )}
+          </div>
         </div>
       </div>
+      {/* MODALES */}
       <OrderEditModal
         order={selectedOrder}
         isOpen={showEditModal}

@@ -37,18 +37,16 @@ const OrdersDashboard = ({ stats, orders, onExportReport }: OrdersDashboardProps
     { name: 'Pendientes', value: orders.filter(o => o.status === 'pendiente').length, color: '#EF4444' }
   ], [orders]);
 
-  // Datos semanales (ejemplo con datos simples, puedes adaptarlo a tus fechas)
-  const weeklyData = useMemo(() => {
-    // Simulación para 7 días, si tienes fechas reales reemplaza esto
-    const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-    // Arma un array donde agrupas por día de la semana
-    return days.map((day, i) => ({
-      day,
-      entregados: Math.floor(Math.random() * 6), // reemplaza por tu lógica real
-      preparacion: Math.floor(Math.random() * 5),
-      pendientes: Math.floor(Math.random() * 3)
-    }));
-  }, [orders]);
+const weeklyData = useMemo(() => {
+  const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+  return days.map(day => ({
+    day,
+    entregados: 0,
+    preparacion: 0,
+    pendientes: 0
+  }));
+}, []);
+
 
   const exportReports = [
     { id: 'pedidos_mes', name: 'Pedidos del Mes', description: 'Todos los pedidos del mes actual' },
