@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAdmin } from '@/contexts/AdminContext';
 import { 
   BarChart3, 
   Package, 
@@ -26,10 +27,19 @@ import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/ui/date-picker';
 import { DateRange } from 'react-day-picker';
 import { ConsolidatedAdminModule } from './ConsolidatedAdminModule';
-import { MessagesModule } from './MessagesModule';
+import MessagesModule from './MessagesModule';
 import { LogisticsAdminModule } from './LogisticsAdminModule';
 
 export const GlobalDashboard = () => {
+  const { user } = useAdmin();
+
+  // 👇 ADAPTA EL USUARIO PARA QUE TENGA LOS CAMPOS QUE NECESITA MessagesModule
+  const usuarioActual = user ? {
+    id: user.id || user.uid || '',
+    rol: user.rol || user.profile || 'cliente', // Por si tu user tiene otro nombre de campo para rol
+    email: user.email || ''
+  } : { id: '', rol: 'cliente', email: '' };
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
@@ -40,7 +50,6 @@ export const GlobalDashboard = () => {
   const [showMoreDebtors, setShowMoreDebtors] = useState(false);
   const [showMoreProducts, setShowMoreProducts] = useState(false);
 
-  // *** LIMPIO - Sin datos de ejemplo ***
   const globalKPIs = {
     totalOrders: 0,
     activeOrders: 0,
@@ -79,7 +88,8 @@ export const GlobalDashboard = () => {
       case 'logistics':
         return <LogisticsAdminModule />;
       case 'messages':
-        return <MessagesModule />;
+        // 👇 SOLO PASA usuarioActual, YA CORREGIDO
+        return <MessagesModule usuarioActual={usuarioActual} />;
       case 'locations':
         return (
           <div className="space-y-6">
@@ -167,7 +177,6 @@ export const GlobalDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold text-stone-800">{globalKPIs.activeOrders}</div>
             <p className="text-xs text-stone-400 flex items-center gap-1 mt-1">
-              {/* Sin datos históricos */}
               Sin variación
             </p>
           </CardContent>
@@ -224,7 +233,6 @@ export const GlobalDashboard = () => {
           <CardContent>
             <div className="text-2xl font-bold text-stone-800">{globalKPIs.activeClients}</div>
             <p className="text-xs text-stone-400 flex items-center gap-1 mt-1">
-              {/* Sin nuevos clientes */}
               Sin variación
             </p>
           </CardContent>

@@ -1,29 +1,12 @@
-import { useState } from 'react';
-import { 
-  Shield, 
-  Filter, 
-  Download, 
-  Search, 
-  Calendar, 
-  Clock, 
-  User, 
-  Eye,
-  FileText,
-  Database,
-  Settings,
-  Users,
-  ShoppingCart,
-  Truck,
-  CreditCard,
-  Package,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Edit,
-  Trash2,
-  Plus
+import { useEffect, useState } from 'react';
+import { ref, onValue } from 'firebase/database';
+import { db } from '@/config/firebase';
+import {
+  Shield, Filter, Download, Search, Calendar, Clock, User, Eye,
+  FileText, Database, Settings, Users, ShoppingCart, Truck, CreditCard, Package,
+  AlertTriangle, CheckCircle, XCircle, Edit, Trash2, Plus
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,130 +17,51 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 
-export const AuditModule = () => {
-  const [auditLogs] = useState([
-    { 
-      id: 1, 
-      user: 'Admin General', 
-      email: 'admin@pecaditos.com',
-      action: 'Creó cliente', 
-      module: 'Clientes', 
-      timestamp: '2024-07-18 10:30:00', 
-      details: 'Cliente: Empresa ABC S.A.C. - RUC: 20123456789',
-      ip: '192.168.1.100',
-      device: 'Chrome 115 - Windows',
-      success: true
-    },
-    { 
-      id: 2, 
-      user: 'María García', 
-      email: 'pedidos@pecaditos.com',
-      action: 'Editó pedido', 
-      module: 'Pedidos', 
-      timestamp: '2024-07-18 09:15:22', 
-      details: 'Pedido #PD-001 - Cambió estado de Pendiente a En Preparación',
-      ip: '192.168.1.105',
-      device: 'Chrome 115 - Android',
-      success: true
-    },
-    { 
-      id: 3, 
-      user: 'Carlos López', 
-      email: 'reparto@pecaditos.com',
-      action: 'Completó entrega', 
-      module: 'Reparto', 
-      timestamp: '2024-07-18 08:45:10', 
-      details: 'Entrega #E-001 - Cliente satisfecho, entrega completada en dirección fiscal',
-      ip: '192.168.1.110',
-      device: 'Chrome Mobile - iOS',
-      success: true
-    },
-    { 
-      id: 4, 
-      user: 'Admin General', 
-      email: 'admin@pecaditos.com',
-      action: 'Desactivó usuario', 
-      module: 'Sistema', 
-      timestamp: '2024-07-17 16:20:33', 
-      details: 'Usuario: Ana Rodríguez (cobranzas@pecaditos.com) - Motivo: Licencia médica',
-      ip: '192.168.1.100',
-      device: 'Chrome 115 - Windows',
-      success: true
-    },
-    { 
-      id: 5, 
-      user: 'Jorge Silva', 
-      email: 'produccion@pecaditos.com',
-      action: 'Actualizó stock', 
-      module: 'Producción', 
-      timestamp: '2024-07-17 14:10:15', 
-      details: 'Producto: Galletas de Chocolate - Stock anterior: 120, Stock nuevo: 150 unidades',
-      ip: '192.168.1.115',
-      device: 'Firefox 116 - Linux',
-      success: true
-    },
-    { 
-      id: 6, 
-      user: 'María García', 
-      email: 'pedidos@pecaditos.com',
-      action: 'Falló eliminación', 
-      module: 'Pedidos', 
-      timestamp: '2024-07-17 13:30:00', 
-      details: 'Intento fallido de eliminar pedido #PD-005 - Error: Pedido ya en producción',
-      ip: '192.168.1.105',
-      device: 'Chrome 115 - Android',
-      success: false
-    },
-    { 
-      id: 7, 
-      user: 'Admin General', 
-      email: 'admin@pecaditos.com',
-      action: 'Envió mensaje', 
-      module: 'Mensajes', 
-      timestamp: '2024-07-17 11:45:00', 
-      details: 'Mensaje: "Nuevo catálogo de productos" enviado a 25 mayoristas y 3 módulos internos',
-      ip: '192.168.1.100',
-      device: 'Chrome 115 - Windows',
-      success: true
-    },
-    { 
-      id: 8, 
-      user: 'Ana Rodríguez', 
-      email: 'cobranzas@pecaditos.com',
-      action: 'Registró pago', 
-      module: 'Cobranzas', 
-      timestamp: '2024-07-16 15:20:00', 
-      details: 'Cliente: Distribuidora Lima SAC - Monto: S/. 2,450.00 - Método: Transferencia bancaria',
-      ip: '192.168.1.120',
-      device: 'Chrome 115 - Windows',
-      success: true
-    },
-    { 
-      id: 9, 
-      user: 'Carlos López', 
-      email: 'reparto@pecaditos.com',
-      action: 'Reportó incidencia', 
-      module: 'Reparto', 
-      timestamp: '2024-07-16 14:30:00', 
-      details: 'Entrega #E-003 - Incidencia: Cliente no disponible, reprogramada para mañana',
-      ip: '192.168.1.110',
-      device: 'Chrome Mobile - iOS',
-      success: true
-    },
-    { 
-      id: 10, 
-      user: 'Jorge Silva', 
-      email: 'produccion@pecaditos.com',
-      action: 'Creó lote', 
-      module: 'Producción', 
-      timestamp: '2024-07-16 08:00:00', 
-      details: 'Lote #L-024 - Producto: Galletas Vainilla - Cantidad: 500 unidades',
-      ip: '192.168.1.115',
-      device: 'Firefox 116 - Linux',
-      success: true
-    }
-  ]);
+// Ajusta el tipo para tus logs
+type AuditLog = {
+  id: string;
+  timestamp?: string;
+  user?: string;
+  email?: string;
+  action?: string;
+  module?: string;
+  details?: string;
+  ip?: string;
+  device?: string;
+  success?: boolean | string;
+  [key: string]: any;
+};
 
+export const AuditModule = () => {
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loading, setLoading] = useState(true);
+
+// Carga desde Firebase
+useEffect(() => {
+  const auditRef = ref(db, 'auditLogs');
+  const unsubscribe = onValue(auditRef, (snap) => {
+    const data = snap.val() || {};
+    const arr: AuditLog[] = [];
+    Object.entries(data).forEach(([id, value]) => {
+      if (typeof value === 'object' && value !== null && 'timestamp' in value) {
+        arr.push({
+          id,
+          ...(value as Record<string, any>)
+        });
+      }
+    });
+    arr.sort((a, b) => {
+      const dateB = new Date(b.timestamp ?? 0).getTime();
+      const dateA = new Date(a.timestamp ?? 0).getTime();
+      return dateB - dateA;
+    });
+    setAuditLogs(arr);
+    setLoading(false);
+  });
+  return () => unsubscribe();
+}, []);
+
+  // Estados
   const [filters, setFilters] = useState({
     user: '',
     module: 'all',
@@ -166,12 +70,12 @@ export const AuditModule = () => {
     dateTo: '',
     success: 'all'
   });
-
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedLog, setSelectedLog] = useState(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const logsPerPage = 10;
 
+  // Opciones de módulos y acciones
   const modules = [
     { value: 'all', label: 'Todos los módulos', icon: Database },
     { value: 'Clientes', label: 'Clientes', icon: Users },
@@ -182,7 +86,6 @@ export const AuditModule = () => {
     { value: 'Sistema', label: 'Sistema', icon: Settings },
     { value: 'Mensajes', label: 'Mensajes', icon: FileText }
   ];
-
   const actions = [
     { value: 'all', label: 'Todas las acciones' },
     { value: 'Creó', label: 'Creaciones' },
@@ -194,29 +97,28 @@ export const AuditModule = () => {
     { value: 'Registró', label: 'Registros' }
   ];
 
+  // Filtrado robusto
   const filteredLogs = auditLogs.filter(log => {
-    const matchesUser = !filters.user || log.user.toLowerCase().includes(filters.user.toLowerCase()) || 
-                       log.email.toLowerCase().includes(filters.user.toLowerCase());
+    const matchesUser = !filters.user || (log.user && log.user.toLowerCase().includes(filters.user.toLowerCase())) ||
+      (log.email && log.email.toLowerCase().includes(filters.user.toLowerCase()));
     const matchesModule = filters.module === 'all' || log.module === filters.module;
-    const matchesAction = filters.action === 'all' || log.action.includes(filters.action);
-    const matchesSuccess = filters.success === 'all' || log.success.toString() === filters.success;
-    const matchesSearch = !searchTerm || 
-                         log.details.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         log.action.toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesAction = filters.action === 'all' || (log.action && log.action.includes(filters.action));
+    const matchesSuccess = filters.success === 'all' || String(log.success) === filters.success;
+    const matchesSearch = !searchTerm ||
+      (log.details && log.details.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (log.user && log.user.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (log.action && log.action.toLowerCase().includes(searchTerm.toLowerCase()));
     let matchesDate = true;
     if (filters.dateFrom) {
-      const logDate = new Date(log.timestamp);
+      const logDate = new Date(log.timestamp ?? 0);
       const fromDate = new Date(filters.dateFrom);
       matchesDate = logDate >= fromDate;
     }
     if (filters.dateTo && matchesDate) {
-      const logDate = new Date(log.timestamp);
+      const logDate = new Date(log.timestamp ?? 0);
       const toDate = new Date(filters.dateTo + ' 23:59:59');
       matchesDate = logDate <= toDate;
     }
-
     return matchesUser && matchesModule && matchesAction && matchesSuccess && matchesSearch && matchesDate;
   });
 
@@ -224,18 +126,16 @@ export const AuditModule = () => {
   const startIndex = (currentPage - 1) * logsPerPage;
   const paginatedLogs = filteredLogs.slice(startIndex, startIndex + logsPerPage);
 
-  const getActionIcon = (action, success) => {
-    if (!success) return <XCircle className="h-4 w-4 text-red-500" />;
-    
-    if (action.includes('Creó') || action.includes('Registró')) return <Plus className="h-4 w-4 text-green-500" />;
-    if (action.includes('Editó') || action.includes('Actualizó')) return <Edit className="h-4 w-4 text-blue-500" />;
-    if (action.includes('Eliminó')) return <Trash2 className="h-4 w-4 text-red-500" />;
-    if (action.includes('Completó')) return <CheckCircle className="h-4 w-4 text-green-500" />;
-    
+  // Iconos de acción y módulo
+  const getActionIcon = (action?: string, success?: boolean | string) => {
+    if (!success || success === 'false') return <XCircle className="h-4 w-4 text-red-500" />;
+    if (action && (action.includes('Creó') || action.includes('Registró'))) return <Plus className="h-4 w-4 text-green-500" />;
+    if (action && (action.includes('Editó') || action.includes('Actualizó'))) return <Edit className="h-4 w-4 text-blue-500" />;
+    if (action && action.includes('Eliminó')) return <Trash2 className="h-4 w-4 text-red-500" />;
+    if (action && action.includes('Completó')) return <CheckCircle className="h-4 w-4 text-green-500" />;
     return <CheckCircle className="h-4 w-4 text-green-500" />;
   };
-
-  const getModuleIcon = (module) => {
+  const getModuleIcon = (module?: string) => {
     const moduleData = modules.find(m => m.value === module);
     if (moduleData) {
       const Icon = moduleData.icon;
@@ -244,20 +144,19 @@ export const AuditModule = () => {
     return <Database className="h-4 w-4" />;
   };
 
-  const handleExportAudit = (format) => {
+  // Export simulado
+  const handleExportAudit = (format: string) => {
     const exportData = {
       filters,
       totalRecords: filteredLogs.length,
       exportDate: new Date().toLocaleString('es-PE'),
       logs: filteredLogs
     };
-
-    // Simular descarga
     toast({
       title: "Exportando auditoría",
       description: `Generando reporte en formato ${format.toUpperCase()}. Se descargará en unos momentos.`,
     });
-
+    // Aquí va tu lógica real de export
     console.log('Datos a exportar:', exportData);
   };
 
@@ -274,8 +173,10 @@ export const AuditModule = () => {
     setCurrentPage(1);
   };
 
+  // --- Render ---
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-stone-800">Auditoría del Sistema</h1>
@@ -361,7 +262,7 @@ export const AuditModule = () => {
               <Label htmlFor="search">Buscar</Label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input 
+                <Input
                   id="search"
                   placeholder="Buscar..."
                   value={searchTerm}
@@ -370,17 +271,15 @@ export const AuditModule = () => {
                 />
               </div>
             </div>
-
             <div>
               <Label htmlFor="user-filter">Usuario</Label>
-              <Input 
+              <Input
                 id="user-filter"
                 placeholder="Nombre o email"
                 value={filters.user}
                 onChange={(e) => setFilters(prev => ({ ...prev, user: e.target.value }))}
               />
             </div>
-
             <div>
               <Label htmlFor="module-filter">Módulo</Label>
               <Select value={filters.module} onValueChange={(value) => setFilters(prev => ({ ...prev, module: value }))}>
@@ -396,7 +295,6 @@ export const AuditModule = () => {
                 </SelectContent>
               </Select>
             </div>
-
             <div>
               <Label htmlFor="action-filter">Acción</Label>
               <Select value={filters.action} onValueChange={(value) => setFilters(prev => ({ ...prev, action: value }))}>
@@ -412,20 +310,18 @@ export const AuditModule = () => {
                 </SelectContent>
               </Select>
             </div>
-
             <div>
               <Label htmlFor="date-from">Fecha desde</Label>
-              <Input 
+              <Input
                 id="date-from"
                 type="date"
                 value={filters.dateFrom}
                 onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
               />
             </div>
-
             <div>
               <Label htmlFor="date-to">Fecha hasta</Label>
-              <Input 
+              <Input
                 id="date-to"
                 type="date"
                 value={filters.dateTo}
@@ -433,7 +329,6 @@ export const AuditModule = () => {
               />
             </div>
           </div>
-
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-4">
               <Select value={filters.success} onValueChange={(value) => setFilters(prev => ({ ...prev, success: value }))}>
@@ -457,7 +352,7 @@ export const AuditModule = () => {
         </CardContent>
       </Card>
 
-      {/* Tabla de registros */}
+      {/* Tabla */}
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -473,7 +368,11 @@ export const AuditModule = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedLogs.length === 0 ? (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8">Cargando...</TableCell>
+                </TableRow>
+              ) : paginatedLogs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8">
                     <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -509,19 +408,19 @@ export const AuditModule = () => {
                     <TableCell>
                       <div className="flex items-center gap-1 text-sm">
                         <Calendar className="h-4 w-4 text-stone-400" />
-                        {log.timestamp.split(' ')[0]}
+                        {log.timestamp && log.timestamp.split(' ')[0]}
                         <Clock className="h-4 w-4 text-stone-400 ml-2" />
-                        {log.timestamp.split(' ')[1]}
+                        {log.timestamp && log.timestamp.split(' ')[1]}
                       </div>
                     </TableCell>
                     <TableCell className="max-w-xs">
                       <p className="text-sm text-stone-600 truncate">
-                        {log.details.length > 50 ? log.details.substring(0, 50) + '...' : log.details}
+                        {log.details && log.details.length > 50 ? log.details.substring(0, 50) + '...' : log.details}
                       </p>
                     </TableCell>
                     <TableCell>
-                      <Button 
-                        size="sm" 
+                      <Button
+                        size="sm"
                         variant="outline"
                         onClick={() => setSelectedLog(log)}
                       >
@@ -539,8 +438,8 @@ export const AuditModule = () => {
       {/* Paginación */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(currentPage - 1)}
           >
@@ -549,7 +448,7 @@ export const AuditModule = () => {
           <span className="text-sm text-stone-600">
             Página {currentPage} de {totalPages}
           </span>
-          <Button 
+          <Button
             variant="outline"
             disabled={currentPage === totalPages}
             onClick={() => setCurrentPage(currentPage + 1)}
@@ -608,14 +507,11 @@ export const AuditModule = () => {
                   <p className="font-medium">{selectedLog.ip}</p>
                 </div>
               </div>
-              
               <Separator />
-              
               <div>
                 <Label className="text-sm font-medium text-stone-600">Dispositivo/Navegador</Label>
                 <p className="font-medium">{selectedLog.device}</p>
               </div>
-              
               <div>
                 <Label className="text-sm font-medium text-stone-600">Detalles Completos</Label>
                 <div className="p-3 bg-stone-50 rounded-lg">
@@ -634,3 +530,5 @@ export const AuditModule = () => {
     </div>
   );
 };
+
+export default AuditModule;
