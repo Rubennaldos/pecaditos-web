@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { db } from '../../config/firebase'; // Ajusta el path si tu archivo es diferente
 import { ref, onValue, push, update, remove } from "firebase/database";
 import { useEffect } from "react";
-
+import React from "react";
 import { 
   Settings, 
   Users, 
@@ -52,6 +52,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
+import { CardFooter } from '@/components/ui/card';
 
 // --- Types para notificaciones y auditoría ---
 // (Pega esto después de los imports)
@@ -79,37 +80,22 @@ type AuditLog = {
   details: string;
 };
 
-
 export const SystemConfiguration = () => {
-  const [companyInfo, setCompanyInfo] = useState({
-    name: 'Pecaditos Dulces',
-    businessName: 'Pecaditos Dulces S.A.C.',
-    ruc: '20123456789',
-    fiscalAddress: 'Av. Principal 123, Lima, Perú',
-    phone: '+51 999 888 777',
-    phone2: '+51 999 888 778',
-    email: 'info@pecaditosdulces.com',
-    website: 'www.pecaditosdulces.com',
-    description: 'Empresa especializada en galletas artesanales',
-    slogan: 'Dulzura que conquista corazones',
-    welcomeMessage: 'Bienvenidos a Pecaditos Dulces',
-    facebook: 'https://facebook.com/pecaditosdulces',
-    instagram: 'https://instagram.com/pecaditosdulces',
-    whatsapp: '+51999888777',
-    tiktok: 'https://tiktok.com/@pecaditosdulces',
-    youtube: 'https://youtube.com/pecaditosdulces',
-    businessHours: {
-      monday: { open: '08:00', close: '18:00', active: true },
-      tuesday: { open: '08:00', close: '18:00', active: true },
-      wednesday: { open: '08:00', close: '18:00', active: true },
-      thursday: { open: '08:00', close: '18:00', active: true },
-      friday: { open: '08:00', close: '18:00', active: true },
-      saturday: { open: '08:00', close: '14:00', active: true },
-      sunday: { open: '09:00', close: '13:00', active: false }
-    },
-    logo: '',
-    favicon: ''
+
+const [companyInfo, setCompanyInfo] = useState<any>(null);
+const [loadingCompany, setLoadingCompany] = useState(true);
+
+useEffect(() => {
+  const refEmpresa = ref(db, "empresa");
+  const unsub = onValue(refEmpresa, snap => {
+    setCompanyInfo(snap.val() || {});
+
+    setLoadingCompany(false);
   });
+  return () => unsub();
+}, []);
+
+
 
   const [devicePreview, setDevicePreview] = useState('desktop'); // 'desktop' | 'mobile'
 
@@ -175,12 +161,22 @@ useEffect(() => {
     { key: 'sunday', label: 'Domingo' }
   ];
 
-  const handleSaveCompany = () => {
+  const handleSaveCompany = async () => {
+  if (!companyInfo) return;
+  try {
+    await update(ref(db, "empresa"), companyInfo);
     toast({
       title: "Configuración guardada",
       description: "Los datos de la empresa se han actualizado correctamente.",
     });
-  };
+  } catch (error) {
+    toast({
+      title: "Error al guardar",
+      description: "No se pudo guardar la información. Intenta nuevamente.",
+      variant: "destructive"
+    });
+  }
+};
 
   const handleUserAction = (action, user) => {
     switch(action) {
@@ -220,6 +216,74 @@ useEffect(() => {
       description: "El reporte se descargará en unos momentos.",
     });
   };
+// --- FOOTER CONFIGURABLE ----
+const iconOptions = [
+  "MapPin","Mail","Phone","Clock","FileText","Users","Facebook","Instagram","Twitter","Youtube","MessageCircle","ExternalLink"
+];
+const lucideIcons = { MapPin, Mail, Phone, Clock, FileText, Users, Facebook, Instagram, Twitter, Youtube, MessageCircle, ExternalLink };
+
+const [footerSections, setFooterSections] = useState<any[]>([]);
+const [footerLoading, setFooterLoading] = useState(true);
+
+useEffect(() => {
+  const footerRef = ref(db, 'footer/sections');
+  return onValue(footerRef, snap => {
+    setFooterSections(snap.val() || []);
+    setFooterLoading(false);
+  });
+}, []);
+
+const handleSaveFooter = async () => {
+  await update(ref(db, 'footer'), { sections: footerSections });
+  toast({ title: "Footer guardado", description: "Los cambios se guardaron correctamente." });
+};
+
+const handleAddSection = () => {
+  setFooterSections([
+    ...footerSections,
+    { title: "", items: [] }
+  ]);
+};
+
+const handleDeleteSection = (idx: number) => {
+  setFooterSections(footerSections.filter((_, i) => i !== idx));
+};
+
+const handleEditSectionTitle = (idx: number, title: string) => {
+  setFooterSections(footerSections.map((sec, i) => i === idx ? { ...sec, title } : sec));
+};
+
+const handleAddItem = (sectionIdx: number) => {
+  setFooterSections(footerSections.map((sec, i) => i === sectionIdx
+    ? { ...sec, items: [...(sec.items||[]), { label: "", value: "", type: "text", icon: "FileText" }] }
+    : sec
+  ));
+};
+
+const handleDeleteItem = (sectionIdx: number, itemIdx: number) => {
+  setFooterSections(footerSections.map((sec, i) => i === sectionIdx
+    ? { ...sec, items: sec.items.filter((_:any, j:number) => j !== itemIdx) }
+    : sec
+  ));
+};
+
+const handleEditItem = (sectionIdx: number, itemIdx: number, field: string, value: any) => {
+  setFooterSections(footerSections.map((sec, i) => i === sectionIdx
+    ? {
+        ...sec,
+        items: sec.items.map((item:any, j:number) => j === itemIdx ? { ...item, [field]: value } : item)
+      }
+    : sec
+  ));
+};
+
+if (loadingCompany || !companyInfo) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-lg text-gray-500">Cargando configuración de empresa...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -236,6 +300,7 @@ useEffect(() => {
           <TabsTrigger value="parameters">Parámetros</TabsTrigger>
           <TabsTrigger value="notifications">Notificaciones</TabsTrigger>
           <TabsTrigger value="audit">Auditoría</TabsTrigger>
+          <TabsTrigger value="footer">Footer</TabsTrigger>
         </TabsList>
 
         {/* Información de Empresa */}
@@ -277,6 +342,7 @@ useEffect(() => {
         className={`
           bg-gray-100 shadow-2xl flex justify-center items-start
           ${devicePreview === 'desktop'
+            
             ? 'w-[1080px] h-[700px] rounded-2xl border-4 border-gray-300'
             : 'w-[360px] h-[740px] rounded-[2.5rem] border-[10px] border-stone-300'}
           relative transition-all duration-300
@@ -313,24 +379,31 @@ useEffect(() => {
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {companyInfo.logo ? (
-                  <img
-                    src={companyInfo.logo}
-                    alt="Logo"
-                    className="w-12 h-12 rounded-full bg-white p-1"
-                  />
-                ) : (
-                  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">
-                      {companyInfo.name.charAt(0)}
-                    </span>
-                  </div>
-                )}
-                <div>
-                  <h3 className="font-bold text-xl">{companyInfo.name}</h3>
-                  <p className="text-amber-100 text-sm">{companyInfo.slogan}</p>
-                </div>
-              </div>
+          </div>      
+{companyInfo.logo ? (
+  <img
+    src={companyInfo.logo}
+    alt="Logo"
+    className="w-12 h-12 rounded-full bg-white p-1"
+  />
+) : (
+  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+    <span className="text-white font-bold text-lg">
+      {(companyInfo.name && typeof companyInfo.name === "string" && companyInfo.name.length > 0) 
+        ? companyInfo.name.charAt(0) 
+        : 'P'}
+    </span>
+  </div>
+)}
+<div>
+  <h3 className="font-bold text-xl">
+    {companyInfo.name || "Nombre de la empresa"}
+  </h3>
+  <p className="text-amber-100 text-sm">
+    {companyInfo.slogan || ""}
+  </p>
+</div>
+
               {devicePreview === 'desktop' && (
                 <div className="flex gap-4 text-sm">
                   <span className="flex items-center gap-1">
@@ -398,14 +471,15 @@ useEffect(() => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="company-name">Nombre Comercial</Label>
-                    <Input 
-                      id="company-name"
-                      value={companyInfo.name}
-                      onChange={(e) => setCompanyInfo({...companyInfo, name: e.target.value})}
-                    />
-                  </div>
+                 <div>
+  <Label htmlFor="company-name">Nombre Comercial</Label>
+  <Input 
+    id="company-name"
+    value={companyInfo.name || ""}
+    onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })}
+  />
+</div>
+
                   <div>
                     <Label htmlFor="business-name">Razón Social</Label>
                     <Input 
@@ -1041,6 +1115,8 @@ useEffect(() => {
                 </div>
               </div>
 
+
+
               {/* Tabla de Auditoría */}
               <div className="border rounded-lg">
                 <Table>
@@ -1150,7 +1226,117 @@ useEffect(() => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="footer" className="space-y-6">
+  <Card>
+    <CardHeader>
+      <CardTitle className="flex items-center gap-2">
+        <FileText className="h-5 w-5" />
+        Editor del Footer (Secciones & Enlaces)
+      </CardTitle>
+      <CardDescription>
+        Administra el contenido y enlaces de tu footer. 
+      </CardDescription>
+    </CardHeader>
+    <CardContent>
+      {footerLoading && (
+        <div className="text-center py-6 text-stone-400">Cargando footer...</div>
+      )}
+      {!footerLoading && (
+        <div className="space-y-8">
+          {footerSections.map((section, idx) => (
+            <div key={idx} className="border p-4 rounded-lg bg-stone-50 mb-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Input
+                  placeholder="Título de la sección (ej: Contacto, Información...)"
+                  value={section.title}
+                  onChange={e => handleEditSectionTitle(idx, e.target.value)}
+                  className="font-bold text-lg"
+                />
+                <Button variant="outline" size="icon" onClick={() => handleDeleteSection(idx)}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => handleAddItem(idx)}>
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="space-y-4">
+                {section.items?.map((item:any, j:number) => (
+                  <div key={j} className="flex items-end gap-2 bg-white p-2 rounded">
+                    <Select
+                      value={item.icon}
+                      onValueChange={val => handleEditItem(idx, j, "icon", val)}
+                    >
+                      <SelectTrigger className="w-32">
+                        <SelectValue placeholder="Icono" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {iconOptions.map(ic => (
+                          <SelectItem key={ic} value={ic}>
+                            <span className="flex items-center gap-2">
+                              {lucideIcons[ic] && React.createElement(lucideIcons[ic], { className: "w-4 h-4" })}
+                              {ic}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder="Subtítulo/Texto"
+                      value={item.label}
+                      onChange={e => handleEditItem(idx, j, "label", e.target.value)}
+                    />
+                    <Select
+                      value={item.type}
+                      onValueChange={val => handleEditItem(idx, j, "type", val)}
+                    >
+                      <SelectTrigger className="w-28">
+                        <SelectValue placeholder="Tipo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="text">Texto</SelectItem>
+                        <SelectItem value="link">Link</SelectItem>
+                        <SelectItem value="email">Email</SelectItem>
+                        <SelectItem value="phone">Teléfono</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      placeholder={
+                        item.type === "link"
+                          ? "URL https://..."
+                          : item.type === "email"
+                          ? "correo@dominio.com"
+                          : item.type === "phone"
+                          ? "+51..."
+                          : "Valor (opcional)"
+                      }
+                      value={item.value}
+                      onChange={e => handleEditItem(idx, j, "value", e.target.value)}
+                    />
+                    <Button variant="destructive" size="icon" onClick={() => handleDeleteItem(idx, j)}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                {(!section.items || section.items.length === 0) && (
+                  <div className="text-stone-400 text-sm pl-1">No hay ítems en esta sección</div>
+                )}
+              </div>
+            </div>
+          ))}
+          <Button variant="default" onClick={handleAddSection}>
+            <Plus className="mr-2 w-4 h-4" />
+            Agregar Sección
+          </Button>
+        </div>
+      )}
+    </CardContent>
+    <CardFooter className="flex justify-end">
+      <Button onClick={handleSaveFooter}>Guardar Footer</Button>
+    </CardFooter>
+  </Card>
+</TabsContent>
       </Tabs>
-    </div>
+    </div> 
   );
 };

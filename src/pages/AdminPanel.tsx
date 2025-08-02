@@ -7,6 +7,7 @@ import { AuditModule } from '@/components/admin/AuditModule';
 import { ConsolidatedAdminModule } from '@/components/admin/ConsolidatedAdminModule';
 import { LocationsManagement } from "@/components/admin/LocationsManagement";
 import { Button } from '@/components/ui/button';
+import LogisticsModule from './LogisticsModule'; // Si está en la misma carpeta "pages"
 import {
   LogOut,
   BarChart3,
@@ -98,6 +99,13 @@ const AdminPanelContent = () => {
       section: 'business',
       description: 'Catálogos, mayoristas y promociones'
     },
+    {
+  id: 'logistics',
+  name: 'Logística',
+  icon: Truck, // Puedes usar Boxes, Truck o algún otro de Lucide que prefieras
+  section: 'logistics',
+  description: 'Inventario, almacenes y compras'
+},
     {
       id: 'system-config',
       name: 'Configuración',
@@ -225,7 +233,8 @@ const visibleItems = navigationItems.filter(
   rol: (user as any).rol || 'cliente',
   email: user.email || ''
 }} />;
-
+case 'logistics':
+      return <LogisticsModule />;
       default:
         return <AdminDashboard />;
     }

@@ -7,49 +7,24 @@ import {
   Truck, 
   DollarSign, 
   AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Star,
-  ShoppingCart,
-  Building,
   CreditCard,
   Award,
-  ChevronRight,
-  Settings,
-  Store,
-  Megaphone,
-  MessageSquare,
-  MapPin,
-  Boxes
+  ShoppingCart
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DatePickerWithRange } from '@/components/ui/date-picker';
 import { DateRange } from 'react-day-picker';
-import { ConsolidatedAdminModule } from './ConsolidatedAdminModule';
-import MessagesModule from './MessagesModule';
-import { LogisticsAdminModule } from './LogisticsAdminModule';
 
 export const GlobalDashboard = () => {
   const { user } = useAdmin();
 
-  // 👇 ADAPTA EL USUARIO PARA QUE TENGA LOS CAMPOS QUE NECESITA MessagesModule
-  const usuarioActual = user ? {
-    id: user.id || user.uid || '',
-    rol: user.rol || user.profile || 'cliente', // Por si tu user tiene otro nombre de campo para rol
-    email: user.email || ''
-  } : { id: '', rol: 'cliente', email: '' };
-
-  const [activeTab, setActiveTab] = useState('dashboard');
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: new Date()
   });
 
-  const [showMorePayers, setShowMorePayers] = useState(false);
-  const [showMoreDebtors, setShowMoreDebtors] = useState(false);
-  const [showMoreProducts, setShowMoreProducts] = useState(false);
-
+  // DATA (vacío, lo integras luego con Firebase o API)
   const globalKPIs = {
     totalOrders: 0,
     activeOrders: 0,
@@ -69,56 +44,11 @@ export const GlobalDashboard = () => {
     topProducts: []
   };
 
-  const getDisplayedPayers = () => showMorePayers ? rankings.topPayers : rankings.topPayers.slice(0, 10);
-  const getDisplayedDebtors = () => showMoreDebtors ? rankings.topDebtors : rankings.topDebtors.slice(0, 10);
-  const getDisplayedProducts = () => showMoreProducts ? rankings.topProducts : rankings.topProducts.slice(0, 10);
+  const getDisplayedPayers = () => rankings.topPayers.slice(0, 10);
+  const getDisplayedDebtors = () => rankings.topDebtors.slice(0, 10);
+  const getDisplayedProducts = () => rankings.topProducts.slice(0, 10);
 
-  const adminTabs = [
-    { id: 'dashboard', name: 'Dashboard', icon: BarChart3 },
-    { id: 'gestioner', name: 'Gestión Integrada', icon: Settings },
-    { id: 'logistics', name: 'Logística', icon: Boxes },
-    { id: 'messages', name: 'Mensajes', icon: MessageSquare },
-    { id: 'locations', name: 'Puntos de Venta', icon: MapPin }
-  ];
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'gestioner':
-        return <ConsolidatedAdminModule />;
-      case 'logistics':
-        return <LogisticsAdminModule />;
-      case 'messages':
-        // 👇 SOLO PASA usuarioActual, YA CORREGIDO
-        return <MessagesModule usuarioActual={usuarioActual} />;
-      case 'locations':
-        return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold text-stone-800">Puntos de Venta</h1>
-              <p className="text-stone-600 mt-1">Gestiona los puntos donde vendes tus productos</p>
-            </div>
-            <Card>
-              <CardContent className="p-8 text-center">
-                <Store className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-600 mb-2">Puntos de Venta</h3>
-                <p className="text-gray-500 mb-4">
-                  Gestiona las tiendas y distribuidores donde tus productos están disponibles.<br />
-                  Estos puntos aparecerán en la página "Dónde nos ubicamos" para los clientes.
-                </p>
-                <Button>
-                  <Store className="h-4 w-4 mr-2" />
-                  Administrar Puntos de Venta
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-        );
-      default:
-        return renderDashboard();
-    }
-  };
-
-  const renderDashboard = () => (
+  return (
     <div className="space-y-6">
       {/* Header con filtros */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between">
@@ -251,32 +181,7 @@ export const GlobalDashboard = () => {
             <CardDescription>Sin datos</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {getDisplayedPayers().length === 0 ? (
-                <div className="text-center text-stone-400 text-sm py-6">No hay datos de pagadores</div>
-              ) : (
-                getDisplayedPayers().map((payer, index) => (
-                  <div key={payer.name} className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-green-600">#{index + 1}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{payer.name}</p>
-                        <div className="flex items-center gap-1">
-                          {[...Array(payer.score)].map((_, i) => (
-                            <Star key={i} className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">S/ {payer.amount.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <div className="text-center text-stone-400 text-sm py-6">No hay datos de pagadores</div>
           </CardContent>
         </Card>
 
@@ -290,28 +195,7 @@ export const GlobalDashboard = () => {
             <CardDescription>Sin datos</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {getDisplayedDebtors().length === 0 ? (
-                <div className="text-center text-stone-400 text-sm py-6">No hay datos de morosos</div>
-              ) : (
-                getDisplayedDebtors().map((debtor, index) => (
-                  <div key={debtor.name} className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-red-600">#{index + 1}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{debtor.name}</p>
-                        <p className="text-xs text-red-500">{debtor.days} días vencido</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-red-600">S/ {debtor.debt.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <div className="text-center text-stone-400 text-sm py-6">No hay datos de morosos</div>
           </CardContent>
         </Card>
 
@@ -325,61 +209,10 @@ export const GlobalDashboard = () => {
             <CardDescription>Sin datos</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {getDisplayedProducts().length === 0 ? (
-                <div className="text-center text-stone-400 text-sm py-6">No hay datos de productos</div>
-              ) : (
-                getDisplayedProducts().map((product, index) => (
-                  <div key={product.name} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-bold text-blue-600">#{index + 1}</span>
-                      </div>
-                      <div>
-                        <p className="font-medium text-sm">{product.name}</p>
-                        <p className="text-xs text-blue-500">{product.sold} unidades</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium">S/ {product.revenue.toLocaleString()}</p>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+            <div className="text-center text-stone-400 text-sm py-6">No hay datos de productos</div>
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
-
-  return (
-    <div className="space-y-6">
-      {/* Navigation Tabs */}
-      <div className="border-b border-stone-200">
-        <nav className="flex space-x-8">
-          {adminTabs.map((tab) => {
-            const Icon = tab.icon;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center px-1 py-4 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? 'border-amber-500 text-amber-600'
-                    : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
-                }`}
-              >
-                <Icon className="h-4 w-4 mr-2" />
-                {tab.name}
-              </button>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Content */}
-      {renderContent()}
     </div>
   );
 };

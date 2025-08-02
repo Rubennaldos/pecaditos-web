@@ -1,86 +1,120 @@
 import { useState, useEffect } from 'react';
 import { ref, push, onValue } from 'firebase/database';
-import { db } from '@/config/firebase'; // Tu config de Firebase
-import { 
-  MessageSquare, 
-  Plus, 
-  Send, 
-  X, 
-  Users, 
-  Image as ImageIcon,
-  Smile,
-  Filter,
-  Search,
-  Calendar,
-  Clock,
-  Eye,
-  Trash2
+import { db } from '@/config/firebase';
+import {
+  MessageSquare, Plus, Send, X, Eye, Search, Clock
 } from 'lucide-react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger
+} from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
 
-/**
- * Para el ejemplo, aquí van los perfiles (luego reemplaza por tu base de datos de usuarios)
- */
-const [profiles, setProfiles] = useState([]);
+// Tipos estrictos
+type UsuarioActual = {
+  id: string;
+  rol: 'admin' | 'cliente';
+  email: string;
+};
 
-export const MessagesModule = ({ usuarioActual }) => {
-  // usuarioActual = { id: 'admin_1', rol: 'admin', email: 'admin@pecaditos.com' }
-  const [messages, setMessages] = useState([]);
+type Profile = {
+  value: string;
+  label: string;
+  rol: 'admin' | 'cliente';
+};
+
+type Message = {
+  id?: string;
+  title: string;
+  content: string;
+  image: string;
+  recipients: string[];
+  sentBy: string;
+  sentAt: string;
+  status: string;
+  readBy: string[];
+};
+
+interface Props {
+  usuarioActual: UsuarioActual;
+}
+
+const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
+  // Destinatarios
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  // Mensajes
+  const [messages, setMessages] = useState<Message[]>([]);
+  // UI State
   const [showNewMessageModal, setShowNewMessageModal] = useState(false);
-  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [messageFilter, setMessageFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  // Pop-up para mensajes importantes
   const [showPopup, setShowPopup] = useState(false);
-  const [activePopupMessage, setActivePopupMessage] = useState(null);
+  const [activePopupMessage, setActivePopupMessage] = useState<Message | null>(null);
 
   // Formulario de nuevo mensaje
-  const [newMessage, setNewMessage] = useState({
+  const [newMessage, setNewMessage] = useState<Omit<Message, 'id' | 'sentBy' | 'sentAt' | 'status' | 'readBy'>>({
     title: '',
     content: '',
     image: '',
     recipients: [],
   });
 
-  // ---- Cargar mensajes desde Firebase ----
+  // Cargar usuarios para destinatarios
+  useEffect(() => {
+    const usersRef = ref(db, 'usuarios');
+    const unsub = onValue(usersRef, snap => {
+      const data = snap.val() || {};
+      // TIPO CORRECTO: [string, any]
+      const arr: Profile[] = Object.entries(data).map(([id, value]: [string, any]) => ({
+        value: id,
+        label: value.nombre
+          ? `${value.rol === 'admin' ? 'Administrador' : 'Cliente'}: ${value.nombre}`
+          : value.email || id,
+        rol: value.rol || 'cliente',
+      }));
+      setProfiles(arr);
+    });
+    return () => unsub();
+  }, []);
+
+  // Cargar mensajes
   useEffect(() => {
     const messagesRef = ref(db, 'mensajes');
     const unsub = onValue(messagesRef, (snap) => {
       const data = snap.val() || {};
-      // Convierte en array y ordena por fecha descendente
-      const arr = Object.entries(data)
-        .map(([id, value]) => ({ id, ...value }))
+      const arr: Message[] = Object.entries(data)
+        .map(([id, value]: [string, any]) => ({ id, ...value }))
         .sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
       setMessages(arr);
     });
     return () => unsub();
   }, []);
 
-  // ---- Mostrar Pop-up al entrar si hay mensajes activos para este usuario ----
+  // Pop-up para mensajes importantes
   useEffect(() => {
-    // Filtra mensajes que le corresponden al usuario actual
     if (!usuarioActual) return;
     const mensajesParaUsuario = messages.filter(
       (m) =>
-        (m.recipients && m.recipients.includes('all')) || // para todos
+        (m.recipients && m.recipients.includes('all')) ||
         (m.recipients && m.recipients.includes(usuarioActual.id))
     );
     if (mensajesParaUsuario.length > 0) {
-      setActivePopupMessage(mensajesParaUsuario[0]); // Muestra solo el más reciente (puedes cambiar la lógica)
+      setActivePopupMessage(mensajesParaUsuario[0]);
       setShowPopup(true);
     }
   }, [messages, usuarioActual]);
 
-  // ---- Enviar mensaje (guarda en Firebase) ----
+  // Enviar mensaje
   const handleSendMessage = async () => {
     if (!newMessage.title || !newMessage.content || newMessage.recipients.length === 0) {
       toast({
@@ -90,14 +124,13 @@ export const MessagesModule = ({ usuarioActual }) => {
       });
       return;
     }
-    const message = {
+    const message: Omit<Message, 'id'> = {
       ...newMessage,
-      sentBy: usuarioActual ? usuarioActual.email : 'Admin General',
+      sentBy: usuarioActual?.email ?? 'Admin General',
       sentAt: new Date().toISOString(),
       status: "enviado",
       readBy: [],
     };
-    // Guarda en Firebase
     await push(ref(db, 'mensajes'), message);
     setNewMessage({ title: '', content: '', image: '', recipients: [] });
     setShowNewMessageModal(false);
@@ -108,22 +141,22 @@ export const MessagesModule = ({ usuarioActual }) => {
     });
   };
 
-  // ---- Destinatarios, selección múltiple ----
-  const handleRecipientChange = (profile, checked) => {
+  // Selección múltiple destinatarios
+  const handleRecipientChange = (profileId: string, checked: boolean) => {
     if (checked) {
       setNewMessage(prev => ({
         ...prev,
-        recipients: [...prev.recipients, profile]
+        recipients: [...prev.recipients, profileId]
       }));
     } else {
       setNewMessage(prev => ({
         ...prev,
-        recipients: prev.recipients.filter(r => r !== profile)
+        recipients: prev.recipients.filter(r => r !== profileId)
       }));
     }
   };
 
-  // ---- Filtrado de mensajes (para la tabla) ----
+  // Filtrado de mensajes
   const filteredMessages = messages.filter(message => {
     const matchesFilter =
       messageFilter === 'all' ||
@@ -134,12 +167,12 @@ export const MessagesModule = ({ usuarioActual }) => {
     return matchesFilter && matchesSearch;
   });
 
-  const getMessagePreview = (content) => content.length > 100 ? content.substring(0, 100) + '...' : content;
+  const getMessagePreview = (content: string) => content.length > 100 ? content.substring(0, 100) + '...' : content;
 
   // ---- UI ----
   return (
     <div className="space-y-6">
-      {/* POP-UP de mensaje importante al entrar */}
+      {/* POP-UP de mensaje importante */}
       {showPopup && activePopupMessage && (
         <Dialog open={showPopup} onOpenChange={() => setShowPopup(false)}>
           <DialogContent className="max-w-xl">
@@ -208,12 +241,16 @@ export const MessagesModule = ({ usuarioActual }) => {
                   type="file"
                   accept="image/*"
                   onChange={e => {
-                    if (e.target.files && e.target.files[0]) {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) {
                       const reader = new FileReader();
                       reader.onload = ev => {
-                        setNewMessage(prev => ({ ...prev, image: ev.target.result }));
+                        setNewMessage(prev => ({
+                          ...prev,
+                          image: typeof ev.target?.result === 'string' ? ev.target.result : ''
+                        }));
                       };
-                      reader.readAsDataURL(e.target.files[0]);
+                      reader.readAsDataURL(file);
                     }
                   }}
                 />
@@ -223,20 +260,43 @@ export const MessagesModule = ({ usuarioActual }) => {
               </div>
               <div>
                 <Label>Destinatarios</Label>
-                <div className="grid grid-cols-1 gap-2 mt-2">
-                  {profiles.map(profile => (
-                    <div key={profile.value} className="flex items-center space-x-3">
+                {profiles.length === 0 ? (
+                  <Select disabled>
+                    <SelectTrigger className="w-60">
+                      <SelectValue placeholder="No hay usuarios disponibles" />
+                    </SelectTrigger>
+                    <SelectContent />
+                  </Select>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 mt-2">
+                    {/* Opción para todos */}
+                    <div className="flex items-center space-x-3">
                       <Checkbox
-                        id={profile.value}
-                        checked={newMessage.recipients.includes(profile.value)}
-                        onCheckedChange={checked => handleRecipientChange(profile.value, checked)}
+                        id="all"
+                        checked={newMessage.recipients.includes('all')}
+                        onCheckedChange={checked =>
+                          handleRecipientChange('all', Boolean(checked))
+                        }
                       />
-                      <Label htmlFor={profile.value} className="flex-1">
-                        {profile.label}
+                      <Label htmlFor="all" className="flex-1">
+                        Todos los usuarios
                       </Label>
                     </div>
-                  ))}
-                </div>
+                    {/* Lista de usuarios */}
+                    {profiles.map(profile => (
+                      <div key={profile.value} className="flex items-center space-x-3">
+                        <Checkbox
+                          id={profile.value}
+                          checked={newMessage.recipients.includes(profile.value)}
+                          onCheckedChange={checked => handleRecipientChange(profile.value, Boolean(checked))}
+                        />
+                        <Label htmlFor={profile.value} className="flex-1">
+                          {profile.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter className="flex gap-3 pt-4">
@@ -247,7 +307,7 @@ export const MessagesModule = ({ usuarioActual }) => {
               <Button
                 onClick={handleSendMessage}
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={!newMessage.title || !newMessage.content || newMessage.recipients.length === 0}
+                disabled={!newMessage.title || !newMessage.content || !newMessage.recipients.length}
               >
                 <Send className="h-4 w-4 mr-2" />
                 Enviar Mensaje
@@ -312,7 +372,6 @@ export const MessagesModule = ({ usuarioActual }) => {
                     <Button size="sm" variant="outline" onClick={() => setSelectedMessage(message)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    {/* Eliminar mensaje: opcional */}
                   </div>
                 </div>
                 {message.image && (
@@ -320,6 +379,13 @@ export const MessagesModule = ({ usuarioActual }) => {
                 )}
                 <div className="flex flex-wrap gap-2 mb-4">
                   {message.recipients.map(recipient => {
+                    if (recipient === 'all') {
+                      return (
+                        <Badge key="all" variant="secondary">
+                          Todos los usuarios
+                        </Badge>
+                      );
+                    }
                     const profile = profiles.find(p => p.value === recipient);
                     return (
                       <Badge key={recipient} variant="secondary">
@@ -371,6 +437,13 @@ export const MessagesModule = ({ usuarioActual }) => {
                 <h4 className="font-medium mb-2">Destinatarios:</h4>
                 <div className="flex flex-wrap gap-2">
                   {selectedMessage.recipients.map(recipient => {
+                    if (recipient === 'all') {
+                      return (
+                        <Badge key="all" variant="secondary">
+                          Todos los usuarios
+                        </Badge>
+                      );
+                    }
                     const profile = profiles.find(p => p.value === recipient);
                     return (
                       <Badge key={recipient} variant="secondary">
@@ -405,3 +478,5 @@ export const MessagesModule = ({ usuarioActual }) => {
     </div>
   );
 };
+
+export default MessagesModule;
