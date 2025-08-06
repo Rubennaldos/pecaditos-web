@@ -22,6 +22,7 @@ export const BillingDashboard = () => {
   const [topPayers, setTopPayers] = useState<any[]>([]);
   const [worstPayers, setWorstPayers] = useState<any[]>([]);
   const [alerts, setAlerts] = useState<any[]>([]);
+  const [monthlyHistoric, setMonthlyHistoric] = useState<any[]>([]);
 
   // Lectura desde RTDB
   useEffect(() => {
@@ -50,6 +51,12 @@ export const BillingDashboard = () => {
       const data = snapshot.val();
       setAlerts(Array.isArray(data) ? data : (data ? Object.values(data) : []));
     });
+
+    // Histórico mensual (nuevo)
+    onValue(ref(db, 'billingDashboard/monthlyHistoric'), (snapshot) => {
+      const data = snapshot.val();
+      setMonthlyHistoric(Array.isArray(data) ? data : (data ? Object.values(data) : []));
+    });
   }, []);
 
   // Excel Export
@@ -68,7 +75,6 @@ export const BillingDashboard = () => {
   const renderDistribution = () => {
     if (!kpis || kpis.length === 0) return null;
     // Busca los 3 KPIs principales para la gráfica
-    // Puedes adaptar los nombres según tu RTDB
     const vencidas = kpis.find(k => k.key === 'debtOverdue');
     const porVencer = kpis.find(k => k.key === 'debtDueSoon');
     const vigentes = kpis.find(k => k.key === 'debtCurrent');
@@ -96,36 +102,33 @@ export const BillingDashboard = () => {
     );
   };
 
-  // Renderiza histórico mensual ficticio (¡puedes traerlo también de Firebase!)
+  // Renderiza histórico mensual desde Firebase
   const renderMonthlyHistoric = () => (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm">Enero 2024</span>
-        <div className="flex items-center gap-2">
-          <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-            <div className="w-4/5 h-full bg-green-500"></div>
+      {monthlyHistoric.length === 0 && (
+        <div className="text-center text-stone-400">No hay histórico mensual aún.</div>
+      )}
+      {monthlyHistoric.map((item, idx) => (
+        <div key={idx} className="flex items-center justify-between">
+          <span className="text-sm">{item.label}</span>
+          <div className="flex items-center gap-2">
+            <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
+              <div
+                className="h-full"
+                style={{
+                  width: `${item.percent || 0}%`,
+                  background: (item.percent || 0) > 90
+                    ? '#16a34a'
+                    : (item.percent || 0) > 70
+                      ? '#eab308'
+                      : '#ef4444'
+                }}
+              ></div>
+            </div>
+            <span className="text-sm font-medium">{item.percent ? `${item.percent}%` : '-'}</span>
           </div>
-          <span className="text-sm font-medium">80%</span>
         </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm">Diciembre 2023</span>
-        <div className="flex items-center gap-2">
-          <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-            <div className="w-3/5 h-full bg-yellow-500"></div>
-          </div>
-          <span className="text-sm font-medium">65%</span>
-        </div>
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-sm">Noviembre 2023</span>
-        <div className="flex items-center gap-2">
-          <div className="w-20 h-2 bg-green-200 rounded-full overflow-hidden">
-            <div className="w-full h-full bg-green-600"></div>
-          </div>
-          <span className="text-sm font-medium">95%</span>
-        </div>
-      </div>
+      ))}
     </div>
   );
 

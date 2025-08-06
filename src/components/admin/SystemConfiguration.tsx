@@ -82,8 +82,56 @@ type AuditLog = {
 
 export const SystemConfiguration = () => {
 
-const [companyInfo, setCompanyInfo] = useState<any>(null);
+const [companyInfo, setCompanyInfo] = useState<any>({});
 const [loadingCompany, setLoadingCompany] = useState(true);
+const [showPreview, setShowPreview] = useState(false);
+// Consulta SUNAT / RENIEC usando la API pública de apisperu
+const consultarRucDni = async () => {
+  const numero = companyInfo.ruc;
+  if (!numero) {
+    toast({ title: "Error", description: "Debes ingresar un RUC o DNI.", variant: "destructive" });
+    return;
+  }
+
+  let url = "";
+  if (numero.length === 8) {
+    url = `https://dniruc.apisperu.com/api/v1/dni/${numero}`;
+  } else if (numero.length === 11) {
+    url = `https://dniruc.apisperu.com/api/v1/ruc/${numero}`;
+  } else {
+    toast({ title: "Formato inválido", description: "Debe ser DNI (8 dígitos) o RUC (11 dígitos).", variant: "destructive" });
+    return;
+  }
+
+  toast({ title: "Consultando...", description: "Obteniendo datos desde SUNAT/RENIEC..." });
+
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (numero.length === 8 && data.success) {
+      setCompanyInfo({
+        ...companyInfo,
+        businessName: `${data.nombres} ${data.apellidoPaterno} ${data.apellidoMaterno}`,
+        fiscalAddress: "",
+      });
+      toast({ title: "¡DNI encontrado!", description: "Datos cargados correctamente." });
+    } else if (numero.length === 11 && data.success) {
+      setCompanyInfo({
+        ...companyInfo,
+        businessName: data.razonSocial,
+        fiscalAddress: data.direccion,
+        estado: data.estado,
+        condicion: data.condicion,
+      });
+      toast({ title: "¡RUC encontrado!", description: "Datos cargados correctamente." });
+    } else {
+      toast({ title: "No encontrado", description: "No se encontró información para el número ingresado.", variant: "destructive" });
+    }
+  } catch (e) {
+    toast({ title: "Error", description: "No se pudo consultar SUNAT/RENIEC.", variant: "destructive" });
+  }
+};
 
 useEffect(() => {
   const refEmpresa = ref(db, "empresa");
@@ -304,400 +352,267 @@ if (loadingCompany || !companyInfo) {
         </TabsList>
 
         {/* Información de Empresa */}
-        <TabsContent value="company" className="space-y-6">
-          {/* Vista Previa del Dispositivo */}
-         <Card>
-  <CardHeader>
-    <CardTitle className="flex items-center justify-between">
-      <span className="flex items-center gap-2">
-        <Eye className="h-5 w-5" />
-        Vista Previa del Sistema
-      </span>
-      <div className="flex gap-2">
-        <Button
-          variant={devicePreview === 'desktop' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDevicePreview('desktop')}
-        >
-          <Monitor className="h-4 w-4 mr-1" />
-          Ver como PC
-        </Button>
-        <Button
-          variant={devicePreview === 'mobile' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setDevicePreview('mobile')}
-        >
-          <Smartphone className="h-4 w-4 mr-1" />
-          Ver como Móvil
-        </Button>
-      </div>
-    </CardTitle>
-    <CardDescription>
-      Previsualiza cómo se verá el sistema completo con la información de tu empresa
-    </CardDescription>
-  </CardHeader>
-  <CardContent>
-    <div className="flex justify-center items-center w-full min-h-[500px] py-6">
-      <div
-        className={`
-          bg-gray-100 shadow-2xl flex justify-center items-start
-          ${devicePreview === 'desktop'
-            
-            ? 'w-[1080px] h-[700px] rounded-2xl border-4 border-gray-300'
-            : 'w-[360px] h-[740px] rounded-[2.5rem] border-[10px] border-stone-300'}
-          relative transition-all duration-300
-        `}
-        style={{
-          overflow: 'hidden',
-          background: '#fff',
-          position: 'relative'
-        }}
-      >
-        {/* Simula barra superior del navegador (PC) */}
-        {devicePreview === 'desktop' && (
-          <div className="h-10 w-full flex items-center gap-2 bg-stone-200 px-6 rounded-t-xl border-b">
-            <span className="w-3 h-3 bg-red-400 rounded-full"></span>
-            <span className="w-3 h-3 bg-yellow-300 rounded-full"></span>
-            <span className="w-3 h-3 bg-green-400 rounded-full"></span>
-            <span className="ml-4 text-xs text-stone-600">pecaditosdulces.com</span>
-          </div>
-        )}
-
-        {/* Simula notch del móvil */}
-        {devicePreview === 'mobile' && (
-          <div className="absolute left-1/2 top-0 -translate-x-1/2 w-24 h-3 bg-stone-300 rounded-b-xl z-10 mt-2"></div>
-        )}
-
-        {/* ---- CONTENIDO INTERACTIVO DEL PREVIEW ---- */}
-        <div
-          className={`
-            w-full h-full overflow-y-auto flex flex-col
-            ${devicePreview === 'desktop' ? 'pt-0' : 'pt-6'}
-          `}
-        >
-          {/* Header */}
-          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-          </div>      
-{companyInfo.logo ? (
-  <img
-    src={companyInfo.logo}
-    alt="Logo"
-    className="w-12 h-12 rounded-full bg-white p-1"
-  />
-) : (
-  <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
-    <span className="text-white font-bold text-lg">
-      {(companyInfo.name && typeof companyInfo.name === "string" && companyInfo.name.length > 0) 
-        ? companyInfo.name.charAt(0) 
-        : 'P'}
-    </span>
+<TabsContent value="company" className="space-y-6">
+  <div className="flex items-center justify-between mb-4">
+    <h1 className="text-3xl font-bold text-stone-800">Configuración del Sistema</h1>
+    <Button variant="outline" onClick={() => setShowPreview(true)}>
+      <Eye className="h-5 w-5 mr-2" />
+      Mostrar Vista Previa
+    </Button>
   </div>
-)}
-<div>
-  <h3 className="font-bold text-xl">
-    {companyInfo.name || "Nombre de la empresa"}
-  </h3>
-  <p className="text-amber-100 text-sm">
-    {companyInfo.slogan || ""}
+
+  {showPreview && (
+    <Dialog open={showPreview} onOpenChange={setShowPreview}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>Vista Previa del Sistema</DialogTitle>
+        </DialogHeader>
+        <div className="flex gap-4 mb-4">
+          <Button
+            variant={devicePreview === 'desktop' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDevicePreview('desktop')}
+          >
+            <Monitor className="h-4 w-4 mr-1" />
+            Ver como PC
+          </Button>
+          <Button
+            variant={devicePreview === 'mobile' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setDevicePreview('mobile')}
+          >
+            <Smartphone className="h-4 w-4 mr-1" />
+            Ver como Móvil
+          </Button>
+        </div>
+       <LivePreview companyInfo={companyInfo} />
+      </DialogContent>
+    </Dialog>
+  )}
+
+  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Building className="h-5 w-5" />
+          Datos de la Empresa
+        </CardTitle>
+        <CardDescription>Información básica y fiscal</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="company-name">Nombre Comercial</Label>
+            <Input 
+              id="company-name"
+              value={companyInfo.name || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <Label htmlFor="business-name">Razón Social</Label>
+            <Input 
+              id="business-name"
+              value={companyInfo.businessName || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, businessName: e.target.value })}
+            />
+          </div>
+        </div>
+        <div>
+  <Label htmlFor="company-ruc">RUC/DNI</Label>
+  <div className="flex gap-2">
+    <Input
+      id="company-ruc"
+      value={companyInfo.ruc || ""}
+      onChange={(e) => setCompanyInfo({ ...companyInfo, ruc: e.target.value })}
+      placeholder="20123456789"
+      disabled={loadingCompany}
+    />
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={consultarRucDni}
+      disabled={loadingCompany}
+    >
+      <Search className="h-4 w-4" />
+    </Button>
+  </div>
+  <p className="text-xs text-stone-500 mt-1">
+    Consultará datos en SUNAT/RENIEC automáticamente
   </p>
 </div>
 
-              {devicePreview === 'desktop' && (
-                <div className="flex gap-4 text-sm">
-                  <span className="flex items-center gap-1">
-                    <Phone className="h-4 w-4" />
-                    {companyInfo.phone}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Mail className="h-4 w-4" />
-                    {companyInfo.email}
-                  </span>
-                </div>
-              )}
-            </div>
+        <div>
+          <Label htmlFor="fiscal-address">Dirección Fiscal</Label>
+          <Input 
+            id="fiscal-address"
+            value={companyInfo.fiscalAddress || ""}
+            onChange={(e) => setCompanyInfo({ ...companyInfo, fiscalAddress: e.target.value })}
+          />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <Label htmlFor="company-phone">Teléfono Principal</Label>
+            <Input 
+              id="company-phone"
+              value={companyInfo.phone || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, phone: e.target.value })}
+            />
           </div>
-
-          {/* Contenido */}
-          <div className="flex-1 p-10 flex flex-col items-center justify-center gap-6">
-            <div className="text-center">
-              <h4 className="text-2xl font-semibold text-stone-800 mb-2">
-                {companyInfo.welcomeMessage}
-              </h4>
-              <p className="text-stone-600">{companyInfo.description}</p>
-            </div>
-            <div className={`mt-4 ${devicePreview === 'desktop' ? 'flex gap-8' : 'flex flex-col gap-4 w-full'}`}>
-              <div className="bg-blue-50 p-6 rounded-lg text-center flex-1 min-w-[120px]">
-                <div className="w-14 h-14 bg-blue-500 rounded-full mx-auto mb-3"></div>
-                <p className="font-medium">Pedidos</p>
-              </div>
-              <div className="bg-green-50 p-6 rounded-lg text-center flex-1 min-w-[120px]">
-                <div className="w-14 h-14 bg-green-500 rounded-full mx-auto mb-3"></div>
-                <p className="font-medium">Producción</p>
-              </div>
-              <div className={`bg-purple-50 p-6 rounded-lg text-center flex-1 min-w-[120px] ${devicePreview === 'mobile' ? 'hidden' : ''}`}>
-                <div className="w-14 h-14 bg-purple-500 rounded-full mx-auto mb-3"></div>
-                <p className="font-medium">Reparto</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="bg-stone-100 py-4 px-8 text-center text-sm text-stone-600">
-            <p>{companyInfo.fiscalAddress}</p>
-            {devicePreview === 'desktop' && companyInfo.businessName && (
-              <p className="mt-1">
-                {companyInfo.businessName} - RUC: {companyInfo.ruc}
-              </p>
-            )}
+          <div>
+            <Label htmlFor="company-phone2">Teléfono Secundario</Label>
+            <Input 
+              id="company-phone2"
+              value={companyInfo.phone2 || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, phone2: e.target.value })}
+            />
           </div>
         </div>
-      </div>
-    </div>
-  </CardContent>
-</Card>
-
-
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            {/* Información General */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Building className="h-5 w-5" />
-                  Datos de la Empresa
-                </CardTitle>
-                <CardDescription>Información básica y fiscal</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 <div>
-  <Label htmlFor="company-name">Nombre Comercial</Label>
-  <Input 
-    id="company-name"
-    value={companyInfo.name || ""}
-    onChange={(e) => setCompanyInfo({ ...companyInfo, name: e.target.value })}
-  />
-</div>
-
-                  <div>
-                    <Label htmlFor="business-name">Razón Social</Label>
-                    <Input 
-                      id="business-name"
-                      value={companyInfo.businessName}
-                      onChange={(e) => setCompanyInfo({...companyInfo, businessName: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="company-ruc">RUC</Label>
-                  <div className="flex gap-2">
-                    <Input 
-                      id="company-ruc"
-                      value={companyInfo.ruc}
-                      onChange={(e) => setCompanyInfo({...companyInfo, ruc: e.target.value})}
-                      placeholder="20123456789"
-                    />
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => {
-                        if (companyInfo.ruc) {
-                          toast({
-                            title: "Consultando SUNAT",
-                            description: "Obteniendo datos de la empresa...",
-                          });
-                          // Aquí iría la integración con API SUNAT/RENIEC
-                          setTimeout(() => {
-                            toast({
-                              title: "Datos obtenidos",
-                              description: "Información actualizada desde SUNAT.",
-                            });
-                          }, 2000);
-                        }
-                      }}
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <p className="text-xs text-stone-500 mt-1">
-                    Consultará datos en SUNAT/RENIEC automáticamente
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="fiscal-address">Dirección Fiscal</Label>
-                  <Input 
-                    id="fiscal-address"
-                    value={companyInfo.fiscalAddress}
-                    onChange={(e) => setCompanyInfo({...companyInfo, fiscalAddress: e.target.value})}
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="company-phone">Teléfono Principal</Label>
-                    <Input 
-                      id="company-phone"
-                      value={companyInfo.phone}
-                      onChange={(e) => setCompanyInfo({...companyInfo, phone: e.target.value})}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="company-phone2">Teléfono Secundario</Label>
-                    <Input 
-                      id="company-phone2"
-                      value={companyInfo.phone2}
-                      onChange={(e) => setCompanyInfo({...companyInfo, phone2: e.target.value})}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="company-email">Email Corporativo</Label>
-                  <Input 
-                    id="company-email"
-                    type="email"
-                    value={companyInfo.email}
-                    onChange={(e) => setCompanyInfo({...companyInfo, email: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="slogan">Slogan</Label>
-                  <Input 
-                    id="slogan"
-                    value={companyInfo.slogan}
-                    onChange={(e) => setCompanyInfo({...companyInfo, slogan: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="welcome-message">Mensaje de Bienvenida</Label>
-                  <Input 
-                    id="welcome-message"
-                    value={companyInfo.welcomeMessage}
-                    onChange={(e) => setCompanyInfo({...companyInfo, welcomeMessage: e.target.value})}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company-description">Descripción</Label>
-                  <Textarea 
-                    id="company-description"
-                    value={companyInfo.description}
-                    onChange={(e) => setCompanyInfo({...companyInfo, description: e.target.value})}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Redes Sociales y Branding */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Globe className="h-5 w-5" />
-                    Redes Sociales
-                  </CardTitle>
-                  <CardDescription>Enlaces a perfiles sociales</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="facebook" className="flex items-center gap-2">
-                      <Facebook className="h-4 w-4" />
-                      Facebook
-                    </Label>
-                    <Input 
-                      id="facebook"
-                      value={companyInfo.facebook}
-                      onChange={(e) => setCompanyInfo({...companyInfo, facebook: e.target.value})}
-                      placeholder="https://facebook.com/tuempresa"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="instagram" className="flex items-center gap-2">
-                      <Instagram className="h-4 w-4" />
-                      Instagram
-                    </Label>
-                    <Input 
-                      id="instagram"
-                      value={companyInfo.instagram}
-                      onChange={(e) => setCompanyInfo({...companyInfo, instagram: e.target.value})}
-                      placeholder="https://instagram.com/tuempresa"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="whatsapp" className="flex items-center gap-2">
-                      <MessageCircle className="h-4 w-4" />
-                      WhatsApp
-                    </Label>
-                    <Input 
-                      id="whatsapp"
-                      value={companyInfo.whatsapp}
-                      onChange={(e) => setCompanyInfo({...companyInfo, whatsapp: e.target.value})}
-                      placeholder="+51999888777"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="tiktok" className="flex items-center gap-2">
-                      <Globe className="h-4 w-4" />
-                      TikTok
-                    </Label>
-                    <Input 
-                      id="tiktok"
-                      value={companyInfo.tiktok}
-                      onChange={(e) => setCompanyInfo({...companyInfo, tiktok: e.target.value})}
-                      placeholder="https://tiktok.com/@tuempresa"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="youtube" className="flex items-center gap-2">
-                      <Youtube className="h-4 w-4" />
-                      YouTube
-                    </Label>
-                    <Input 
-                      id="youtube"
-                      value={companyInfo.youtube}
-                      onChange={(e) => setCompanyInfo({...companyInfo, youtube: e.target.value})}
-                      placeholder="https://youtube.com/tuempresa"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Palette className="h-5 w-5" />
-                    Identidad Visual
-                  </CardTitle>
-                  <CardDescription>Logo y elementos visuales</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="logo-upload">Logo Principal</Label>
-                    <Input id="logo-upload" type="file" accept="image/*" />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Recomendado: PNG con fondo transparente, 300x300px
-                    </p>
-                  </div>
-                  <div>
-                    <Label htmlFor="favicon-upload">Favicon</Label>
-                    <Input id="favicon-upload" type="file" accept="image/*" />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Recomendado: 32x32px, formato ICO/PNG
-                    </p>
-                  </div>
-                  <Button variant="outline" className="w-full">
-                    <Eye className="h-4 w-4 mr-2" />
-                    Previsualizar Logo
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-          </div> 
-
-          <div className="flex justify-end">
-            <Button onClick={handleSaveCompany} className="px-8">
-              Guardar Configuración de Empresa
-            </Button>
+        <div>
+          <Label htmlFor="company-email">Email Corporativo</Label>
+          <Input 
+            id="company-email"
+            type="email"
+            value={companyInfo.email || ""}
+            onChange={(e) => setCompanyInfo({ ...companyInfo, email: e.target.value })}
+          />
+        </div>
+        <div>
+          <Label htmlFor="slogan">Slogan</Label>
+          <Input 
+            id="slogan"
+            value={companyInfo.slogan || ""}
+            onChange={(e) => setCompanyInfo({ ...companyInfo, slogan: e.target.value })}
+          />
+        </div>
+        <div>
+          <Label htmlFor="welcome-message">Mensaje de Bienvenida</Label>
+          <Input 
+            id="welcome-message"
+            value={companyInfo.welcomeMessage || ""}
+            onChange={(e) => setCompanyInfo({ ...companyInfo, welcomeMessage: e.target.value })}
+          />
+        </div>
+        <div>
+          <Label htmlFor="company-description">Descripción</Label>
+          <Textarea 
+            id="company-description"
+            value={companyInfo.description || ""}
+            onChange={(e) => setCompanyInfo({ ...companyInfo, description: e.target.value })}
+          />
+        </div>
+      </CardContent>
+    </Card>
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            Redes Sociales
+          </CardTitle>
+          <CardDescription>Enlaces a perfiles sociales</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="facebook" className="flex items-center gap-2">
+              <Facebook className="h-4 w-4" />
+              Facebook
+            </Label>
+            <Input 
+              id="facebook"
+              value={companyInfo.facebook || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, facebook: e.target.value })}
+              placeholder="https://facebook.com/tuempresa"
+            />
           </div>
-        </TabsContent>
+          <div>
+            <Label htmlFor="instagram" className="flex items-center gap-2">
+              <Instagram className="h-4 w-4" />
+              Instagram
+            </Label>
+            <Input 
+              id="instagram"
+              value={companyInfo.instagram || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, instagram: e.target.value })}
+              placeholder="https://instagram.com/tuempresa"
+            />
+          </div>
+          <div>
+            <Label htmlFor="whatsapp" className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4" />
+              WhatsApp
+            </Label>
+            <Input 
+              id="whatsapp"
+              value={companyInfo.whatsapp || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, whatsapp: e.target.value })}
+              placeholder="+51999888777"
+            />
+          </div>
+          <div>
+            <Label htmlFor="tiktok" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              TikTok
+            </Label>
+            <Input 
+              id="tiktok"
+              value={companyInfo.tiktok || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, tiktok: e.target.value })}
+              placeholder="https://tiktok.com/@tuempresa"
+            />
+          </div>
+          <div>
+            <Label htmlFor="youtube" className="flex items-center gap-2">
+              <Youtube className="h-4 w-4" />
+              YouTube
+            </Label>
+            <Input 
+              id="youtube"
+              value={companyInfo.youtube || ""}
+              onChange={(e) => setCompanyInfo({ ...companyInfo, youtube: e.target.value })}
+              placeholder="https://youtube.com/tuempresa"
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Identidad Visual
+          </CardTitle>
+          <CardDescription>Logo y elementos visuales</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="logo-upload">Logo Principal</Label>
+            <Input id="logo-upload" type="file" accept="image/*" />
+            <p className="text-xs text-muted-foreground mt-1">
+              Recomendado: PNG con fondo transparente, 300x300px
+            </p>
+          </div>
+          <div>
+            <Label htmlFor="favicon-upload">Favicon</Label>
+            <Input id="favicon-upload" type="file" accept="image/*" />
+            <p className="text-xs text-muted-foreground mt-1">
+              Recomendado: 32x32px, formato ICO/PNG
+            </p>
+          </div>
+          <Button variant="outline" className="w-full">
+            <Eye className="h-4 w-4 mr-2" />
+            Previsualizar Logo
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
+  </div>
+  <div className="flex justify-end mt-6">
+    <Button onClick={handleSaveCompany} className="px-8">
+      Guardar Configuración de Empresa
+    </Button>
+  </div>
+</TabsContent>
+
 
         {/* Gestión de Usuarios */}
         <TabsContent value="users" className="space-y-6">
