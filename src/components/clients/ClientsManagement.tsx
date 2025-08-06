@@ -11,6 +11,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+
 import { 
   Search, 
   Plus, 
@@ -79,6 +89,85 @@ interface Client {
   ultimaCompra?: string;
   montoDeuda?: number;
 }
+// --- EXPORTAR PDF DETALLADO ---
+export const generateClientReportPDF = (client) => {
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text("Reporte Detallado de Cliente", 14, 16);
+
+  doc.setFontSize(12);
+  doc.text(`Razón Social: ${client.razonSocial}`, 14, 26);
+  doc.text(`RUC/DNI: ${client.rucDni}`, 14, 34);
+  doc.text(`Dirección Fiscal: ${client.direccionFiscal}`, 14, 42);
+  doc.text(`Estado: ${client.estado}`, 14, 50);
+
+  let nextY = 58;
+
+  // Sedes
+if (client.sedes?.length > 0) {
+  doc.text("Sedes:", 14, nextY + 2);
+  autoTable(doc, {
+    startY: nextY + 6,
+    head: [["Nombre", "Dirección", "Responsable", "Teléfono", "Distrito"]],
+    body: client.sedes.map(s => [
+      s.nombre,
+      s.direccion,
+      s.responsable,
+      s.telefono,
+      s.distrito || ""
+    ]),
+  });
+  // 👇 Así accedes correctamente a lastAutoTable sin que TypeScript se queje:
+  nextY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : nextY + 30;
+} else {
+  nextY += 18;
+}
+  // Contactos
+  if (client.contactos?.length > 0) {
+    doc.text("Contactos:", 14, nextY + 2);
+    autoTable(doc, {
+      startY: nextY + 6,
+      head: [["Tipo", "Nombre", "DNI", "Celular", "Correo"]],
+      body: client.contactos.map(c => [
+        c.tipo,
+        c.nombre,
+        c.dni,
+        c.celular,
+        c.correo,
+      ]),
+    });
+ // Observaciones
+if (client.observaciones) {
+  // 👇 Usar 'as any' para que TypeScript no marque error:
+  const lastY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 110;
+  doc.text("Observaciones:", 14, lastY);
+  doc.text(client.observaciones, 14, lastY + 8);
+}
+}
+  doc.save(`Reporte_${client.razonSocial || client.rucDni}.pdf`);
+};
+
+// --- EXPORTAR EXCEL ---
+export const generateClientReportExcel = (client) => {
+  const ws1 = XLSX.utils.json_to_sheet([
+    {
+      "Razón Social": client.razonSocial,
+      "RUC/DNI": client.rucDni,
+      "Dirección Fiscal": client.direccionFiscal,
+      "Estado": client.estado,
+      "Observaciones": client.observaciones
+    }
+  ]);
+  const ws2 = XLSX.utils.json_to_sheet(client.sedes || []);
+  const ws3 = XLSX.utils.json_to_sheet(client.contactos || []);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, "Cliente");
+  XLSX.utils.book_append_sheet(wb, ws2, "Sedes");
+  XLSX.utils.book_append_sheet(wb, ws3, "Contactos");
+
+  XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
+};
 
 export const ClientsManagement = () => {
   const { toast } = useToast();
@@ -118,28 +207,24 @@ export const ClientsManagement = () => {
   }, []);
 
   // --- Guardar cliente (nuevo o edición)
-  const saveClient = (client: Partial<Client>, isEdit?: boolean) => {
-    const clientsRef = ref(db, 'clients');
-    if (isEdit && client.id) {
-      // Actualiza cliente existente
-      update(ref(db, `clients/${client.id}`), {
-        ...client,
-        sedes: undefined, // No actualices sedes aquí
-        contactos: undefined // Ni contactos (los manejamos aparte)
-      });
-      toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
-    } else {
-      // Nuevo cliente
-      const newClientRef = push(clientsRef);
-      set(newClientRef, {
-        ...client,
-        fechaCreacion: Date.now(),
-        sedes: {}, // empieza vacío
-        contactos: {},
-      });
-      toast({ title: "Cliente creado", description: "Guardado correctamente" });
-    }
-  };
+ const saveClient = (client: Partial<Client>, isEdit?: boolean) => {
+  const clientsRef = ref(db, 'clients');
+  if (isEdit && client.id) {
+    // ACTUALIZA todo el objeto, incluyendo sedes y contactos
+    update(ref(db, `clients/${client.id}`), {
+      ...client
+    });
+    toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
+  } else {
+    const newClientRef = push(clientsRef);
+    set(newClientRef, {
+      ...client,
+      fechaCreacion: Date.now()
+    });
+    toast({ title: "Cliente creado", description: "Guardado correctamente" });
+  }
+};
+
 
   // --- Eliminar cliente
   const deleteClient = (id: string) => {
@@ -250,74 +335,92 @@ export const ClientsManagement = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Dialog open={isViewModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
-                      if (!open) setSelectedClient(null);
-                      setIsViewModalOpen(open);
-                    }}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedClient(client)}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Ver
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Detalles del Cliente</DialogTitle>
-                        </DialogHeader>
-                        {selectedClient && <ClientDetails client={selectedClient} />}
-                      </DialogContent>
-                    </Dialog>
+  {/* Ver */}
+  <Dialog open={isViewModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
+    if (!open) setSelectedClient(null);
+    setIsViewModalOpen(open);
+  }}>
+    <DialogTrigger asChild>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setSelectedClient(client)}
+      >
+        <Eye className="h-4 w-4 mr-1" />
+        Ver
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Detalles del Cliente</DialogTitle>
+      </DialogHeader>
+      {selectedClient && <ClientDetails client={selectedClient} />}
+    </DialogContent>
+  </Dialog>
 
-                    <Dialog open={isEditModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
-                      if (!open) setSelectedClient(null);
-                      setIsEditModalOpen(open);
-                    }}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setSelectedClient(client)}
-                        >
-                          <Edit className="h-4 w-4 mr-1" />
-                          Editar
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                        <DialogHeader>
-                          <DialogTitle>Editar Cliente</DialogTitle>
-                        </DialogHeader>
-                        {selectedClient && (
-                          <ClientForm 
-                            client={selectedClient}
-                            onSave={saveClient}
-                            onFinish={() => setIsEditModalOpen(false)} 
-                          />
-                        )}
-                      </DialogContent>
-                    </Dialog>
+  {/* Editar */}
+  <Dialog open={isEditModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
+    if (!open) setSelectedClient(null);
+    setIsEditModalOpen(open);
+  }}>
+    <DialogTrigger asChild>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => {
+          setSelectedClient(client);
+          setIsEditModalOpen(true);
+        }}
+      >
+        <Edit className="h-4 w-4 mr-1" />
+        Editar
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle>Editar Cliente</DialogTitle>
+      </DialogHeader>
+      {selectedClient && (
+        <ClientForm
+          client={selectedClient}
+          onSave={saveClient}
+          onFinish={() => setIsEditModalOpen(false)}
+        />
+      )}
+    </DialogContent>
+  </Dialog>
 
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => generateClientReport(client)}
-                    >
-                      <Download className="h-4 w-4 mr-1" />
-                      Reporte
-                    </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={() => deleteClient(client.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                      Eliminar
-                    </Button>
-                  </div>
+  {/* Reporte PDF/Excel */}
+  <DropdownMenu>
+    <DropdownMenuTrigger asChild>
+      <Button variant="outline" size="sm">
+        <Download className="h-4 w-4 mr-1" />
+        Reporte
+      </Button>
+    </DropdownMenuTrigger>
+    <DropdownMenuContent>
+      <DropdownMenuItem onClick={() => generateClientReportPDF(client)}>
+        PDF
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => generateClientReportExcel(client)}>
+        Excel
+      </DropdownMenuItem>
+    </DropdownMenuContent>
+  </DropdownMenu>
+
+  {/* Eliminar */}
+  <Button
+    variant="outline"
+    size="sm"
+    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+    onClick={() => deleteClient(client.id)}
+  >
+    <Trash2 className="h-4 w-4" />
+    Eliminar
+  </Button>
+</div>
+      
+
                 </div>
               </div>
             ))}
