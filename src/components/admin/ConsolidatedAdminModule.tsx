@@ -1,12 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  Settings,
-  Package,
-  Tag,
-  Edit3,
-  Save,
-  Plus,
-  Trash2,
+  Settings, Package, Tag, Edit3, Save, Plus, Trash2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,12 +10,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { mockProducts } from '@/data/mockData';
+import { db } from '../../config/firebase'; // Cambia según tu estructura
+import { ref, onValue, set, remove } from 'firebase/database';
 
-// ----------- INTEGRA TU DB REALTIME (EJEMPLO CON FIREBASE) -----------
-import { db } from '../../config/firebase'; // Ajusta el import según tu estructura
-import { ref, onValue, remove } from 'firebase/database';
-
+// -------- INTERFACES --------
+interface QuantityDiscount {
+  minQty: number | string;
+  price: number | string;
+}
 interface Product {
   id: string;
   name: string;
@@ -33,9 +29,9 @@ interface Product {
   stock: number;
   minOrder: number;
   isActive: boolean;
+  quantityDiscounts?: QuantityDiscount[];
   isEditing?: boolean;
 }
-
 interface Promotion {
   id: string;
   title: string;
@@ -46,37 +42,85 @@ interface Promotion {
   isActive: boolean;
 }
 
-export const ConsolidatedAdminModule = () => {
+export default function ConsolidatedAdminModule() {
   const { toast } = useToast();
 
-  // Estado productos
-  const [products, setProducts] = useState<Product[]>(
-    mockProducts.map(product => ({
-      id: product.id,
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      wholesalePrice: product.wholesalePrice || product.price * 0.75,
-      image: product.image,
-      category: product.category,
-      stock: 100,
-      minOrder: 6,
-      isActive: product.available
-    }))
-  );
+  // ---- PRODUCTOS ----
+  const [products, setProducts] = useState<Product[]>([]);
+  useEffect(() => {
+    const productsRef = ref(db, 'products');
+    const unsub = onValue(productsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data) { setProducts([]); return; }
+      const arr: Product[] = Object.entries(data).map(([id, p]: any) => ({
+        ...p, id,
+        quantityDiscounts: p.quantityDiscounts || []
+      }));
+      setProducts(arr);
+    });
+    return () => unsub();
+  }, []);
+  const addNewProduct = () => {
+    setProducts(prev => [
+      {
+        id: `prod_${Date.now()}`,
+        name: '',
+        description: '',
+        price: 0,
+        wholesalePrice: 0,
+        image: '/placeholder.svg',
+        category: '',
+        stock: 0,
+        minOrder: 6,
+        isActive: true,
+        quantityDiscounts: [],
+        isEditing: true
+      },
+      ...prev
+    ]);
+  };
+  const handleSaveProduct = (product: Product) => {
+    if (!product.name || !product.price) {
+      toast({ title: "Completa el nombre y precio", variant: "destructive" });
+      return;
+    }
+    const cleanDiscounts = (product.quantityDiscounts || [])
+      .filter(d => d.minQty && d.price)
+      .map(d => ({
+        minQty: Number(d.minQty),
+        price: Number(d.price)
+      }));
+    const refProd = ref(db, `products/${product.id}`);
+    set(refProd, {
+      ...product,
+      quantityDiscounts: cleanDiscounts,
+      isEditing: false
+    });
+    toast({ title: "Producto guardado" });
+  };
+  const handleDeleteProduct = (productId: string) => {
+    if (confirm("¿Eliminar este producto?")) {
+      remove(ref(db, `products/${productId}`));
+      toast({ title: "Producto eliminado" });
+    }
+  };
+  const handleEditProduct = (id: string) => {
+    setProducts(prev =>
+      prev.map(p =>
+        p.id === id ? { ...p, isEditing: true } : { ...p, isEditing: false }
+      )
+    );
+  };
 
-  // Estado promociones (leer de realtime database)
+  // ---- PROMOCIONES ----
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loadingPromos, setLoadingPromos] = useState(true);
-
   useEffect(() => {
-    // Suponiendo la ruta en Firebase: /promotions
     const promosRef = ref(db, 'promotions');
     const unsubscribe = onValue(promosRef, snapshot => {
       const data = snapshot.val();
-      if (!data) {
-        setPromotions([]);
-      } else {
+      if (!data) { setPromotions([]); }
+      else {
         const arrayPromos = Object.entries(data).map(([id, value]: any) => ({
           id,
           ...value
@@ -87,76 +131,24 @@ export const ConsolidatedAdminModule = () => {
     });
     return () => unsubscribe();
   }, []);
+  const handleDeletePromotion = async (promotionId: string) => {
+    if (confirm('¿Eliminar esta promoción?')) {
+      try {
+        await remove(ref(db, `promotions/${promotionId}`));
+        toast({ title: "Promoción eliminada" });
+      } catch {
+        toast({ title: "Error", description: "No se pudo eliminar la promoción." });
+      }
+    }
+  };
 
-  // Configuración general
+  // ---- CONFIGURACIÓN GENERAL ----
   const [config, setConfig] = useState({
     minOrderAmount: 300,
     freeShippingThreshold: 500,
     welcomeMessage: '¡Bienvenido al portal mayorista! Descuentos especiales disponibles.',
     termsAndConditions: 'Condiciones mayoristas aplicables...'
   });
-
-  // FUNCIONES PARA PRODUCTOS
-  const handleEditProduct = (productId: string) => {
-    setProducts(prev => prev.map(p =>
-      p.id === productId ? { ...p, isEditing: true } : { ...p, isEditing: false }
-    ));
-  };
-
-  const handleSaveProduct = (productId: string, updatedData: Partial<Product>) => {
-    setProducts(prev => prev.map(p =>
-      p.id === productId ? { ...p, ...updatedData, isEditing: false } : p
-    ));
-    toast({
-      title: "Producto actualizado",
-      description: "Los cambios han sido guardados exitosamente",
-    });
-  };
-
-  const handleDeleteProduct = (productId: string) => {
-    if (confirm('¿Eliminar este producto?')) {
-      setProducts(prev => prev.filter(p => p.id !== productId));
-      toast({
-        title: "Producto eliminado",
-        description: "El producto ha sido eliminado del catálogo",
-      });
-    }
-  };
-
-  const addNewProduct = () => {
-    const newProduct: Product = {
-      id: `prod_${Date.now()}`,
-      name: '',
-      description: '',
-      price: 0,
-      wholesalePrice: 0,
-      image: '/placeholder.svg',
-      category: 'clasicas',
-      stock: 0,
-      minOrder: 6,
-      isActive: true,
-      isEditing: true
-    };
-    setProducts(prev => [newProduct, ...prev]);
-  };
-
-  // FUNCIONES PARA PROMOCIONES
-  const handleDeletePromotion = async (promotionId: string) => {
-    if (confirm('¿Eliminar esta promoción?')) {
-      try {
-        await remove(ref(db, `promotions/${promotionId}`));
-        toast({
-          title: "Promoción eliminada",
-          description: "La promoción ha sido eliminada.",
-        });
-      } catch {
-        toast({
-          title: "Error",
-          description: "No se pudo eliminar la promoción.",
-        });
-      }
-    }
-  };
 
   return (
     <div className="p-6 space-y-6">
@@ -166,30 +158,24 @@ export const ConsolidatedAdminModule = () => {
           <p className="text-stone-600">Portal unificado de gestión mayorista y puntos de venta</p>
         </div>
       </div>
-
       <Tabs defaultValue="catalog" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="catalog" className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            Catálogo
+            <Package className="h-4 w-4" /> Catálogo
           </TabsTrigger>
           <TabsTrigger value="promotions" className="flex items-center gap-2">
-            <Tag className="h-4 w-4" />
-            Promociones
+            <Tag className="h-4 w-4" /> Promociones
           </TabsTrigger>
           <TabsTrigger value="config" className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Configuración
+            <Settings className="h-4 w-4" /> Configuración
           </TabsTrigger>
         </TabsList>
-
-        {/* TAB: CATÁLOGO MAYORISTA */}
+        {/* ----- CATÁLOGO MAYORISTA ----- */}
         <TabsContent value="catalog" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Catálogo de Productos Mayoristas</h2>
             <Button onClick={addNewProduct} className="bg-blue-500 hover:bg-blue-600">
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Producto
+              <Plus className="h-4 w-4 mr-2" /> Nuevo Producto
             </Button>
           </div>
           <div className="grid gap-4">
@@ -197,21 +183,19 @@ export const ConsolidatedAdminModule = () => {
               <ProductCard
                 key={product.id}
                 product={product}
-                onEdit={() => handleEditProduct(product.id)}
-                onSave={(data) => handleSaveProduct(product.id, data)}
-                onDelete={() => handleDeleteProduct(product.id)}
+                onSave={handleSaveProduct}
+                onDelete={handleDeleteProduct}
+                onEdit={handleEditProduct}
               />
             ))}
           </div>
         </TabsContent>
-
-        {/* TAB: PROMOCIONES */}
+        {/* ----- PROMOCIONES ----- */}
         <TabsContent value="promotions" className="space-y-4">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Promociones Activas</h2>
             <Button className="bg-purple-500 hover:bg-purple-600">
-              <Plus className="h-4 w-4 mr-2" />
-              Nueva Promoción
+              <Plus className="h-4 w-4 mr-2" /> Nueva Promoción
             </Button>
           </div>
           <div className="grid gap-4">
@@ -237,11 +221,9 @@ export const ConsolidatedAdminModule = () => {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      {/* Botón Editar (lógica futura) */}
                       <Button size="sm" variant="outline">
                         <Edit3 className="h-4 w-4" />
                       </Button>
-                      {/* Botón Eliminar promoción */}
                       <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDeletePromotion(promotion.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -252,8 +234,7 @@ export const ConsolidatedAdminModule = () => {
             ))}
           </div>
         </TabsContent>
-
-        {/* TAB: CONFIGURACIÓN */}
+        {/* ----- CONFIGURACIÓN ----- */}
         <TabsContent value="config" className="space-y-4">
           <div className="grid gap-6">
             <Card>
@@ -325,151 +306,231 @@ export const ConsolidatedAdminModule = () => {
       </Tabs>
     </div>
   );
-};
-
-// Componente para tarjetas de productos
-interface ProductCardProps {
-  product: Product;
-  onEdit: () => void;
-  onSave: (data: Partial<Product>) => void;
-  onDelete: () => void;
 }
 
-const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) => {
-  const [editData, setEditData] = useState(product);
+// --- CARD DE PRODUCTO ---
+function ProductCard({
+  product,
+  onSave,
+  onDelete,
+  onEdit
+}: {
+  product: Product;
+  onSave: (p: Product) => void;
+  onDelete: (id: string) => void;
+  onEdit: (id: string) => void;
+}) {
+  const [editData, setEditData] = useState<Product>(product);
+  useEffect(() => { setEditData(product); }, [product]);
 
   if (product.isEditing) {
     return (
       <Card className="border-2 border-blue-300">
-        <CardContent className="p-4">
-          {/* Instrucciones y orientación */}
+        <CardContent className="p-4 space-y-4 bg-orange-50">
           <div className="bg-blue-50 p-3 rounded-lg mb-4 border-l-4 border-blue-400">
-            <h4 className="font-medium text-blue-800 mb-2">💡 Guía para completar el producto</h4>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• <strong>Nombre:</strong> Escriba el nombre completo del producto</li>
-              <li>• <strong>Descripción:</strong> Detalle características, presentación, peso, etc.</li>
-              <li>• <strong>Precio Normal:</strong> Precio de venta al público individual</li>
-              <li>• <strong>Precio Mayorista:</strong> Precio con descuento para ventas al por mayor</li>
-            </ul>
-            <div className="mt-2 p-2 bg-yellow-50 rounded border-l-2 border-yellow-400">
-              <p className="text-sm text-yellow-800">
-                <strong>📊 Descuentos por Mayoreo:</strong> El precio mayorista se aplica automáticamente 
-                a clientes con perfil mayorista. Recomendamos un descuento del 15-25% sobre el precio normal.
-              </p>
-            </div>
+            <h4 className="font-medium text-blue-800 mb-1">💡 Descuentos por cantidad (mayoreo)</h4>
+            <p className="text-sm text-blue-700">
+              Ingresa diferentes niveles: A partir de <b>cierta cantidad</b> de unidades, aplica un <b>precio especial</b>. <br />
+              El % de descuento se calcula automáticamente.
+            </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Nombre del producto *
-                </label>
-                <Input
-                  placeholder="Ej: Arroz Extra Premium 5kg"
-                  value={editData.name}
-                  onChange={(e) => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700 mb-1 block">
-                  Descripción del producto
-                </label>
-                <Textarea
-                  placeholder="Ej: Arroz de grano largo, extra premium, bolsa de 5kg, ideal para restaurantes..."
-                  value={editData.description}
-                  onChange={(e) => setEditData(prev => ({ ...prev, description: e.target.value }))}
-                  rows={3}
-                />
-              </div>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Nombre del producto *</Label>
+              <Input
+                value={editData.name}
+                onChange={e => setEditData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Ej: Arroz Extra Premium 5kg"
+              />
+              <Label>Descripción del producto</Label>
+              <Textarea
+                value={editData.description}
+                onChange={e => setEditData(prev => ({ ...prev, description: e.target.value }))}
+                rows={2}
+                placeholder="Características, presentación, peso..."
+              />
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Precio Normal (S/) *
-                  </label>
+                  <Label>Precio Normal (S/)*</Label>
                   <Input
                     type="number"
+                    min={0}
                     step="0.01"
-                    placeholder="0.00"
                     value={editData.price}
-                    onChange={(e) => setEditData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
+                    onFocus={e => e.target.select()}
+                    onChange={e =>
+                      setEditData(prev => ({
+                        ...prev,
+                        price: parseFloat(e.target.value) || 0
+                      }))
+                    }
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Precio Mayorista (S/) *
-                  </label>
+                  <Label>Precio Mayorista (S/)*</Label>
                   <Input
                     type="number"
+                    min={0}
                     step="0.01"
-                    placeholder="0.00"
                     value={editData.wholesalePrice}
-                    onChange={(e) => setEditData(prev => ({ ...prev, wholesalePrice: parseFloat(e.target.value) || 0 }))}
+                    onFocus={e => e.target.select()}
+                    onChange={e =>
+                      setEditData(prev => ({
+                        ...prev,
+                        wholesalePrice: parseFloat(e.target.value) || 0
+                      }))
+                    }
                   />
                   {editData.price > 0 && editData.wholesalePrice > 0 && (
-                    <p className="text-xs text-green-600 mt-1">
-                      Descuento: {Math.round(((editData.price - editData.wholesalePrice) / editData.price) * 100)}%
-                    </p>
+                    <span className="block text-xs text-green-600 mt-1">
+                      Descuento: {Math.round((1 - editData.wholesalePrice / editData.price) * 100)}%
+                    </span>
                   )}
                 </div>
               </div>
             </div>
-            <div className="flex flex-col justify-between">
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <h5 className="font-medium text-gray-800 mb-2">📋 Resumen</h5>
-                <div className="space-y-1 text-sm">
-                  <p><strong>Producto:</strong> {editData.name || 'Sin nombre'}</p>
-                  <p><strong>Precio público:</strong> S/ {editData.price?.toFixed(2) || '0.00'}</p>
-                  <p><strong>Precio mayorista:</strong> S/ {editData.wholesalePrice?.toFixed(2) || '0.00'}</p>
-                  {editData.price > 0 && editData.wholesalePrice > 0 && (
-                    <p className="text-green-600">
-                      <strong>Ahorro mayorista:</strong> S/ {(editData.price - editData.wholesalePrice).toFixed(2)}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 mt-4">
+            {/* Descuentos por cantidad */}
+            <div>
+              <Label>Descuentos por cantidad</Label>
+              <div className="space-y-2">
+                {(editData.quantityDiscounts || []).map((d, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min={1}
+                      value={d.minQty}
+                      placeholder="Unidades"
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        let value = e.target.value;
+                        setEditData(prev => ({
+                          ...prev,
+                          quantityDiscounts: prev.quantityDiscounts?.map((q, i) =>
+                            i === idx ? { ...q, minQty: value.replace(/^0+(?=\d)/, '') } : q
+                          )
+                        }));
+                      }}
+                      className="w-20"
+                    />
+                    <span className="text-gray-600">unid. →</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={d.price}
+                      placeholder="Precio S/"
+                      onFocus={e => e.target.select()}
+                      onChange={e => {
+                        let val = e.target.value;
+                        setEditData(prev => ({
+                          ...prev,
+                          quantityDiscounts: prev.quantityDiscounts?.map((q, i) =>
+                            i === idx ? { ...q, price: val.replace(/^0+(?=\d)/, '') } : q
+                          )
+                        }));
+                      }}
+                      className="w-24"
+                    />
+                    <span className="text-xs text-green-700">
+                      {(d.price && editData.price > 0)
+                        ? `(${Math.round(100 - (Number(d.price) / editData.price) * 100)}% desc.)`
+                        : ''}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {d.minQty && d.price
+                        ? `→ Total: S/ ${(Number(d.minQty) * Number(d.price)).toFixed(2)}`
+                        : ''}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="text-red-600"
+                      onClick={() =>
+                        setEditData(prev => ({
+                          ...prev,
+                          quantityDiscounts: prev.quantityDiscounts?.filter((_, i) => i !== idx)
+                        }))
+                      }
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
                 <Button
+                  type="button"
                   size="sm"
-                  onClick={() => onSave(editData)}
-                  disabled={!editData.name || editData.price <= 0 || editData.wholesalePrice <= 0}
-                  className="flex-1"
+                  variant="outline"
+                  onClick={() =>
+                    setEditData(prev => ({
+                      ...prev,
+                      quantityDiscounts: [
+                        ...(prev.quantityDiscounts || []),
+                        { minQty: '', price: '' }
+                      ]
+                    }))
+                  }
                 >
-                  <Save className="h-4 w-4 mr-1" />
-                  Guardar
-                </Button>
-                <Button size="sm" variant="outline" onClick={onEdit}>
-                  Cancelar
+                  <Plus className="h-4 w-4 mr-1" /> Agregar nivel de descuento
                 </Button>
               </div>
             </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t">
+            <Button
+              size="sm"
+              className="flex-1"
+              onClick={() => onSave({ ...editData, isEditing: false })}
+              disabled={!editData.name || editData.price <= 0}
+            >
+              <Save className="h-4 w-4 mr-1" /> Guardar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={() => onEdit(product.id)}
+            >
+              Cancelar
+            </Button>
           </div>
         </CardContent>
       </Card>
     );
   }
-
+  // --- Visualización normal ---
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card>
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <h3 className="font-semibold text-lg">{product.name}</h3>
-            <p className="text-stone-600 text-sm mb-2">{product.description}</p>
+            <p className="text-stone-600 text-sm mb-1">{product.description}</p>
             <div className="flex items-center gap-4 text-sm">
-              <span>Normal: S/ {product.price.toFixed(2)}</span>
+              <span>Normal: S/ {product.price?.toFixed(2)}</span>
               <span className="font-medium text-green-600">
-                Mayorista: S/ {product.wholesalePrice.toFixed(2)}
+                Mayorista: S/ {product.wholesalePrice?.toFixed(2)}
               </span>
               <Badge variant={product.isActive ? "default" : "secondary"}>
                 {product.isActive ? 'Activo' : 'Inactivo'}
               </Badge>
             </div>
+            {product.quantityDiscounts?.length > 0 && (
+              <div className="mt-2 space-y-1">
+                <b className="text-xs text-blue-700">Descuentos por cantidad:</b>
+                {product.quantityDiscounts.map((q, idx) => (
+                  <div key={idx} className="text-xs text-gray-700 pl-2">
+                    Desde <b>{q.minQty}</b> unid. → S/ {Number(q.price).toFixed(2)} ({Math.round(100 - (Number(q.price) / product.price) * 100)}% desc.)
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={onEdit}>
+            <Button size="sm" variant="outline" onClick={() => onEdit(product.id)}>
               <Edit3 className="h-4 w-4" />
             </Button>
-            <Button size="sm" variant="outline" onClick={onDelete} className="text-red-600">
+            <Button size="sm" variant="outline" className="text-red-600" onClick={() => onDelete(product.id)}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
@@ -477,4 +538,4 @@ const ProductCard = ({ product, onEdit, onSave, onDelete }: ProductCardProps) =>
       </CardContent>
     </Card>
   );
-};
+}
