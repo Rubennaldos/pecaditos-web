@@ -4,7 +4,7 @@ import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
 import MessagesModule from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
-import { ConsolidatedAdminModule } from '@/components/admin/ConsolidatedAdminModule';
+import ConsolidatedAdminModule from '@/components/admin/ConsolidatedAdminModule';
 import { LocationsManagement } from "@/components/admin/LocationsManagement";
 import { Button } from '@/components/ui/button';
 import LogisticsModule from './LogisticsModule'; // Si está en la misma carpeta "pages"
