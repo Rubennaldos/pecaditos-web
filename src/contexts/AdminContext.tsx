@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { signInWithEmailAndPassword, signOut, User as FirebaseUser } from "firebase/auth";
-import { ref, get } from "firebase/database";
-import { auth, db } from '../config/firebase'; // Ajusta si cambia el path
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
+import { ref, get } from 'firebase/database';
+import { auth, db } from '../config/firebase';
 
 export type AdminProfile =
   | 'admin'
@@ -60,11 +60,10 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     }
   }, []);
 
-  // Mantener sincronizado el contexto con Firebase Auth (opcional, pero recomendado)
+  // Mantener sincronizado el contexto con Firebase Auth
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        // Busca el perfil admin en la DB si cambia el usuario autenticado
         const adminData = await getAdminProfile(firebaseUser);
         if (adminData) {
           setUser(adminData);
@@ -76,7 +75,6 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       }
     });
     return unsubscribe;
-    // eslint-disable-next-line
   }, []);
 
   // ----------- LOGIN CON FIREBASE AUTH + PERFIL EN REALTIME DATABASE -----------
@@ -104,20 +102,31 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
   // ----------- TRAER PERFIL ADMIN DESDE REALTIME DATABASE -----------
   const getAdminProfile = async (firebaseUser: FirebaseUser): Promise<AdminUser | null> => {
     try {
-      const adminRef = ref(db, `usuarios/${firebaseUser.uid}`);
-      const snapshot = await get(adminRef);
+      // Evita consultar la DB si aún no hay uid (previene "Permission denied" en login)
+      if (!firebaseUser?.uid) return null;
+
+      const userRef = ref(db, `usuarios/${firebaseUser.uid}`);
+      const snapshot = await get(userRef);
+
       if (snapshot.exists()) {
-  const data = snapshot.val();
-  return {
-    id: firebaseUser.uid,
-    email: data.correo || firebaseUser.email || '',
-    name: data.nombre || '',
-    profile: data.rol || 'adminGeneral', // tu campo se llama 'rol'
-    permissions: data.permissions || ['all'],
-    lastLogin: new Date().toISOString(),
-    isActive: data.activo !== false, // tu campo se llama 'activo'
-  };
-}
+        const data = snapshot.val();
+
+        // Mapea tus campos: correo, nombre, rol, activo
+        const profile: AdminProfile =
+          (data.rol as AdminProfile) && ['admin', 'adminGeneral', 'pedidos', 'reparto', 'produccion', 'seguimiento', 'cobranzas'].includes(data.rol)
+            ? (data.rol as AdminProfile)
+            : 'adminGeneral';
+
+        return {
+          id: firebaseUser.uid,
+          email: data.correo || firebaseUser.email || '',
+          name: data.nombre || '',
+          profile,
+          permissions: Array.isArray(data.permissions) ? data.permissions : ['all'],
+          lastLogin: new Date().toISOString(),
+          isActive: data.activo !== false,
+        };
+      }
 
       return null;
     } catch (e) {
@@ -136,10 +145,10 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     signOut(auth);
   };
 
-  // Puedes mantener impersonate y las demás igual
+  // Impersonate (solo si el perfil actual es 'admin' o 'adminGeneral')
   const impersonate = (targetProfile: AdminProfile) => {
-    if (!user || user.profile !== 'admin') {
-      console.error('Solo el admin puede impersonar otros perfiles');
+    if (!user || !['admin', 'adminGeneral'].includes(user.profile)) {
+      console.error('Solo el admin o adminGeneral puede impersonar otros perfiles');
       return;
     }
     if (!originalProfile) {
@@ -157,7 +166,8 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
 
   const canAccessSection = (section: string): boolean => {
     if (!user) return false;
-    if (user.profile === 'admin') return true;
+    // 'admin' y 'adminGeneral' ven todo
+    if (user.profile === 'admin' || user.profile === 'adminGeneral') return true;
 
     const sectionPermissions: Record<string, string[]> = {
       dashboard: ['all'],
@@ -167,11 +177,11 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       customers: ['customers.view', 'all'],
       billing: ['billing.view', 'all'],
       users: ['all'],
-      reports: ['all']
+      reports: ['all'],
     };
 
     const requiredPermissions = sectionPermissions[section] || [];
-    return requiredPermissions.some(perm => hasPermission(perm));
+    return requiredPermissions.some((perm) => hasPermission(perm));
   };
 
   const logActivity = (action: string, details?: any) => {
@@ -180,10 +190,10 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
       user: user?.email || 'unknown',
       profile: user?.profile || 'unknown',
       action,
-      details: details || {}
+      details: details || {},
     };
     console.log('Admin Activity Log:', logEntry);
-    // Puedes agregar aquí la subida a Firebase/Realtime si lo necesitas
+    // Aquí podrías guardar en Realtime DB si quieres
   };
 
   const value = {
@@ -194,12 +204,8 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     impersonate,
     hasPermission,
     canAccessSection,
-    logActivity
+    logActivity,
   };
 
-  return (
-    <AdminContext.Provider value={value}>
-      {children}
-    </AdminContext.Provider>
-  );
+  return <AdminContext.Provider value={value}>{children}</AdminContext.Provider>;
 };

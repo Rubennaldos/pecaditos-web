@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { LogisticsProvider } from '@/contexts/LogisticsContext';
 import { LogisticsLogin } from '@/components/logistics/LogisticsLogin';
 import { useLogistics } from '@/contexts/LogisticsContext';
-import { Sidebar, SidebarContent, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarProvider } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
@@ -20,7 +20,8 @@ import {
   Users,
   Bell
 } from 'lucide-react';
-import { InventoryModule } from '@/components/logistics/InventoryModule';
+// ⬇️ QUITAMOS InventoryModule y usamos el LogisticsModule nuevo
+// import { InventoryModule } from '@/components/logistics/InventoryModule';
 import { PurchaseOrdersModule } from '@/components/logistics/PurchaseOrdersModule';
 import { MovementHistoryModule } from '@/components/logistics/MovementHistoryModule';
 import { ReportsModule } from '@/components/logistics/ReportsModule';
@@ -28,6 +29,9 @@ import { SettingsModule } from '@/components/logistics/SettingsModule';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+
+// ⬇️ IMPORTA EL MÓDULO NUEVO (está en la misma carpeta /pages)
+import LogisticsModule from './LogisticsModule';
 
 const LogisticsPanelContent = () => {
   const { user, logout, isAdminMode, toggleAdminMode, inventory, alerts } = useLogistics();
@@ -318,7 +322,8 @@ const LogisticsPanelContent = () => {
       case 'dashboard':
         return renderDashboard();
       case 'inventory':
-        return <InventoryModule />;
+        // ⬇️ AQUI USAMOS EL MÓDULO NUEVO
+        return <LogisticsModule />;
       case 'purchase-orders':
         return <PurchaseOrdersModule />;
       case 'movement-history':

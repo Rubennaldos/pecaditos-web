@@ -21,51 +21,25 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => {
   const location = useLocation();
-  const { user: retailUser } = useAuth();
-  const { user: wholesaleUser } = useWholesaleAuth();
-  const { user: adminUser } = useAdmin();
 
-  // Determinar usuario actual
-  const currentUser = adminUser || wholesaleUser || retailUser;
+  // Sesiones disponibles
+  const { user: retailUser } = useAuth();               // cliente retail (landing / compras)
+  const { user: wholesaleUser } = useWholesaleAuth();   // cliente mayorista
+  const { user: adminUser } = useAdmin();               // admin con perfil desde /usuarios/{uid}
 
-  // *** DETECCIÓN DE PERFIL POR EMAIL ***
-  const getUserProfile = (user: any): string | null => {
-    if (!user) return null;
-    const email = user.email || '';
+  // Perfil normalizado (prioridad: admin > mayorista > retail > público)
+  const userProfile: string =
+    adminUser?.profile ??
+    (wholesaleUser ? 'mayorista' :
+    (retailUser ? 'retail' : 'public'));
 
-    // ADMIN GENERAL - Incluye tu email
-    if (
-      email === 'admin@pecaditos.com' ||
-      email === 'albertonaldos@gmail.com'
-    )
-      return 'admin';
-
-    if (email === 'pedidos@pecaditos.com') return 'pedidos';
-    if (email === 'reparto@pecaditos.com') return 'reparto';
-    if (email === 'produccion@pecaditos.com') return 'produccion';
-    if (email === 'cobranzas@pecaditos.com') return 'cobranzas';
-    if (email === 'logistica@pecaditos.com') return 'logistica';
-
-    // Mayoristas
-    if (
-      email.includes('@ejemplo.com') ||
-      email.includes('distribuidora') ||
-      email.includes('minimarket') ||
-      email.includes('mayorista')
-    ) {
-      return 'mayorista';
-    }
-
-    // Retail (default)
-    return 'retail';
-  };
-
-  const userProfile = getUserProfile(currentUser);
+  const isAdmin = (p: string) => p === 'admin' || p === 'adminGeneral';
 
   // Ruta principal por perfil
   const getProfileMainRoute = (profile: string): string => {
     switch (profile) {
       case 'admin':
+      case 'adminGeneral':
         return '/admin';
       case 'pedidos':
         return '/pedidos';
@@ -80,72 +54,69 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
       case 'mayorista':
         return '/mayorista';
       case 'retail':
-        return '/'; // landing
       default:
         return '/';
     }
   };
 
-  // Configuración de acceso por ruta
-  const routeConfig = {
+  // Configuración de acceso por tipo de ruta
+  const routeConfig: Record<RouteType, {
+    allowedProfiles: string[];
+    redirectTo: string;
+    requireAuth: boolean;
+    message: string;
+  }> = {
     CATALOG_RETAIL: {
-      allowedProfiles: ['admin'],
+      allowedProfiles: ['admin', 'adminGeneral'],
       redirectTo: '/',
       requireAuth: true,
       message: 'Catálogo minorista temporalmente no disponible',
     },
     CATALOG_WHOLESALE: {
-      allowedProfiles: ['mayorista', 'admin'],
+      allowedProfiles: ['mayorista', 'admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido a mayoristas autorizados',
     },
     ADMIN: {
-      allowedProfiles: ['admin'],
+      allowedProfiles: ['admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido a administrador general',
     },
     ORDERS: {
-      allowedProfiles: ['pedidos', 'admin'],
+      allowedProfiles: ['pedidos', 'admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido al área de pedidos',
     },
     DELIVERY: {
-      allowedProfiles: ['reparto', 'admin'],
+      allowedProfiles: ['reparto', 'admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido al área de reparto',
     },
     PRODUCTION: {
-      allowedProfiles: ['produccion', 'admin'],
+      allowedProfiles: ['produccion', 'admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido al área de producción',
     },
     BILLING: {
-      allowedProfiles: ['cobranzas', 'admin'],
+      allowedProfiles: ['cobranzas', 'admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido al área de cobranzas',
     },
     LOGISTICS: {
-      allowedProfiles: ['logistica', 'admin'],
+      allowedProfiles: ['logistica', 'admin', 'adminGeneral'],
       redirectTo: '/login',
       requireAuth: true,
       message: 'Acceso restringido al área de logística',
     },
     PUBLIC: {
       allowedProfiles: [
-        'admin',
-        'mayorista',
-        'pedidos',
-        'reparto',
-        'produccion',
-        'cobranzas',
-        'retail',
-        'public',
+        'admin', 'adminGeneral', 'mayorista', 'pedidos', 'reparto', 'produccion', 'cobranzas', 'retail', 'public',
       ],
       redirectTo: '/',
       requireAuth: false,
@@ -155,35 +126,34 @@ export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => 
 
   const config = routeConfig[routeType];
 
-  // Si no requiere autenticación, permitir acceso
+  // 1) Si no requiere autenticación → pasa directo
   if (!config.requireAuth) {
     return <>{children}</>;
   }
 
-  // Si requiere autenticación pero no hay usuario logueado
-  if (config.requireAuth && !currentUser) {
-    console.log(
-      `🔒 Acceso denegado: No hay usuario autenticado para ${routeType}`
-    );
+  // 2) Requiere autenticación y NO hay ningún user
+  const hasAnyUser = !!(adminUser || wholesaleUser || retailUser);
+  if (!hasAnyUser) {
+    console.log(`🔒 Acceso denegado: No hay usuario autenticado para ${routeType}`);
     return <Navigate to={config.redirectTo} state={{ from: location }} replace />;
   }
 
-  // Verificar permisos por perfil específico
-  if (!config.allowedProfiles.includes(userProfile || '')) {
-    console.log(
-      `🚫 Acceso denegado: Usuario con perfil "${userProfile}" intentó acceder a ${routeType}`
-    );
+  // 3) Admin siempre tiene pase (admin o adminGeneral)
+  if (isAdmin(userProfile)) {
+    console.log(`✅ Acceso autorizado (admin): ${routeType}`);
+    return <>{children}</>;
+  }
+
+  // 4) Validación normal por lista
+  if (!config.allowedProfiles.includes(userProfile)) {
+    console.log(`🚫 Acceso denegado: perfil "${userProfile}" en ${routeType}`);
     console.log(`📄 Mensaje: ${config.message}`);
-
-    const userMainRoute = getProfileMainRoute(userProfile || '');
+    const userMainRoute = getProfileMainRoute(userProfile);
     console.log(`🔄 Redirigiendo a: ${userMainRoute}`);
-
     return <Navigate to={userMainRoute} state={{ from: location }} replace />;
   }
 
-  // Usuario autorizado - permitir acceso
-  console.log(
-    `✅ Acceso autorizado: Usuario con perfil "${userProfile}" accedió a ${routeType}`
-  );
+  // 5) Permitido
+  console.log(`✅ Acceso autorizado: perfil "${userProfile}" en ${routeType}`);
   return <>{children}</>;
 };

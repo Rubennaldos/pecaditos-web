@@ -1,6 +1,4 @@
-
-// Mock Data para desarrollo y pruebas
-// TODO: Estos datos serán reemplazados por Firebase en producción
+// Modelos/Interfaces del sistema
 
 export interface Product {
   id: string;
@@ -52,16 +50,16 @@ export interface OrderItem {
   subtotal: number;
 }
 
-// PRODUCTOS - Sistema limpio, sin datos de ejemplo
+// PRODUCTOS - limpio para integración Firebase
 export const mockProducts: Product[] = [];
 
-// USUARIOS - Sistema limpio, sin datos de ejemplo
+// USUARIOS - limpio para integración Firebase
 export const mockUsers: User[] = [];
 
-// PEDIDOS - Sistema limpio, sin datos de ejemplo
+// PEDIDOS - limpio para integración Firebase
 export const mockOrders: Order[] = [];
 
-// CATEGORÍAS DE PRODUCTOS
+// CATEGORÍAS DE PRODUCTOS (puedes migrar esto a Firebase si deseas editar desde panel de admin)
 export const productCategories = [
   { id: 'todas', name: 'Todas', description: 'Ver todos los productos' },
   { id: 'clasicas', name: 'Clásicas', description: 'Nuestros sabores tradicionales' },
@@ -99,17 +97,22 @@ export const appConfig = {
 };
 
 /*
-INSTRUCCIONES PARA USAR MOCK DATA:
+==================== INSTRUCCIONES DE USO ====================
+- Para DESARROLLO:
+    import { mockProducts, mockOrders } from '@/data/mockData';
+    Usar estos arrays para simular datos.
+- Para PRODUCCIÓN (con Firebase):
+    Reemplaza el uso de mockProducts, mockOrders, mockUsers por
+    fetch desde Firebase, por ejemplo:
 
-1. Estos datos simulan lo que vendrá de Firebase
-2. En components, usar estos datos para mostrar información
-3. Cuando Firebase esté configurado, reemplazar las llamadas por:
-   - ref(database, 'products') para productos
-   - ref(database, 'orders') para pedidos
-   - ref(database, 'users') para usuarios
+    import { ref, onValue } from 'firebase/database';
+    const dbRef = ref(database, 'products');
+    onValue(dbRef, (snapshot) => {
+      const data = snapshot.val();
+      // ...
+    });
 
-4. Para desarrollo, importar así:
-   import { mockProducts, mockOrders } from '@/data/mockData';
-
-5. Para producción, reemplazar por servicios de Firebase
+- Puedes borrar estos mocks cuando todo esté migrado a Firebase.
+==============================================================
 */
+

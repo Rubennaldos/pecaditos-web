@@ -1,8 +1,7 @@
-
 import { useState } from 'react';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { HeroSection } from '@/components/sections/HeroSection';
+import HeroSection from '@/components/sections/HeroSection'; // <- sin llaves
 import { MainCards } from '@/components/sections/MainCards';
 import { OrderTracking } from '@/components/sections/OrderTracking';
 import { SocialMedia } from '@/components/sections/SocialMedia';
@@ -29,8 +28,8 @@ const Index = () => {
         <SocialMedia />
       </main>
       <Footer />
-      
-      <OrderTrackingModal 
+
+      <OrderTrackingModal
         isOpen={isTrackingModalOpen}
         onClose={handleCloseTrackingModal}
       />

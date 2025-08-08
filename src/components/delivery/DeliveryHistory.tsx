@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   History, 
   Search, 
@@ -18,80 +17,33 @@ import {
   Phone
 } from 'lucide-react';
 
+// <-- Reemplaza con tu consulta real: -->
+const deliveryHistory: any[] = []; // ← Datos vacíos para integrar con tu backend
+
 export const DeliveryHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [filterDeliveryPerson, setFilterDeliveryPerson] = useState('todos');
 
-  // Mock delivery history data - integrar con Firebase
-  const deliveryHistory = [
-    {
-      id: "ENTREGA-001",
-      orderId: "PEC-2024-001",
-      clientName: "Distribuidora El Sol SAC",
-      clientPhone: "+51 999 111 222",
-      clientAddress: "Av. Los Olivos 123, San Isidro",
-      deliveryPerson: "Carlos Mendoza",
-      deliveryPersonEmail: "carlos@pecaditos.com",
-      takenAt: "2024-01-15T09:30:00",
-      deliveredAt: "2024-01-15T11:45:00",
-      deliveryNotes: "Entrega exitosa. Cliente satisfecho con la calidad.",
-      orderTotal: 780.00,
-      deliveryTime: "2h 15min"
-    },
-    {
-      id: "ENTREGA-002",
-      orderId: "PEC-2024-002",
-      clientName: "Minimarket Los Andes",
-      clientPhone: "+51 999 333 444",
-      clientAddress: "Jr. Las Flores 456, Miraflores",
-      deliveryPerson: "Ana Gutierrez",
-      deliveryPersonEmail: "ana@pecaditos.com",
-      takenAt: "2024-01-14T14:20:00",
-      deliveredAt: "2024-01-14T15:30:00",
-      deliveryNotes: "Entrega sin inconvenientes.",
-      orderTotal: 450.00,
-      deliveryTime: "1h 10min"
-    },
-    {
-      id: "ENTREGA-003",
-      orderId: "PEC-2024-003",
-      clientName: "Bodega Don Carlos",
-      clientPhone: "+51 999 555 666",
-      clientAddress: "Calle Santa Rosa 789, San Borja",
-      deliveryPerson: "Carlos Mendoza",
-      deliveryPersonEmail: "carlos@pecaditos.com",
-      takenAt: "2024-01-13T16:00:00",
-      deliveredAt: "2024-01-13T17:20:00",
-      deliveryNotes: "Cliente solicitó factura adicional para contabilidad.",
-      orderTotal: 225.00,
-      deliveryTime: "1h 20min"
-    }
-  ];
-
-  // Get unique delivery persons for filter
-  const deliveryPersons = [...new Set(deliveryHistory.map(d => d.deliveryPersonEmail))];
-
-  // Get current user's deliveries only (simulate logged in delivery person)
-  const currentUser = "carlos@pecaditos.com"; // This would come from auth context
-  const currentUserDeliveries = deliveryHistory.filter(d => d.deliveryPersonEmail === currentUser);
+  // Aquí obtienes el usuario real del auth context cuando lo conectes
+  const currentUser = ""; // ← Asignar email/ID de usuario autenticado
+  const currentUserDeliveries = deliveryHistory.filter(d => !currentUser || d.deliveryPersonEmail === currentUser);
 
   const filteredDeliveries = currentUserDeliveries.filter(delivery => {
     const matchesSearch = !searchTerm || 
-      delivery.orderId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      delivery.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      delivery.clientPhone.includes(searchTerm);
-    
+      delivery.orderId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      delivery.clientName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      delivery.clientPhone?.includes(searchTerm);
+
     const matchesDateFrom = !dateFrom || new Date(delivery.deliveredAt) >= new Date(dateFrom);
     const matchesDateTo = !dateTo || new Date(delivery.deliveredAt) <= new Date(dateTo + 'T23:59:59');
-    
+
     return matchesSearch && matchesDateFrom && matchesDateTo;
   });
 
   const exportHistory = () => {
-    console.log('Exportando historial de entregas del repartidor...');
-    // TODO: Implementar exportación a Excel/PDF
+    // Implementa tu lógica de export aquí
   };
 
   return (
@@ -149,7 +101,11 @@ export const DeliveryHistory = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Tiempo Promedio</p>
-                <p className="text-2xl font-bold">1h 35min</p>
+                <p className="text-2xl font-bold">
+                  {/* Calcula promedio cuando lo tengas */}
+                  {/* Mostrar "—" si está vacío */}
+                  —
+                </p>
               </div>
               <Clock className="h-6 w-6 text-orange-500" />
             </div>
@@ -160,7 +116,10 @@ export const DeliveryHistory = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Entregas Exitosas</p>
-                <p className="text-2xl font-bold text-green-600">100%</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {/* Calcula porcentaje real cuando tengas datos */}
+                  —
+                </p>
               </div>
               <CheckCircle className="h-6 w-6 text-green-500" />
             </div>
@@ -232,9 +191,9 @@ export const DeliveryHistory = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold">S/ {delivery.orderTotal.toFixed(2)}</div>
+                  <div className="text-lg font-bold">S/ {delivery.orderTotal?.toFixed(2) ?? '—'}</div>
                   <div className="text-sm text-green-600 font-medium">
-                    {delivery.deliveryTime}
+                    {delivery.deliveryTime ?? '—'}
                   </div>
                 </div>
               </div>
@@ -245,19 +204,19 @@ export const DeliveryHistory = () => {
                   <div className="flex items-center gap-2 text-sm">
                     <Clock className="h-4 w-4 text-stone-400" />
                     <span className="font-medium">Tomado:</span>
-                    <span>{new Date(delivery.takenAt).toLocaleString()}</span>
+                    <span>{delivery.takenAt ? new Date(delivery.takenAt).toLocaleString() : '—'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <CheckCircle className="h-4 w-4 text-green-500" />
                     <span className="font-medium">Entregado:</span>
-                    <span>{new Date(delivery.deliveredAt).toLocaleString()}</span>
+                    <span>{delivery.deliveredAt ? new Date(delivery.deliveredAt).toLocaleString() : '—'}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-sm">
                     <User className="h-4 w-4 text-stone-400" />
                     <span className="font-medium">Repartidor:</span>
-                    <span>{delivery.deliveryPerson}</span>
+                    <span>{delivery.deliveryPerson ?? '—'}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Package className="h-4 w-4 text-stone-400" />
@@ -266,8 +225,6 @@ export const DeliveryHistory = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Delivery Notes */}
               {delivery.deliveryNotes && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-3">
                   <h4 className="font-medium text-green-800 mb-1">Observaciones de la entrega:</h4>

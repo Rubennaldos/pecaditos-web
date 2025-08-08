@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,26 +8,13 @@ interface DashboardSummaryProps {
 }
 
 export const DashboardSummary = ({ isMayorista = false }: DashboardSummaryProps) => {
-  // Mock data - EDITAR AQUÍ para personalizar los datos del dashboard
+  // Ahora vacío
   const mockData = {
-    recentOrders: isMayorista ? [
-      { id: 'ORD-M001', date: '2024-01-15', status: 'En tránsito', total: 450 },
-      { id: 'ORD-M002', date: '2024-01-10', status: 'Entregado', total: 320 }
-    ] : [
-      { id: 'ORD001', date: '2024-01-15', status: 'En tránsito', total: 85 },
-      { id: 'ORD002', date: '2024-01-12', status: 'Entregado', total: 65 }
-    ],
-    notifications: isMayorista ? [
-      { type: 'promo', message: '¡Nuevo descuento por volumen disponible!' },
-      { type: 'product', message: 'Galletas de quinua ahora disponibles' }
-    ] : [
-      { type: 'promo', message: '¡Oferta especial: 15% off en combos familiares!' },
-      { type: 'product', message: 'Nuevo sabor: Galletas de cúrcuma y jengibre' }
-    ]
+    recentOrders: [],
+    notifications: []
   };
 
   const handleSpecialQuote = () => {
-    // Aquí se abriría un modal o formulario para cotización especial
     alert('Funcionalidad de cotización especial - Por implementar');
   };
 
@@ -49,20 +35,26 @@ export const DashboardSummary = ({ isMayorista = false }: DashboardSummaryProps)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {mockData.recentOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">{order.id}</p>
-                    <p className="text-xs text-stone-500">{order.date}</p>
-                  </div>
-                  <div className="text-right">
-                    <Badge variant={order.status === 'Entregado' ? 'default' : 'secondary'} className="text-xs">
-                      {order.status}
-                    </Badge>
-                    <p className="text-sm font-medium mt-1">S/ {order.total}</p>
-                  </div>
+              {mockData.recentOrders.length === 0 ? (
+                <div className="text-stone-400 text-sm text-center py-6">
+                  No tienes pedidos recientes.
                 </div>
-              ))}
+              ) : (
+                mockData.recentOrders.map((order) => (
+                  <div key={order.id} className="flex items-center justify-between p-3 bg-stone-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">{order.id}</p>
+                      <p className="text-xs text-stone-500">{order.date}</p>
+                    </div>
+                    <div className="text-right">
+                      <Badge variant={order.status === 'Entregado' ? 'default' : 'secondary'} className="text-xs">
+                        {order.status}
+                      </Badge>
+                      <p className="text-sm font-medium mt-1">S/ {order.total}</p>
+                    </div>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 
@@ -78,18 +70,24 @@ export const DashboardSummary = ({ isMayorista = false }: DashboardSummaryProps)
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {mockData.notifications.map((notification, index) => (
-                <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-                  <div className="flex-shrink-0">
-                    {notification.type === 'promo' ? (
-                      <Gift className="h-4 w-4 text-blue-600 mt-0.5" />
-                    ) : (
-                      <AlertCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                    )}
-                  </div>
-                  <p className="text-sm text-stone-700">{notification.message}</p>
+              {mockData.notifications.length === 0 ? (
+                <div className="text-stone-400 text-sm text-center py-6">
+                  No tienes avisos por mostrar.
                 </div>
-              ))}
+              ) : (
+                mockData.notifications.map((notification, index) => (
+                  <div key={index} className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex-shrink-0">
+                      {notification.type === 'promo' ? (
+                        <Gift className="h-4 w-4 text-blue-600 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                      )}
+                    </div>
+                    <p className="text-sm text-stone-700">{notification.message}</p>
+                  </div>
+                ))
+              )}
             </CardContent>
           </Card>
 

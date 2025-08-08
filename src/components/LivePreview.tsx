@@ -2,9 +2,9 @@ import { useState } from "react";
 
 export default function LivePreview({ companyInfo }) {
   const [device, setDevice] = useState("mobile");
-  const [show, setShow] = useState(true);
+  const [show, setShow] = useState(false);
 
-  // El botón flotante solo aparece si el preview está oculto
+  // Botón flotante "ojito"
   if (!show) {
     return (
       <button
@@ -13,18 +13,21 @@ export default function LivePreview({ companyInfo }) {
           position: "fixed",
           bottom: 40,
           right: 40,
-          zIndex: 1200,
-          padding: 16,
+          zIndex: 50,
+          width: 48,
+          height: 48,
           borderRadius: "50%",
           background: "#fff",
-          boxShadow: "0 2px 12px #0002",
-          border: "2px solid #e5e5e5",
-          cursor: "pointer",
-          fontSize: 22
+          boxShadow: "0 4px 14px rgba(0,0,0,0.16)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "none",
+          cursor: "pointer"
         }}
-        title="Mostrar Vista Previa"
+        title="Mostrar vista previa"
       >
-        👁️
+        <span role="img" aria-label="ojo" style={{ fontSize: 28 }}>👁️</span>
       </button>
     );
   }

@@ -19,37 +19,60 @@ import {
 
 // FIREBASE
 import { getDatabase, ref, onValue, update, remove } from 'firebase/database';
-import { app } from '@/config/firebase'; // Asegúrate de que la ruta esté bien
+import { app } from '@/config/firebase'; // Ajusta la ruta si es necesario
+
+type Movement = {
+  id: string;
+  type?: string;
+  client?: string;
+  amount?: number | string;
+  date?: string;
+  description?: string;
+  method?: string;
+  user?: string;
+};
 
 export const BillingHistory = () => {
   const [isAdminMode] = useState(true); // O usa tu contexto real
   const [filterType, setFilterType] = useState('todos');
   const [filterClient, setFilterClient] = useState('');
   const [filterMonth, setFilterMonth] = useState('todos');
-  const [selectedMovement, setSelectedMovement] = useState<any>(null);
+  const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [movements, setMovements] = useState<any[]>([]);
+  const [movements, setMovements] = useState<Movement[]>([]);
   const [editData, setEditData] = useState<any>({});
   const [deleteReason, setDeleteReason] = useState('');
 
-  // Lectura de Firebase RTDB
+  // Lectura de Firebase RTDB y conversión a array
   useEffect(() => {
     const db = getDatabase(app);
     const movementsRef = ref(db, 'billingMovements');
     const unsubscribe = onValue(movementsRef, (snapshot) => {
       const data = snapshot.val();
       if (!data) return setMovements([]);
-      // Convierte a array y ordena por fecha descendente
-      const array = Object.entries(data).map(([id, val]) => ({ id, ...val }));
-      array.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setMovements(array);
+      // Convierte a array y asegura tipado
+      const array = Object.entries(data).map(([id, val]) =>
+        typeof val === 'object' && val !== null
+          ? { id, ...val }
+          : { id }
+      ) as Movement[];
+
+      // SOLO ordena los que tengan 'date', el resto queda al final
+      const withDate = array.filter(item => !!item.date);
+      const withoutDate = array.filter(item => !item.date);
+
+      withDate.sort((a, b) => 
+        new Date(b.date!).getTime() - new Date(a.date!).getTime()
+      );
+
+      setMovements([...withDate, ...withoutDate]);
     });
     return () => unsubscribe();
   }, []);
 
-  const getMovementInfo = (type: string) => {
+  const getMovementInfo = (type?: string) => {
     switch (type) {
       case 'payment_received':
         return { color: 'bg-green-100 text-green-800', text: 'Pago Recibido', icon: CheckCircle };
@@ -66,6 +89,7 @@ export const BillingHistory = () => {
 
   // Editar movimiento en Firebase
   const confirmEdit = async () => {
+    if (!selectedMovement) return;
     const db = getDatabase(app);
     const refMov = ref(db, `billingMovements/${selectedMovement.id}`);
     await update(refMov, editData);
@@ -73,8 +97,9 @@ export const BillingHistory = () => {
     setSelectedMovement(null);
   };
 
-  // Eliminar movimiento en Firebase (guarda motivo en log si quieres)
+  // Eliminar movimiento en Firebase
   const confirmDelete = async () => {
+    if (!selectedMovement) return;
     const db = getDatabase(app);
     await remove(ref(db, `billingMovements/${selectedMovement.id}`));
     setShowDeleteModal(false);
@@ -82,20 +107,20 @@ export const BillingHistory = () => {
     setDeleteReason('');
   };
 
-  const handleEditMovement = (movement: any) => {
+  const handleEditMovement = (movement: Movement) => {
     setSelectedMovement(movement);
     setEditData({
-      description: movement.description,
-      amount: movement.amount,
-      method: movement.method,
+      description: movement.description ?? '',
+      amount: movement.amount ?? '',
+      method: movement.method ?? '',
     });
     setShowEditModal(true);
   };
 
   const filteredMovements = movements.filter(movement => {
     const matchesType = filterType === 'todos' || movement.type === filterType;
-    const matchesClient = !filterClient || movement.client?.toLowerCase().includes(filterClient.toLowerCase());
-    const matchesMonth = filterMonth === 'todos' || movement.date?.startsWith(filterMonth);
+    const matchesClient = !filterClient || (movement.client ?? '').toLowerCase().includes(filterClient.toLowerCase());
+    const matchesMonth = filterMonth === 'todos' || (movement.date ?? '').startsWith(filterMonth);
     return matchesType && matchesClient && matchesMonth;
   });
 
@@ -146,10 +171,9 @@ export const BillingHistory = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los meses</SelectItem>
-                {/* Genera meses según movimientos */}
                 {[...new Set(movements.map(m => m.date?.slice(0, 7)))].filter(Boolean).map(mes => (
-                  <SelectItem key={mes} value={mes}>
-                    {new Date(mes + '-01').toLocaleString('es-PE', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
+                  <SelectItem key={mes} value={mes!}>
+                    {new Date(mes! + '-01').toLocaleString('es-PE', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -204,7 +228,7 @@ export const BillingHistory = () => {
                         'text-stone-800'
                       }`}>
                         {movement.type === 'payment_received' ? '+' : ''}
-                        S/ {Number(movement.amount).toFixed(2)}
+                        S/ {Number(movement.amount ?? 0).toFixed(2)}
                       </div>
                       <div className="text-sm text-stone-500">
                         {movement.date && new Date(movement.date).toLocaleString()}
@@ -290,7 +314,7 @@ export const BillingHistory = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Monto</label>
-                  <p className="font-semibold">S/ {Number(selectedMovement.amount).toFixed(2)}</p>
+                  <p className="font-semibold">S/ {Number(selectedMovement.amount ?? 0).toFixed(2)}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Fecha</label>
