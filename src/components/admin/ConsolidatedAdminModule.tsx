@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import {
-  Settings, Package, Tag, Edit3, Save, Plus, Trash2
-} from 'lucide-react';
+import { Settings, Package, Tag, Edit3, Save, Plus, Trash2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +8,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { db } from '../../config/firebase'; // Cambia según tu estructura
+import { db } from '../../config/firebase'; // Ajusta si tu ruta es distinta
 import { ref, onValue, set, remove } from 'firebase/database';
+
+// NUEVO: pestaña de promociones separada
+import PromotionsTab from './promotions/PromotionsTab';
 
 // -------- INTERFACES --------
 interface QuantityDiscount {
@@ -32,15 +33,6 @@ interface Product {
   quantityDiscounts?: QuantityDiscount[];
   isEditing?: boolean;
 }
-interface Promotion {
-  id: string;
-  title: string;
-  description: string;
-  discount: number;
-  validUntil: string;
-  products: string[];
-  isActive: boolean;
-}
 
 export default function ConsolidatedAdminModule() {
   const { toast } = useToast();
@@ -53,13 +45,15 @@ export default function ConsolidatedAdminModule() {
       const data = snapshot.val();
       if (!data) { setProducts([]); return; }
       const arr: Product[] = Object.entries(data).map(([id, p]: any) => ({
-        ...p, id,
+        ...p,
+        id,
         quantityDiscounts: p.quantityDiscounts || []
       }));
       setProducts(arr);
     });
     return () => unsub();
   }, []);
+
   const addNewProduct = () => {
     setProducts(prev => [
       {
@@ -79,6 +73,7 @@ export default function ConsolidatedAdminModule() {
       ...prev
     ]);
   };
+
   const handleSaveProduct = (product: Product) => {
     if (!product.name || !product.price) {
       toast({ title: "Completa el nombre y precio", variant: "destructive" });
@@ -98,48 +93,20 @@ export default function ConsolidatedAdminModule() {
     });
     toast({ title: "Producto guardado" });
   };
+
   const handleDeleteProduct = (productId: string) => {
     if (confirm("¿Eliminar este producto?")) {
       remove(ref(db, `products/${productId}`));
       toast({ title: "Producto eliminado" });
     }
   };
+
   const handleEditProduct = (id: string) => {
     setProducts(prev =>
       prev.map(p =>
         p.id === id ? { ...p, isEditing: true } : { ...p, isEditing: false }
       )
     );
-  };
-
-  // ---- PROMOCIONES ----
-  const [promotions, setPromotions] = useState<Promotion[]>([]);
-  const [loadingPromos, setLoadingPromos] = useState(true);
-  useEffect(() => {
-    const promosRef = ref(db, 'promotions');
-    const unsubscribe = onValue(promosRef, snapshot => {
-      const data = snapshot.val();
-      if (!data) { setPromotions([]); }
-      else {
-        const arrayPromos = Object.entries(data).map(([id, value]: any) => ({
-          id,
-          ...value
-        }));
-        setPromotions(arrayPromos);
-      }
-      setLoadingPromos(false);
-    });
-    return () => unsubscribe();
-  }, []);
-  const handleDeletePromotion = async (promotionId: string) => {
-    if (confirm('¿Eliminar esta promoción?')) {
-      try {
-        await remove(ref(db, `promotions/${promotionId}`));
-        toast({ title: "Promoción eliminada" });
-      } catch {
-        toast({ title: "Error", description: "No se pudo eliminar la promoción." });
-      }
-    }
   };
 
   // ---- CONFIGURACIÓN GENERAL ----
@@ -158,6 +125,7 @@ export default function ConsolidatedAdminModule() {
           <p className="text-stone-600">Portal unificado de gestión mayorista y puntos de venta</p>
         </div>
       </div>
+
       <Tabs defaultValue="catalog" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="catalog" className="flex items-center gap-2">
@@ -170,6 +138,7 @@ export default function ConsolidatedAdminModule() {
             <Settings className="h-4 w-4" /> Configuración
           </TabsTrigger>
         </TabsList>
+
         {/* ----- CATÁLOGO MAYORISTA ----- */}
         <TabsContent value="catalog" className="space-y-4">
           <div className="flex justify-between items-center">
@@ -190,50 +159,12 @@ export default function ConsolidatedAdminModule() {
             ))}
           </div>
         </TabsContent>
-        {/* ----- PROMOCIONES ----- */}
+
+        {/* ----- PROMOCIONES (separado en componente) ----- */}
         <TabsContent value="promotions" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Promociones Activas</h2>
-            <Button className="bg-purple-500 hover:bg-purple-600">
-              <Plus className="h-4 w-4 mr-2" /> Nueva Promoción
-            </Button>
-          </div>
-          <div className="grid gap-4">
-            {loadingPromos && (
-              <div className="text-center text-gray-400">Cargando promociones...</div>
-            )}
-            {!loadingPromos && promotions.length === 0 && (
-              <div className="text-center text-gray-500">No hay promociones activas.</div>
-            )}
-            {promotions.map((promotion) => (
-              <Card key={promotion.id}>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="font-semibold text-lg">{promotion.title}</h3>
-                      <p className="text-stone-600 mb-2">{promotion.description}</p>
-                      <div className="flex items-center gap-4 text-sm">
-                        <Badge variant="secondary">{promotion.discount}% descuento</Badge>
-                        <span>Válido hasta: {promotion.validUntil}</span>
-                        <Badge variant={promotion.isActive ? "default" : "secondary"}>
-                          {promotion.isActive ? 'Activa' : 'Inactiva'}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline">
-                        <Edit3 className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" className="text-red-600" onClick={() => handleDeletePromotion(promotion.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <PromotionsTab products={products} />
         </TabsContent>
+
         {/* ----- CONFIGURACIÓN ----- */}
         <TabsContent value="config" className="space-y-4">
           <div className="grid gap-6">
@@ -498,6 +429,7 @@ function ProductCard({
       </Card>
     );
   }
+
   // --- Visualización normal ---
   return (
     <Card>
