@@ -42,7 +42,7 @@ export const BillingHistory = () => {
       const data = snapshot.val();
       if (!data) return setMovements([]);
       // Convierte a array y ordena por fecha descendente
-      const array = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+      const array = Object.entries(data).map(([id, val]) => ({ id, ...(val as any) }));
       array.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       setMovements(array);
     });

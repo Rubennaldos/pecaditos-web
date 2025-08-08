@@ -85,7 +85,27 @@ export const SystemConfiguration = () => {
 const [companyInfo, setCompanyInfo] = useState<any>({});
 const [loadingCompany, setLoadingCompany] = useState(true);
 const [showPreview, setShowPreview] = useState(false);
+const [logoFile, setLogoFile] = useState<File | null>(null);
+const [logoPreview, setLogoPreview] = useState<string>("");
 // Consulta SUNAT / RENIEC usando la API pública de apisperu
+const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const file = event.target.files?.[0];
+  if (file) {
+    setLogoFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setLogoPreview(result);
+      setCompanyInfo({ ...companyInfo, logo: result });
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+const handlePreviewLogo = () => {
+  setShowPreview(true);
+};
+
 const consultarRucDni = async () => {
   const numero = companyInfo.ruc;
   if (!numero) {
@@ -586,10 +606,24 @@ if (loadingCompany || !companyInfo) {
         <CardContent className="space-y-4">
           <div>
             <Label htmlFor="logo-upload">Logo Principal</Label>
-            <Input id="logo-upload" type="file" accept="image/*" />
+            <Input 
+              id="logo-upload" 
+              type="file" 
+              accept="image/*" 
+              onChange={handleLogoUpload}
+            />
             <p className="text-xs text-muted-foreground mt-1">
               Recomendado: PNG con fondo transparente, 300x300px
             </p>
+            {logoPreview && (
+              <div className="mt-2">
+                <img 
+                  src={logoPreview} 
+                  alt="Logo preview" 
+                  className="w-16 h-16 rounded-lg object-cover border"
+                />
+              </div>
+            )}
           </div>
           <div>
             <Label htmlFor="favicon-upload">Favicon</Label>
@@ -598,7 +632,7 @@ if (loadingCompany || !companyInfo) {
               Recomendado: 32x32px, formato ICO/PNG
             </p>
           </div>
-          <Button variant="outline" className="w-full">
+          <Button variant="outline" className="w-full" onClick={handlePreviewLogo}>
             <Eye className="h-4 w-4 mr-2" />
             Previsualizar Logo
           </Button>
