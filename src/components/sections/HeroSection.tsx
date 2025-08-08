@@ -18,13 +18,16 @@ export const HeroSection = () => {
     const refEmpresa = ref(db, "empresa");
     const unsubscribe = onValue(refEmpresa, (snapshot) => {
       const data = snapshot.val();
+      console.log("Datos de empresa obtenidos:", data);
       if (data) {
-        setCompanyInfo({
+        const newCompanyInfo = {
           name: data.name || "Pecaditos",
           slogan: data.slogan || "Los mejores sabores artesanales, directamente a tu mesa",
           description: data.description || "Descubre nuestras galletas artesanales hechas con ingredientes 100% integrales. Cada bocado es una experiencia única que cuida tu bienestar.",
           logo: data.logo || "https://images.unsplash.com/photo-1572635196184-84e35138cf62?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80"
-        });
+        };
+        console.log("Actualizando companyInfo:", newCompanyInfo);
+        setCompanyInfo(newCompanyInfo);
       }
     });
     

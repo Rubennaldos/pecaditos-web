@@ -232,12 +232,14 @@ useEffect(() => {
   const handleSaveCompany = async () => {
   if (!companyInfo) return;
   try {
+    console.log("Guardando información de empresa:", companyInfo);
     await update(ref(db, "empresa"), companyInfo);
     toast({
       title: "Configuración guardada",
       description: "Los datos de la empresa se han actualizado correctamente.",
     });
   } catch (error) {
+    console.error("Error al guardar empresa:", error);
     toast({
       title: "Error al guardar",
       description: "No se pudo guardar la información. Intenta nuevamente.",
