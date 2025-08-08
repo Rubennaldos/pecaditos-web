@@ -153,15 +153,16 @@ const consultarRucDni = async () => {
   }
 };
 
-useEffect(() => {
-  const refEmpresa = ref(db, "empresa");
-  const unsub = onValue(refEmpresa, snap => {
-    setCompanyInfo(snap.val() || {});
-
-    setLoadingCompany(false);
-  });
-  return () => unsub();
-}, []);
+  useEffect(() => {
+    const refEmpresa = ref(db, "empresa");
+    const unsub = onValue(refEmpresa, snap => {
+      const data = snap.val();
+      console.log("Datos de empresa cargados en admin:", data);
+      setCompanyInfo(data || {});
+      setLoadingCompany(false);
+    });
+    return () => unsub();
+  }, []);
 
 
 
