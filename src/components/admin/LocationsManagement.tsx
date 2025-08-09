@@ -1,15 +1,89 @@
+// src/components/admin/LocationsManagement.tsx
 import React, { useEffect, useState } from "react";
 import { ref, onValue, push, update, remove } from "firebase/database";
 import { db } from "@/config/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Edit, Trash2, Plus, Star, StarHalf, StarOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import UbigeoSelector from "../UbigeoSelector";
+
+// ---------- Helpers de compresión a DataURL ----------
+function dataUrlKB(dataUrl: string) {
+  const head = "base64,";
+  const i = dataUrl.indexOf(head);
+  const base64 = i >= 0 ? dataUrl.slice(i + head.length) : dataUrl;
+  const bytes = Math.ceil((base64.length * 3) / 4);
+  return bytes / 1024;
+}
+
+async function loadImageFromFile(file: File): Promise<HTMLImageElement> {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await new Promise((res, rej) => {
+      img.onload = () => res(null);
+      img.onerror = rej;
+    });
+    return img;
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Comprime a DataURL. Limita el lado mayor y va bajando calidad
+ * hasta quedar por debajo de maxKB (o hasta un mínimo razonable).
+ */
+async function compressToDataUrl(
+  file: File,
+  {
+    maxSizePx = 360, // lado mayor
+    quality = 0.8,   // calidad inicial
+    maxKB = 200,     // tamaño objetivo aprox
+  }: { maxSizePx?: number; quality?: number; maxKB?: number } = {}
+): Promise<string> {
+  const img = await loadImageFromFile(file);
+  let q = quality;
+  let target = maxSizePx;
+
+  // Si el navegador soporta WebP lo usamos; si no, JPEG
+  const supportsWebP = (() => {
+    try {
+      const c = document.createElement("canvas");
+      return c.toDataURL("image/webp").startsWith("data:image/webp");
+    } catch {
+      return false;
+    }
+  })();
+  const mime = supportsWebP ? "image/webp" : "image/jpeg";
+
+  while (true) {
+    const scale = Math.min(target / Math.max(img.width, img.height), 1);
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const dataUrl = canvas.toDataURL(mime, q);
+    const kb = dataUrlKB(dataUrl);
+
+    if (kb <= maxKB || (q <= 0.55 && target <= 280)) {
+      return dataUrl;
+    }
+    if (q > 0.55) q -= 0.1; else target -= 40;
+  }
+}
+// ------------------------------------------------------
 
 interface Location {
   id: string;
@@ -21,6 +95,7 @@ interface Location {
   provincia?: string;
   distrito?: string;
   comentarios?: LocationComment[];
+  logoDataUrl?: string; // <-- NUEVO
 }
 
 interface LocationComment {
@@ -40,6 +115,7 @@ export const LocationsManagement = () => {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editLocation, setEditLocation] = useState<Location | null>(null);
+
   const [form, setForm] = useState<Omit<Location, "id" | "comentarios">>({
     nombre: "",
     direccion: "",
@@ -48,6 +124,7 @@ export const LocationsManagement = () => {
     departamento: "",
     provincia: "",
     distrito: "",
+    logoDataUrl: "", // <-- NUEVO
   });
 
   const [commentsModal, setCommentsModal] = useState<Location | null>(null);
@@ -95,8 +172,18 @@ export const LocationsManagement = () => {
             departamento: location.departamento || "",
             provincia: location.provincia || "",
             distrito: location.distrito || "",
+            logoDataUrl: location.logoDataUrl || "",
           }
-        : { nombre: "", direccion: "", telefono: "", mapsUrl: "", departamento: "", provincia: "", distrito: "" }
+        : {
+            nombre: "",
+            direccion: "",
+            telefono: "",
+            mapsUrl: "",
+            departamento: "",
+            provincia: "",
+            distrito: "",
+            logoDataUrl: "",
+          }
     );
     setShowModal(true);
   };
@@ -104,7 +191,16 @@ export const LocationsManagement = () => {
   const handleCloseModal = () => {
     setShowModal(false);
     setEditLocation(null);
-    setForm({ nombre: "", direccion: "", telefono: "", mapsUrl: "", departamento: "", provincia: "", distrito: "" });
+    setForm({
+      nombre: "",
+      direccion: "",
+      telefono: "",
+      mapsUrl: "",
+      departamento: "",
+      provincia: "",
+      distrito: "",
+      logoDataUrl: "",
+    });
   };
 
   const handleSave = async () => {
@@ -119,14 +215,19 @@ export const LocationsManagement = () => {
       toast({ title: "Completa todos los campos, incluyendo ubigeo", variant: "destructive" });
       return;
     }
-    if (editLocation) {
-      await update(ref(db, `locations/${editLocation.id}`), form);
-      toast({ title: "Ubicación actualizada" });
-    } else {
-      await push(ref(db, "locations"), { ...form });
-      toast({ title: "Ubicación agregada" });
+    try {
+      if (editLocation) {
+        await update(ref(db, `locations/${editLocation.id}`), { ...form });
+        toast({ title: "Ubicación actualizada" });
+      } else {
+        await push(ref(db, "locations"), { ...form, active: true });
+        toast({ title: "Ubicación agregada" });
+      }
+      handleCloseModal();
+    } catch (e) {
+      console.error(e);
+      toast({ title: "Error al guardar", description: "Intenta nuevamente.", variant: "destructive" });
     }
-    handleCloseModal();
   };
 
   const handleDelete = async (loc: Location) => {
@@ -199,16 +300,18 @@ export const LocationsManagement = () => {
             <Card key={loc.id}>
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <MapPin className="h-5 w-5" />
+                  {loc.logoDataUrl ? (
+                    <img src={loc.logoDataUrl} alt={loc.nombre} className="h-6 w-6 rounded object-cover" />
+                  ) : (
+                    <MapPin className="h-5 w-5" />
+                  )}
                   <CardTitle>{loc.nombre}</CardTitle>
                   <Badge variant="outline" className="ml-auto">
                     {loc.telefono}
                   </Badge>
                 </div>
-                <div className="flex items-center gap-1 text-xs mt-2 text-stone-500">
-                  {loc.direccion}
-                </div>
-                {/* MOSTRAR UBIGEO */}
+                <div className="flex items-center gap-1 text-xs mt-2 text-stone-500">{loc.direccion}</div>
+                {/* UBIGEO */}
                 <div className="flex gap-1 mt-1 text-xs text-stone-400">
                   {loc.departamento && <span>{loc.departamento}</span>}
                   {loc.provincia && <span>› {loc.provincia}</span>}
@@ -229,16 +332,11 @@ export const LocationsManagement = () => {
                 <div className="flex items-center gap-2 mb-2">
                   {renderStars(avg)}
                   <span className="text-xs text-stone-500">
-                    {avg > 0 ? avg.toFixed(1) : "Sin calificación"} (
-                    {loc.comentarios?.length || 0})
+                    {avg > 0 ? avg.toFixed(1) : "Sin calificación"} ({loc.comentarios?.length || 0})
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleOpenModal(loc)}
-                  >
+                  <Button size="sm" variant="outline" onClick={() => handleOpenModal(loc)}>
                     <Edit className="h-4 w-4 mr-1" /> Editar
                   </Button>
                   <Button
@@ -264,9 +362,7 @@ export const LocationsManagement = () => {
           );
         })}
         {filtered.length === 0 && (
-          <div className="col-span-full text-center text-stone-400 py-8">
-            No se encontraron ubicaciones
-          </div>
+          <div className="col-span-full text-center text-stone-400 py-8">No se encontraron ubicaciones</div>
         )}
       </div>
 
@@ -274,9 +370,7 @@ export const LocationsManagement = () => {
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editLocation ? "Editar Ubicación/Cliente" : "Agregar Ubicación/Cliente"}
-            </DialogTitle>
+            <DialogTitle>{editLocation ? "Editar Ubicación/Cliente" : "Agregar Ubicación/Cliente"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input
@@ -299,6 +393,34 @@ export const LocationsManagement = () => {
               value={form.mapsUrl}
               onChange={(e) => setForm((f) => ({ ...f, mapsUrl: e.target.value }))}
             />
+
+            {/* LOGO / FOTO */}
+            <div className="space-y-2">
+              <Label>Logo / foto (opcional)</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const dataUrl = await compressToDataUrl(f, { maxSizePx: 360, quality: 0.8, maxKB: 200 });
+                  setForm((prev) => ({ ...prev, logoDataUrl: dataUrl }));
+                }}
+              />
+              {form.logoDataUrl ? (
+                <div className="flex items-center gap-3">
+                  <img src={form.logoDataUrl} alt="Logo" className="h-16 w-16 object-cover rounded-md border" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setForm((prev) => ({ ...prev, logoDataUrl: "" }))}
+                  >
+                    Quitar logo
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+
             {/* UBIGEO SELECTOR */}
             <UbigeoSelector
               departamento={form.departamento || ""}
@@ -306,12 +428,9 @@ export const LocationsManagement = () => {
               distrito={form.distrito || ""}
               onChange={handleUbigeoChange}
             />
+
             <div className="flex gap-2 justify-end pt-2">
-              <Button
-                variant="outline"
-                onClick={handleCloseModal}
-                type="button"
-              >
+              <Button variant="outline" onClick={handleCloseModal} type="button">
                 Cancelar
               </Button>
               <Button onClick={handleSave} type="button">
@@ -322,8 +441,7 @@ export const LocationsManagement = () => {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL COMENTARIOS ... */}
-      {/* Puedes dejar igual el bloque de comentarios que tenías antes */}
+      {/* (Comentarios: puedes conservar tu implementación actual aquí) */}
     </div>
   );
 };

@@ -1,7 +1,8 @@
 // src/config/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
-import { getAuth } from "firebase/auth"; // <-- solo para exportar un auth mínimo
+import { getAuth } from "firebase/auth";
+import { getFunctions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAZdGe8o4ZQtSqHXVWS42Lk7Hb_eltnV4A",
@@ -14,11 +15,11 @@ const firebaseConfig = {
   measurementId: "G-3PV0358P6Y"
 };
 
-// Evita múltiples inicializaciones
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// Exporta db y un auth mínimo (no modifica nada en tu base)
 const db = getDatabase(app);
 const auth = getAuth(app);
+// importante: misma región donde desplegaste la Function (us-central1)
+const functions = getFunctions(app, "us-central1");
 
-export { app, db, auth };
+export { app, db, auth, functions };
