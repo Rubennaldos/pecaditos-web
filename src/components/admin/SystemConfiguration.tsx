@@ -1,22 +1,24 @@
 // src/components/admin/SystemConfiguration.tsx
-import LivePreview from '../LivePreview';
 import React, { useEffect, useState } from 'react';
-import { db } from '../../config/firebase';
+import LivePreview from '../LivePreview';
+
 import { ref, onValue, update } from 'firebase/database';
+import { db } from '../../config/firebase';
+
 import { LandingConfig } from './LandingConfig';
 import UsersAdmin from './UsersAdmin';
 import FooterEditor from './FooterEditor';
 
 import { Settings, Database, Eye, Calendar } from 'lucide-react';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
@@ -34,6 +36,7 @@ export const SystemConfiguration = () => {
   const [companyInfo, setCompanyInfo] = useState<any>({});
   const [loadingCompany, setLoadingCompany] = useState(true);
 
+  // Cargar /empresa (para la previsualización)
   useEffect(() => {
     const refEmpresa = ref(db, 'empresa');
     const unsub = onValue(refEmpresa, (snap) => {
@@ -43,6 +46,7 @@ export const SystemConfiguration = () => {
     return () => unsub();
   }, []);
 
+  // Parámetros (solo UI)
   const [systemSettings, setSystemSettings] = useState({
     maxDeliveryTime: 120,
     criticalStock: 5,
@@ -53,6 +57,7 @@ export const SystemConfiguration = () => {
     emailNotifications: true,
   });
 
+  // Auditoría
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditFilter, setAuditFilter] = useState({ user: '', module: 'all', dateFrom: '', dateTo: '' });
 
@@ -60,7 +65,9 @@ export const SystemConfiguration = () => {
     const auditRef = ref(db, 'auditLogs');
     const off = onValue(auditRef, (snapshot) => {
       const data = snapshot.val();
-      const logs = data ? Object.entries(data).map(([id, value]: [string, any]) => ({ id, ...(value as AuditLog) })) : [];
+      const logs = data
+        ? Object.entries(data).map(([id, value]: [string, any]) => ({ id, ...(value as AuditLog) }))
+        : [];
       setAuditLogs(logs);
     });
     return () => off();
@@ -69,7 +76,9 @@ export const SystemConfiguration = () => {
   const filteredAuditLogs = auditLogs.filter((log) => {
     return (
       (!auditFilter.user || String(log.user || '').toLowerCase().includes(auditFilter.user.toLowerCase())) &&
-      (!auditFilter.module || auditFilter.module === 'all' || String(log.module || '').toLowerCase().includes(auditFilter.module.toLowerCase()))
+      (!auditFilter.module ||
+        auditFilter.module === 'all' ||
+        String(log.module || '').toLowerCase().includes(auditFilter.module.toLowerCase()))
     );
   });
 
@@ -97,6 +106,7 @@ export const SystemConfiguration = () => {
         <p className="text-stone-600 mt-1">Administra usuarios, parámetros y configuración general</p>
       </div>
 
+      {/* Mini preview */}
       <LivePreview companyInfo={companyInfo} />
 
       <Tabs defaultValue="users" className="space-y-6">
@@ -130,7 +140,12 @@ export const SystemConfiguration = () => {
                     id="delivery-time"
                     type="number"
                     value={systemSettings.maxDeliveryTime}
-                    onChange={(e) => setSystemSettings({ ...systemSettings, maxDeliveryTime: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        maxDeliveryTime: parseInt(e.target.value || '0', 10),
+                      })
+                    }
                   />
                 </div>
                 <div>
@@ -139,7 +154,12 @@ export const SystemConfiguration = () => {
                     id="critical-stock"
                     type="number"
                     value={systemSettings.criticalStock}
-                    onChange={(e) => setSystemSettings({ ...systemSettings, criticalStock: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        criticalStock: parseInt(e.target.value || '0', 10),
+                      })
+                    }
                   />
                 </div>
                 <div>
@@ -148,7 +168,12 @@ export const SystemConfiguration = () => {
                     id="low-stock"
                     type="number"
                     value={systemSettings.lowStock}
-                    onChange={(e) => setSystemSettings({ ...systemSettings, lowStock: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        lowStock: parseInt(e.target.value || '0', 10),
+                      })
+                    }
                   />
                 </div>
                 <div>
@@ -157,7 +182,12 @@ export const SystemConfiguration = () => {
                     id="overdue-days"
                     type="number"
                     value={systemSettings.overduePaymentDays}
-                    onChange={(e) => setSystemSettings({ ...systemSettings, overduePaymentDays: parseInt(e.target.value) })}
+                    onChange={(e) =>
+                      setSystemSettings({
+                        ...systemSettings,
+                        overduePaymentDays: parseInt(e.target.value || '0', 10),
+                      })
+                    }
                   />
                 </div>
               </CardContent>
@@ -175,7 +205,9 @@ export const SystemConfiguration = () => {
                   </div>
                   <Switch
                     checked={systemSettings.autoNotifications}
-                    onCheckedChange={(checked) => setSystemSettings({ ...systemSettings, autoNotifications: checked })}
+                    onCheckedChange={(checked) =>
+                      setSystemSettings({ ...systemSettings, autoNotifications: checked })
+                    }
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -185,7 +217,9 @@ export const SystemConfiguration = () => {
                   </div>
                   <Switch
                     checked={systemSettings.whatsappIntegration}
-                    onCheckedChange={(checked) => setSystemSettings({ ...systemSettings, whatsappIntegration: checked })}
+                    onCheckedChange={(checked) =>
+                      setSystemSettings({ ...systemSettings, whatsappIntegration: checked })
+                    }
                   />
                 </div>
                 <div className="flex items-center justify-between">
@@ -195,7 +229,9 @@ export const SystemConfiguration = () => {
                   </div>
                   <Switch
                     checked={systemSettings.emailNotifications}
-                    onCheckedChange={(checked) => setSystemSettings({ ...systemSettings, emailNotifications: checked })}
+                    onCheckedChange={(checked) =>
+                      setSystemSettings({ ...systemSettings, emailNotifications: checked })
+                    }
                   />
                 </div>
               </CardContent>
@@ -231,7 +267,10 @@ export const SystemConfiguration = () => {
                 </div>
                 <div>
                   <Label htmlFor="filter-module">Módulo</Label>
-                  <Select value={auditFilter.module} onValueChange={(value) => setAuditFilter({ ...auditFilter, module: value })}>
+                  <Select
+                    value={auditFilter.module}
+                    onValueChange={(value) => setAuditFilter({ ...auditFilter, module: value })}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Todos los módulos" />
                     </SelectTrigger>
@@ -287,63 +326,80 @@ export const SystemConfiguration = () => {
                             {new Date(Number(log.timestamp)).toLocaleString('es-PE')}
                           </div>
                         </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium">{String(log.user || '')}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-xs">
-                          {String(log.action || '')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">{String(log.module || '')}</Badge>
-                      </TableCell>
-                      <TableCell className="max-w-md">
-                        <p className="text-sm text-muted-foreground truncate">{String(log.details || '')}</p>
-                      </TableCell>
-                      <TableCell>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm">
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Detalle de Auditoría</DialogTitle>
-                              <DialogDescription>Información completa de la acción registrada</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-2 text-sm">
-                              <div><b>Usuario:</b> {String(log.user || '')}</div>
-                              <div><b>Acción:</b> {String(log.action || '')}</div>
-                              <div><b>Módulo:</b> {String(log.module || '')}</div>
-                              <div><b>Fecha:</b> {new Date(Number(log.timestamp)).toLocaleString('es-PE')}</div>
-                              <div><b>Detalles:</b> {String(log.details || '')}</div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{String(log.user || '')}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {String(log.action || '')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{String(log.module || '')}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <p className="text-sm text-muted-foreground truncate">
+                            {String(log.details || '')}
+                          </p>
+                        </TableCell>
+                        <TableCell>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" size="sm">
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                              <DialogHeader>
+                                <DialogTitle>Detalle de Auditoría</DialogTitle>
+                                <DialogDescription>
+                                  Información completa de la acción registrada
+                                </DialogDescription>
+                              </DialogHeader>
+                              <div className="space-y-2 text-sm">
+                                <div>
+                                  <b>Usuario:</b> {String(log.user || '')}
+                                </div>
+                                <div>
+                                  <b>Acción:</b> {String(log.action || '')}
+                                </div>
+                                <div>
+                                  <b>Módulo:</b> {String(log.module || '')}
+                                </div>
+                                <div>
+                                  <b>Fecha:</b>{' '}
+                                  {new Date(Number(log.timestamp)).toLocaleString('es-PE')}
+                                </div>
+                                <div>
+                                  <b>Detalles:</b> {String(log.details || '')}
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      {/* FOOTER */}
-      <TabsContent value="footer" className="space-y-6">
-        <FooterEditor />
-      </TabsContent>
+        {/* FOOTER */}
+        <TabsContent value="footer" className="space-y-6">
+          <FooterEditor />
+        </TabsContent>
 
-      {/* INICIO (Landing) */}
-      <TabsContent value="landing">
-        <LandingConfig />
-      </TabsContent>
-    </Tabs>
-  </div>
-);
+        {/* INICIO (Landing) */}
+        <TabsContent value="landing">
+          <LandingConfig />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
 };
+
+export default SystemConfiguration;

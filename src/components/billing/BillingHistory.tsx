@@ -1,46 +1,49 @@
+// src/components/billing/BillingHistory.tsx
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { 
-  Download, 
-  Filter, 
-  Clock, 
-  CheckCircle, 
-  X, 
+import {
+  Download,
+  Filter,
+  Clock,
+  CheckCircle,
+  X,
   DollarSign,
   Calendar,
   Edit,
   Trash2,
-  Eye
+  Eye,
 } from 'lucide-react';
 
 // FIREBASE
 import { getDatabase, ref, onValue, update, remove } from 'firebase/database';
-import { app } from '@/config/firebase'; // Ajusta la ruta si es necesario
+import { app } from '@/config/firebase';
 
 type Movement = {
   id: string;
   type?: string;
   client?: string;
   amount?: number | string;
-  date?: string;
+  date?: string; // ISO o fecha parseable
   description?: string;
   method?: string;
   user?: string;
 };
 
 export const BillingHistory = () => {
-  const [isAdminMode] = useState(true); // O usa tu contexto real
+  const [isAdminMode] = useState(true); // ajusta con tu contexto real si lo tienes
   const [filterType, setFilterType] = useState('todos');
   const [filterClient, setFilterClient] = useState('');
   const [filterMonth, setFilterMonth] = useState('todos');
+
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
   const [movements, setMovements] = useState<Movement[]>([]);
   const [editData, setEditData] = useState<any>({});
   const [deleteReason, setDeleteReason] = useState('');
@@ -49,26 +52,30 @@ export const BillingHistory = () => {
   useEffect(() => {
     const db = getDatabase(app);
     const movementsRef = ref(db, 'billingMovements');
+
     const unsubscribe = onValue(movementsRef, (snapshot) => {
       const data = snapshot.val();
-      if (!data) return setMovements([]);
-      // Convierte a array y asegura tipado
-      const array = Object.entries(data).map(([id, val]) =>
-        typeof val === 'object' && val !== null
-          ? { id, ...val }
-          : { id }
-      ) as Movement[];
+      if (!data) {
+        setMovements([]);
+        return;
+      }
 
-      // SOLO ordena los que tengan 'date', el resto queda al final
-      const withDate = array.filter(item => !!item.date);
-      const withoutDate = array.filter(item => !item.date);
+      // Convierte a array y separa con/sin fecha para ordenar seguro
+      const array: Movement[] = Object.entries<any>(data).map(([id, val]) =>
+        typeof val === 'object' && val !== null ? { id, ...val } : { id }
+      );
 
-      withDate.sort((a, b) => 
-        new Date(b.date!).getTime() - new Date(a.date!).getTime()
+      const withDate = array.filter((item) => !!item.date);
+      const withoutDate = array.filter((item) => !item.date);
+
+      withDate.sort(
+        (a, b) =>
+          new Date(b.date as string).getTime() - new Date(a.date as string).getTime()
       );
 
       setMovements([...withDate, ...withoutDate]);
     });
+
     return () => unsubscribe();
   }, []);
 
@@ -117,10 +124,13 @@ export const BillingHistory = () => {
     setShowEditModal(true);
   };
 
-  const filteredMovements = movements.filter(movement => {
+  const filteredMovements = movements.filter((movement) => {
     const matchesType = filterType === 'todos' || movement.type === filterType;
-    const matchesClient = !filterClient || (movement.client ?? '').toLowerCase().includes(filterClient.toLowerCase());
-    const matchesMonth = filterMonth === 'todos' || (movement.date ?? '').startsWith(filterMonth);
+    const matchesClient =
+      !filterClient ||
+      (movement.client ?? '').toLowerCase().includes(filterClient.toLowerCase());
+    const matchesMonth =
+      filterMonth === 'todos' || (movement.date ?? '').startsWith(filterMonth);
     return matchesType && matchesClient && matchesMonth;
   });
 
@@ -138,7 +148,8 @@ export const BillingHistory = () => {
         <h2 className="text-2xl font-bold text-stone-800 mb-2">Historial de Movimientos</h2>
         <p className="text-stone-600">Registro completo de actividades financieras</p>
       </div>
-      {/* Filters and Export */}
+
+      {/* Filtros y Exportación */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -171,11 +182,15 @@ export const BillingHistory = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos los meses</SelectItem>
-                {[...new Set(movements.map(m => m.date?.slice(0, 7)))].filter(Boolean).map(mes => (
-                  <SelectItem key={mes} value={mes!}>
-                    {new Date(mes! + '-01').toLocaleString('es-PE', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase())}
-                  </SelectItem>
-                ))}
+                {[...new Set(movements.map((m) => m.date?.slice(0, 7)))]
+                  .filter(Boolean)
+                  .map((mes) => (
+                    <SelectItem key={mes} value={mes!}>
+                      {new Date((mes as string) + '-01')
+                        .toLocaleString('es-PE', { month: 'long', year: 'numeric' })
+                        .replace(/^\w/, (c) => c.toUpperCase())}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
             <div className="flex gap-2">
@@ -192,7 +207,7 @@ export const BillingHistory = () => {
         </CardContent>
       </Card>
 
-      {/* Movements List */}
+      {/* Listado */}
       <div className="space-y-4">
         {filteredMovements.map((movement) => {
           const movementInfo = getMovementInfo(movement.type);
@@ -202,15 +217,21 @@ export const BillingHistory = () => {
               <CardContent className="p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-full ${movementInfo.color.replace('text-', 'bg-').replace('-800', '-100')}`}>
-                      <MovementIcon className={`h-5 w-5 ${movementInfo.color.replace('bg-', 'text-').replace('-100', '-600')}`} />
+                    <div
+                      className={`p-2 rounded-full ${movementInfo.color
+                        .replace('text-', 'bg-')
+                        .replace('-800', '-100')}`}
+                    >
+                      <MovementIcon
+                        className={`h-5 w-5 ${movementInfo.color
+                          .replace('bg-', 'text-')
+                          .replace('-100', '-600')}`}
+                      />
                     </div>
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-stone-800">{movement.client}</h3>
-                        <Badge className={movementInfo.color}>
-                          {movementInfo.text}
-                        </Badge>
+                        <Badge className={movementInfo.color}>{movementInfo.text}</Badge>
                       </div>
                       <p className="text-sm text-stone-600">{movement.description}</p>
                       <div className="flex items-center gap-4 mt-2 text-xs text-stone-500">
@@ -222,11 +243,15 @@ export const BillingHistory = () => {
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="text-right mr-4">
-                      <div className={`text-lg font-bold ${
-                        movement.type === 'payment_received' ? 'text-green-600' : 
-                        movement.type === 'invoice_rejected' ? 'text-red-600' : 
-                        'text-stone-800'
-                      }`}>
+                      <div
+                        className={`text-lg font-bold ${
+                          movement.type === 'payment_received'
+                            ? 'text-green-600'
+                            : movement.type === 'invoice_rejected'
+                            ? 'text-red-600'
+                            : 'text-stone-800'
+                        }`}
+                      >
                         {movement.type === 'payment_received' ? '+' : ''}
                         S/ {Number(movement.amount ?? 0).toFixed(2)}
                       </div>
@@ -239,7 +264,10 @@ export const BillingHistory = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => { setSelectedMovement(movement); setShowDetailModal(true); }}
+                          onClick={() => {
+                            setSelectedMovement(movement);
+                            setShowDetailModal(true);
+                          }}
                           className="text-blue-600 border-blue-300 hover:bg-blue-50"
                         >
                           <Eye className="h-4 w-4" />
@@ -255,7 +283,10 @@ export const BillingHistory = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => { setSelectedMovement(movement); setShowDeleteModal(true); }}
+                          onClick={() => {
+                            setSelectedMovement(movement);
+                            setShowDeleteModal(true);
+                          }}
                           className="text-red-600 border-red-300 hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -270,7 +301,7 @@ export const BillingHistory = () => {
         })}
       </div>
 
-      {/* Summary */}
+      {/* Resumen */}
       <Card className="border-stone-200 bg-stone-50">
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -281,20 +312,20 @@ export const BillingHistory = () => {
             <div>
               <p className="text-sm text-green-600">Pagos Recibidos</p>
               <p className="text-2xl font-bold text-green-700">
-                {filteredMovements.filter(m => m.type === 'payment_received').length}
+                {filteredMovements.filter((m) => m.type === 'payment_received').length}
               </p>
             </div>
             <div>
               <p className="text-sm text-blue-600">Facturas Emitidas</p>
               <p className="text-2xl font-bold text-blue-700">
-                {filteredMovements.filter(m => m.type === 'invoice_issued').length}
+                {filteredMovements.filter((m) => m.type === 'invoice_issued').length}
               </p>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Movement Detail Modal */}
+      {/* Modal Detalle */}
       {showDetailModal && selectedMovement && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-2xl mx-4 max-h-[80vh] overflow-y-auto">
@@ -318,7 +349,9 @@ export const BillingHistory = () => {
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Fecha</label>
-                  <p className="font-semibold">{selectedMovement.date && new Date(selectedMovement.date).toLocaleString()}</p>
+                  <p className="font-semibold">
+                    {selectedMovement.date && new Date(selectedMovement.date).toLocaleString()}
+                  </p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-stone-600">Método</label>
@@ -334,11 +367,7 @@ export const BillingHistory = () => {
                 <p className="bg-stone-50 p-3 rounded-lg">{selectedMovement.description}</p>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDetailModal(false)}
-                  className="flex-1"
-                >
+                <Button variant="outline" onClick={() => setShowDetailModal(false)} className="flex-1">
                   Cerrar
                 </Button>
                 {isAdminMode && (
@@ -359,7 +388,7 @@ export const BillingHistory = () => {
         </div>
       )}
 
-      {/* Movement Edit Modal */}
+      {/* Modal Editar */}
       {showEditModal && selectedMovement && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg mx-4">
@@ -372,7 +401,7 @@ export const BillingHistory = () => {
                 <label className="text-sm font-medium">Descripción</label>
                 <Input
                   value={editData.description || ''}
-                  onChange={e => setEditData({ ...editData, description: e.target.value })}
+                  onChange={(e) => setEditData({ ...editData, description: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
@@ -380,15 +409,12 @@ export const BillingHistory = () => {
                 <Input
                   type="number"
                   value={editData.amount || ''}
-                  onChange={e => setEditData({ ...editData, amount: e.target.value })}
+                  onChange={(e) => setEditData({ ...editData, amount: e.target.value })}
                 />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Método</label>
-                <Select
-                  value={editData.method || ''}
-                  onValueChange={v => setEditData({ ...editData, method: v })}
-                >
+                <Select value={editData.method || ''} onValueChange={(v) => setEditData({ ...editData, method: v })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -401,16 +427,10 @@ export const BillingHistory = () => {
                 </Select>
               </div>
               <div className="flex gap-2">
-                <Button
-                  onClick={confirmEdit}
-                  className="bg-green-600 hover:bg-green-700 text-white flex-1"
-                >
+                <Button onClick={confirmEdit} className="bg-green-600 hover:bg-green-700 text-white flex-1">
                   Guardar Cambios
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowEditModal(false)}
-                >
+                <Button variant="outline" onClick={() => setShowEditModal(false)}>
                   Cancelar
                 </Button>
               </div>
@@ -419,7 +439,7 @@ export const BillingHistory = () => {
         </div>
       )}
 
-      {/* Movement Delete Modal */}
+      {/* Modal Eliminar */}
       {showDeleteModal && selectedMovement && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md mx-4">
@@ -433,7 +453,7 @@ export const BillingHistory = () => {
                 <Input
                   placeholder="Ingrese el motivo..."
                   value={deleteReason}
-                  onChange={e => setDeleteReason(e.target.value)}
+                  onChange={(e) => setDeleteReason(e.target.value)}
                 />
               </div>
               <div className="flex gap-2">
@@ -444,10 +464,7 @@ export const BillingHistory = () => {
                 >
                   Confirmar Eliminación
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteModal(false)}
-                >
+                <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
                   Cancelar
                 </Button>
               </div>
