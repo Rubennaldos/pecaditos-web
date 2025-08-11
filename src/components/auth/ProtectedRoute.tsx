@@ -1,159 +1,111 @@
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
-import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
-import { useAdmin } from '@/contexts/AdminContext';
+import { Navigate } from "react-router-dom";
+import { PropsWithChildren, useEffect } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
-export type RouteType =
-  | 'CATALOG_RETAIL'
-  | 'CATALOG_WHOLESALE'
-  | 'ADMIN'
-  | 'ORDERS'
-  | 'DELIVERY'
-  | 'PRODUCTION'
-  | 'BILLING'
-  | 'LOGISTICS'
-  | 'PUBLIC';
+type RouteType =
+  | "PUBLIC"
+  | "ADMIN"
+  | "ORDERS"
+  | "DELIVERY"
+  | "PRODUCTION"
+  | "BILLING"
+  | "LOGISTICS"
+  | "CATALOG_RETAIL"
+  | "CATALOG_WHOLESALE";
 
-interface ProtectedRouteProps {
-  children: React.ReactNode;
-  routeType: RouteType;
+type Role =
+  | "admin"
+  | "pedidos"
+  | "reparto"
+  | "produccion"
+  | "cobranzas"
+  | "logistica"
+  | "mayorista"
+  | "retail";
+
+// Normaliza lo que venga de RTDB
+function normalizeRole(v?: string): Role | undefined {
+  if (!v) return undefined;
+  const s = v.toLowerCase().trim();
+  if (["admin", "admingeneral"].includes(s)) return "admin";
+  if (["pedidos", "pedido", "orders"].includes(s)) return "pedidos";
+  if (["reparto", "delivery"].includes(s)) return "reparto";
+  if (["produccion", "production"].includes(s)) return "produccion";
+  if (["cobranzas", "cobranza", "billing"].includes(s)) return "cobranzas";
+  if (["logistica", "logistics"].includes(s)) return "logistica";
+  if (["mayorista", "wholesale"].includes(s)) return "mayorista";
+  if (["retail"].includes(s)) return "retail";
+  return undefined;
 }
 
-export const ProtectedRoute = ({ children, routeType }: ProtectedRouteProps) => {
-  const location = useLocation();
-
-  // Sesiones disponibles
-  const { user: retailUser } = useAuth();               // cliente retail (landing / compras)
-  const { user: wholesaleUser } = useWholesaleAuth();   // cliente mayorista
-  const { user: adminUser } = useAdmin();               // admin con perfil desde /usuarios/{uid}
-
-  // Perfil normalizado (prioridad: admin > mayorista > retail > público)
-  const userProfile: string =
-    adminUser?.profile ??
-    (wholesaleUser ? 'mayorista' :
-    (retailUser ? 'retail' : 'public'));
-
-  const isAdmin = (p: string) => p === 'admin' || p === 'adminGeneral';
-
-  // Ruta principal por perfil
-  const getProfileMainRoute = (profile: string): string => {
-    switch (profile) {
-      case 'admin':
-      case 'adminGeneral':
-        return '/admin';
-      case 'pedidos':
-        return '/pedidos';
-      case 'reparto':
-        return '/reparto';
-      case 'produccion':
-        return '/produccion';
-      case 'cobranzas':
-        return '/cobranzas';
-      case 'logistica':
-        return '/logistica';
-      case 'mayorista':
-        return '/mayorista';
-      case 'retail':
-      default:
-        return '/';
-    }
-  };
-
-  // Configuración de acceso por tipo de ruta
-  const routeConfig: Record<RouteType, {
-    allowedProfiles: string[];
-    redirectTo: string;
-    requireAuth: boolean;
-    message: string;
-  }> = {
-    CATALOG_RETAIL: {
-      allowedProfiles: ['admin', 'adminGeneral'],
-      redirectTo: '/',
-      requireAuth: true,
-      message: 'Catálogo minorista temporalmente no disponible',
-    },
-    CATALOG_WHOLESALE: {
-      allowedProfiles: ['mayorista', 'admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido a mayoristas autorizados',
-    },
-    ADMIN: {
-      allowedProfiles: ['admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido a administrador general',
-    },
-    ORDERS: {
-      allowedProfiles: ['pedidos', 'admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido al área de pedidos',
-    },
-    DELIVERY: {
-      allowedProfiles: ['reparto', 'admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido al área de reparto',
-    },
-    PRODUCTION: {
-      allowedProfiles: ['produccion', 'admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido al área de producción',
-    },
-    BILLING: {
-      allowedProfiles: ['cobranzas', 'admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido al área de cobranzas',
-    },
-    LOGISTICS: {
-      allowedProfiles: ['logistica', 'admin', 'adminGeneral'],
-      redirectTo: '/login',
-      requireAuth: true,
-      message: 'Acceso restringido al área de logística',
-    },
-    PUBLIC: {
-      allowedProfiles: [
-        'admin', 'adminGeneral', 'mayorista', 'pedidos', 'reparto', 'produccion', 'cobranzas', 'retail', 'public',
-      ],
-      redirectTo: '/',
-      requireAuth: false,
-      message: 'Acceso público',
-    },
-  };
-
-  const config = routeConfig[routeType];
-
-  // 1) Si no requiere autenticación → pasa directo
-  if (!config.requireAuth) {
-    return <>{children}</>;
-  }
-
-  // 2) Requiere autenticación y NO hay ningún user
-  const hasAnyUser = !!(adminUser || wholesaleUser || retailUser);
-  if (!hasAnyUser) {
-    console.log(`🔒 Acceso denegado: No hay usuario autenticado para ${routeType}`);
-    return <Navigate to={config.redirectTo} state={{ from: location }} replace />;
-  }
-
-  // 3) Admin siempre tiene pase (admin o adminGeneral)
-  if (isAdmin(userProfile)) {
-    console.log(`✅ Acceso autorizado (admin): ${routeType}`);
-    return <>{children}</>;
-  }
-
-  // 4) Validación normal por lista
-  if (!config.allowedProfiles.includes(userProfile)) {
-    console.log(`🚫 Acceso denegado: perfil "${userProfile}" en ${routeType}`);
-    console.log(`📄 Mensaje: ${config.message}`);
-    const userMainRoute = getProfileMainRoute(userProfile);
-    console.log(`🔄 Redirigiendo a: ${userMainRoute}`);
-    return <Navigate to={userMainRoute} state={{ from: location }} replace />;
-  }
-
-  // 5) Permitido
-  console.log(`✅ Acceso autorizado: perfil "${userProfile}" en ${routeType}`);
-  return <>{children}</>;
+// Quién puede entrar a cada route
+const ALLOW: Record<RouteType, Role[]> = {
+  PUBLIC: ["admin", "pedidos", "reparto", "produccion", "cobranzas", "logistica", "mayorista", "retail"],
+  ADMIN: ["admin"],
+  ORDERS: ["admin", "pedidos"],
+  DELIVERY: ["admin", "reparto"],
+  PRODUCTION: ["admin", "produccion"],
+  BILLING: ["admin", "cobranzas"],
+  LOGISTICS: ["admin", "logistica"],
+  CATALOG_RETAIL: ["admin"],            // oculto
+  CATALOG_WHOLESALE: ["admin", "mayorista"],
 };
+
+export function ProtectedRoute({
+  routeType,
+  children,
+}: PropsWithChildren<{ routeType: RouteType }>) {
+  const { user, perfil, loading } = useAuth() as {
+    user: { uid: string } | null;
+    perfil?: { rol?: string; role?: string; activo?: boolean } | null;
+    loading: boolean;
+  };
+
+  useEffect(() => {
+    // Útil para depurar (quítalo en prod si quieres)
+    console.log("ProtectedRoute check:", {
+      routeType,
+      uid: user?.uid,
+      perfil,
+    });
+  }, [routeType, user, perfil]);
+
+  // Público: pasa directo
+  if (routeType === "PUBLIC") return <>{children}</>;
+
+  // Cargando perfil
+  if (loading) return null; // o spinner
+
+  // Sin sesión → login
+  if (!user) {
+    console.warn("Acceso denegado: no autenticado");
+    return <Navigate to="/login" replace />;
+  }
+
+  // Perfil inactivo
+  if (perfil && perfil.activo === false) {
+    console.warn("Acceso denegado: usuario inactivo");
+    // usa /403 si la tienes; si no, usa "/"
+    return <Navigate to="/403" replace />;
+  }
+
+  // Normaliza rol
+  const rol = normalizeRole(perfil?.rol || perfil?.role);
+  if (!rol) {
+    console.warn("Acceso denegado: usuario sin rol definido", { perfil });
+    return <Navigate to="/" replace />;
+  }
+
+  // Si el routeType no está en ALLOW, trata como denegado
+  const allowed = ALLOW[routeType] ?? [];
+  const ok = allowed.includes(rol);
+
+  if (!ok) {
+    console.warn("Acceso denegado:", { routeType, rol, allowed });
+    // Si no tienes /403, cambia a "/"
+    return <Navigate to="/403" replace />;
+  }
+
+  console.log("Acceso autorizado:", { routeType, rol });
+  return <>{children}</>;
+}

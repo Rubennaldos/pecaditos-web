@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+// src/components/billing/BillingClients.tsx
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  Star, 
-  Phone, 
-  MessageSquare, 
-  Edit, 
+import {
+  Star,
+  Phone,
+  MessageSquare,
+  Edit,
   Mail,
   AlertTriangle,
   CheckCircle,
@@ -18,152 +19,198 @@ import {
   Smile,
   Frown,
   Meh,
-  Bell
+  Bell,
 } from 'lucide-react';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
 
-// ---- FIREBASE ----
-import { getDatabase, ref, onValue, update } from 'firebase/database';
-import { app } from '@/config/firebase'; // Ajusta la ruta si es diferente
+// ---- FIREBASE (usa el db ya inicializado) ----
+import { db } from '@/config/firebase'; // ⚠️ si no usas alias @, cambia a: '../config/firebase'
+import { onValue, ref, update } from 'firebase/database';
+
+// Tipado base del cliente (campos opcionales para tolerar esquemas distintos)
+type Client = {
+  id: string;
+  name?: string;            // razón social
+  comercialName?: string;   // nombre comercial
+  ruc?: string;
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+
+  rating?: number;          // 0..5
+  paymentTerms?: string;    // 'contado' | 'credito_15'...
+  creditLimit?: number;
+  currentDebt?: number;
+  lastPayment?: number | string; // timestamp o ISO
+  avgPaymentDays?: number;
+  paymentHistory?: Array<{ date?: string; status?: string; days?: number }>;
+
+  promotionEligible?: boolean;
+  status?: string; // redundante si calculas desde rating
+};
 
 export const BillingClients = () => {
   const { isAdminMode, sendWarningMessage } = useAdminBilling();
-  const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterStatus, setFilterStatus] = useState<'todos' | 'excelente' | 'puntual' | 'regular' | 'moroso'>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showMorosityWarning, setShowMorosityWarning] = useState(false);
 
   // ---- Datos desde Firebase ----
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
-    const db = getDatabase(app);
     const clientsRef = ref(db, 'clients');
-    const unsubscribe = onValue(clientsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        // Si tu estructura es un objeto: {id1: {...}, id2: {...}}
-        setClients(Object.values(data));
-      } else {
-        setClients([]);
-      }
+    const unsub = onValue(clientsRef, (snapshot) => {
+      const data = snapshot.val() || {};
+      // Conserva el id y normaliza algunos campos
+      const list: Client[] = Object.entries<any>(data).map(([id, v]) => ({
+        id,
+        name: v?.name ?? v?.razonSocial ?? '',
+        comercialName: v?.comercialName ?? v?.comercial ?? '',
+        ruc: v?.ruc ?? '',
+        phone: v?.phone ?? v?.telefono ?? '',
+        whatsapp: v?.whatsapp ?? '',
+        email: v?.email ?? '',
+        rating: Number(v?.rating ?? 0),
+        paymentTerms: v?.paymentTerms ?? 'contado',
+        creditLimit: Number(v?.creditLimit ?? 0),
+        currentDebt: Number(v?.currentDebt ?? 0),
+        lastPayment: v?.lastPayment ?? null,
+        avgPaymentDays: Number(v?.avgPaymentDays ?? 0),
+        paymentHistory: Array.isArray(v?.paymentHistory) ? v.paymentHistory : [],
+        promotionEligible: Boolean(v?.promotionEligible),
+        status: v?.status ?? '',
+      }));
+      setClients(list);
     });
-    return () => unsubscribe();
+
+    return () => {
+      try { unsub(); } catch {}
+    };
   }, []);
 
-  const getStatusInfo = (status: string, rating: number) => {
-    if (rating >= 4.5) {
-      return { color: 'bg-green-100 text-green-800', text: 'Excelente', icon: CheckCircle };
-    } else if (rating >= 3.5) {
-      return { color: 'bg-blue-100 text-blue-800', text: 'Puntual', icon: Clock };
-    } else if (rating >= 2) {
-      return { color: 'bg-yellow-100 text-yellow-800', text: 'Regular', icon: Meh };
-    } else {
-      return { color: 'bg-red-100 text-red-800', text: 'Moroso', icon: AlertTriangle };
+  // Helpers de UI
+  const getStatusInfo = (rating = 0) => {
+    if (rating >= 4.5) return { color: 'bg-green-100 text-green-800', text: 'Excelente', icon: CheckCircle };
+    if (rating >= 3.5) return { color: 'bg-blue-100 text-blue-800', text: 'Puntual', icon: Clock };
+    if (rating >= 2)   return { color: 'bg-yellow-100 text-yellow-800', text: 'Regular', icon: Meh };
+    return { color: 'bg-red-100 text-red-800', text: 'Moroso', icon: AlertTriangle };
+  };
+
+  const renderCreditStars = (rating = 0) => (
+    <div className="flex">
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          className={`h-4 w-4 ${i < Math.round(rating) ? 'text-yellow-500 fill-current' : 'text-gray-300'}`}
+        />
+      ))}
+    </div>
+  );
+
+  const renderPaymentFace = (rating = 0) => {
+    if (rating >= 4) return <Smile className="h-6 w-6 text-green-500" />;
+    if (rating >= 2.5) return <Meh className="h-6 w-6 text-yellow-500" />;
+    return <Frown className="h-6 w-6 text-red-500" />;
+  };
+
+  const renderPaymentHistory = (history: Client['paymentHistory'] = []) => (
+    <div className="flex gap-1">
+      {history.slice(0, 10).map((p, idx) => {
+        let color = 'bg-gray-300';
+        if (p?.status === 'on_time' || p?.status === 'early') color = 'bg-green-500';
+        else if (p?.status === 'late') color = 'bg-yellow-500';
+        else if (p?.status === 'very_late') color = 'bg-red-500';
+        return (
+          <div
+            key={idx}
+            className={`w-2 h-6 rounded-sm ${color}`}
+            title={`${p?.date ?? ''} - ${p?.status ?? ''} ${p?.days ? `(${p.days} días)` : ''}`}
+          />
+        );
+      })}
+    </div>
+  );
+
+  const getPromotionPercentage = (rating = 0) => {
+    if (rating >= 5) return 5;
+    if (rating >= 4) return 3;
+    if (rating >= 3) return 1;
+    return 0;
+  };
+
+  const sendPromotion = (client: Client) => {
+    const discount = getPromotionPercentage(client.rating);
+    alert(`Enviando promoción de ${discount}% a ${client.name || client.comercialName || client.ruc}`);
+    // Implementa WhatsApp/SMS/email real aquí
+  };
+
+  const sendMorosityWarning = (client: Client) => {
+    const message = `AVISO IMPORTANTE: ${client.name ?? client.comercialName ?? client.ruc}, su cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos. Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar.`;
+    try {
+      // Si tu provider expone sendWarningMessage, úsalo, si no, cae en alert
+      if (typeof sendWarningMessage === 'function') {
+        sendWarningMessage(client.ruc ?? client.id, message);
+      } else {
+        alert(message);
+      }
+    } finally {
+      setShowMorosityWarning(false);
+      setSelectedClient(null);
     }
   };
 
-  const renderCreditStars = (rating: number) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <Star 
-        key={i} 
-        className={`h-4 w-4 ${i < rating ? 'text-yellow-500 fill-current' : 'text-gray-300'}`} 
-      />
-    ));
+  // Guardar edición
+  const handleSaveEdit = async (updatedFields: Partial<Client>) => {
+    if (!selectedClient?.id) return;
+    try {
+      await update(ref(db, `clients/${selectedClient.id}`), updatedFields);
+      setShowEditModal(false);
+      setSelectedClient(null);
+    } catch {
+      alert('Error actualizando cliente');
+    }
   };
 
-  const renderPaymentFace = (rating: number) => {
-    if (rating >= 4) return <Smile className="h-6 w-6 text-green-500" />;
-    else if (rating >= 2.5) return <Meh className="h-6 w-6 text-yellow-500" />;
-    else return <Frown className="h-6 w-6 text-red-500" />;
-  };
+  // Filtro
+  const filteredClients = useMemo(() => {
+    return clients.filter((client) => {
+      const rating = Number(client.rating ?? 0);
+      let realStatus: 'excelente' | 'puntual' | 'regular' | 'moroso';
+      if (rating >= 4.5) realStatus = 'excelente';
+      else if (rating >= 3.5) realStatus = 'puntual';
+      else if (rating >= 2) realStatus = 'regular';
+      else realStatus = 'moroso';
 
-  const renderPaymentHistory = (history: any[] = []) => {
-    return (
-      <div className="flex gap-1">
-        {history.slice(0, 10).map((payment, index) => {
-          let color = 'bg-gray-300';
-          if (payment.status === 'on_time' || payment.status === 'early') color = 'bg-green-500';
-          else if (payment.status === 'late') color = 'bg-yellow-500';
-          else if (payment.status === 'very_late') color = 'bg-red-500';
-          
-          return (
-            <div 
-              key={index}
-              className={`w-2 h-6 rounded-sm ${color}`}
-              title={`${payment.date} - ${payment.status} (${payment.days} días)`}
-            />
-          );
-        })}
-      </div>
-    );
-  };
+      const okStatus = filterStatus === 'todos' || realStatus === filterStatus;
+      const term = searchTerm.trim().toLowerCase();
+      const okSearch =
+        !term ||
+        (client.name ?? '').toLowerCase().includes(term) ||
+        (client.comercialName ?? '').toLowerCase().includes(term) ||
+        (client.ruc ?? '').includes(term);
 
-  const getPromotionPercentage = (rating: number) => {
-    if (rating >= 5) return 5;
-    else if (rating >= 4) return 3;
-    else if (rating >= 3) return 1;
-    else return 0;
-  };
-
-  const sendPromotion = (client: any) => {
-    const discount = getPromotionPercentage(client.rating);
-    // Aquí debes implementar el envío real por WhatsApp/SMS/email
-    alert(`Enviando promoción de ${discount}% a ${client.name}`);
-  };
-
-  const sendMorosityWarning = (client: any) => {
-    const message = `AVISO IMPORTANTE: ${client.name}, su cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos. Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar.`;
-    sendWarningMessage(client.ruc, message); // Custom, según tu lógica
-    setShowMorosityWarning(false);
-    setSelectedClient(null);
-  };
-
-  // ---- ACTUALIZACIÓN EN FIREBASE (editar cliente) ----
-  const handleSaveEdit = (updatedFields: any) => {
-    if (!selectedClient) return;
-    const db = getDatabase(app);
-    update(ref(db, `clients/${selectedClient.id}`), updatedFields)
-      .then(() => {
-        setShowEditModal(false);
-        setSelectedClient(null);
-      })
-      .catch((err) => {
-        alert('Error actualizando cliente');
-      });
-  };
-
-  // ---- Filtrar clientes ----
-  const filteredClients = clients.filter(client => {
-    // Define status según rating:
-    let realStatus = client.status;
-    if (client.rating >= 4.5) realStatus = 'excelente';
-    else if (client.rating >= 3.5) realStatus = 'puntual';
-    else if (client.rating >= 2) realStatus = 'regular';
-    else realStatus = 'moroso';
-
-    const matchesStatus = filterStatus === 'todos' || realStatus === filterStatus;
-    const matchesSearch = !searchTerm || 
-      client.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.comercialName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.ruc?.includes(searchTerm);
-    return matchesStatus && matchesSearch;
-  });
+      return okStatus && okSearch;
+    });
+  }, [clients, filterStatus, searchTerm]);
 
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-2xl font-bold text-stone-800 mb-2">Gestión de Clientes</h2>
-        <p className="text-stone-600">Estado financiero, comportamiento de pago y sistema de promociones</p>
+        <p className="text-stone-600">
+          Estado financiero, comportamiento de pago y sistema de promociones
+        </p>
       </div>
 
-      {/* Filters */}
+      {/* Filtros */}
       <Card>
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <Input
                 placeholder="RUC, razón social, nombre comercial..."
                 value={searchTerm}
@@ -171,7 +218,7 @@ export const BillingClients = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
               <SelectTrigger>
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
@@ -194,9 +241,10 @@ export const BillingClients = () => {
       {/* Lista de clientes */}
       <div className="space-y-4">
         {filteredClients.map((client) => {
-          const statusInfo = getStatusInfo(client.status, client.rating);
+          const rating = Number(client.rating ?? 0);
+          const statusInfo = getStatusInfo(rating);
           const StatusIcon = statusInfo.icon;
-          const promotionDiscount = getPromotionPercentage(client.rating);
+          const promotionDiscount = getPromotionPercentage(rating);
 
           return (
             <Card key={client.id} className="hover:shadow-lg transition-shadow">
@@ -204,11 +252,11 @@ export const BillingClients = () => {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center">
-                      {renderPaymentFace(client.rating)}
+                      {renderPaymentFace(rating)}
                     </div>
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        {client.name}
+                        {client.name || client.comercialName || client.ruc}
                         <Badge className={statusInfo.color}>
                           <StatusIcon className="h-3 w-3 mr-1" />
                           {statusInfo.text}
@@ -220,19 +268,22 @@ export const BillingClients = () => {
                           </Badge>
                         )}
                       </CardTitle>
-                      <p className="text-stone-600 text-sm">Comercial: {client.comercialName}</p>
-                      <p className="text-stone-500 text-xs">RUC: {client.ruc}</p>
+                      <p className="text-stone-600 text-sm">
+                        Comercial: {client.comercialName || '-'}
+                      </p>
+                      <p className="text-stone-500 text-xs">RUC: {client.ruc || '-'}</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <div className="flex items-center gap-1 mb-2">
-                      {renderCreditStars(client.rating)}
-                      <span className="text-sm text-stone-600 ml-2">
-                        ({client.rating}/5.0)
-                      </span>
+                      {renderCreditStars(rating)}
+                      <span className="text-sm text-stone-600 ml-2">({rating.toFixed(1)}/5.0)</span>
                     </div>
                     <div className="text-sm text-stone-500">
-                      Último pago: {client.lastPayment ? new Date(client.lastPayment).toLocaleDateString() : '-'}
+                      Último pago:{' '}
+                      {client.lastPayment
+                        ? new Date(client.lastPayment).toLocaleDateString()
+                        : '-'}
                     </div>
                     <div className="text-xs text-stone-400">
                       Promedio: {client.avgPaymentDays ?? 0} días
@@ -240,35 +291,46 @@ export const BillingClients = () => {
                   </div>
                 </div>
               </CardHeader>
+
               <CardContent>
                 <div className="grid md:grid-cols-4 gap-4">
-                  {/* Contact Info */}
+                  {/* Contacto */}
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Phone className="h-4 w-4 text-stone-400" />
-                      <span>{client.phone}</span>
+                      <span>{client.phone || '-'}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Mail className="h-4 w-4 text-stone-400" />
-                      <span className="truncate">{client.email}</span>
+                      <span className="truncate">{client.email || '-'}</span>
                     </div>
                   </div>
-                  {/* Financial Info */}
+
+                  {/* Financiero */}
                   <div className="space-y-2">
                     <div className="text-sm">
-                      <span className="font-medium">Límite:</span> S/ {client.creditLimit?.toFixed(2) ?? '0.00'}
+                      <span className="font-medium">Límite:</span>{' '}
+                      S/ {(client.creditLimit ?? 0).toFixed(2)}
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Deuda:</span> 
-                      <span className={client.currentDebt > 0 ? 'text-red-600 font-bold ml-1' : 'text-green-600 ml-1'}>
-                        S/ {client.currentDebt?.toFixed(2) ?? '0.00'}
+                      <span className="font-medium">Deuda:</span>
+                      <span
+                        className={
+                          (client.currentDebt ?? 0) > 0
+                            ? 'text-red-600 font-bold ml-1'
+                            : 'text-green-600 ml-1'
+                        }
+                      >
+                        S/ {(client.currentDebt ?? 0).toFixed(2)}
                       </span>
                     </div>
                     <div className="text-sm">
-                      <span className="font-medium">Términos:</span> {client.paymentTerms}
+                      <span className="font-medium">Términos:</span>{' '}
+                      {client.paymentTerms || '-'}
                     </div>
                   </div>
-                  {/* Payment Behavior with Visual History */}
+
+                  {/* Comportamiento */}
                   <div className="space-y-2">
                     <div className="text-sm">
                       <span className="font-medium">Comportamiento:</span>
@@ -281,7 +343,8 @@ export const BillingClients = () => {
                       Verde: Puntual | Amarillo: Tardío | Rojo: Muy tardío
                     </div>
                   </div>
-                  {/* Actions with Promotion System and Morosity Warning */}
+
+                  {/* Acciones */}
                   <div className="flex flex-col gap-2">
                     <div className="flex gap-2">
                       <Button
@@ -290,7 +353,7 @@ export const BillingClients = () => {
                         className="text-blue-600 border-blue-300 hover:bg-blue-50 flex-1"
                       >
                         <Phone className="h-4 w-4 mr-1" />
-                        {client.phone}
+                        {client.phone || 'Llamar'}
                       </Button>
                       <Button
                         size="sm"
@@ -300,7 +363,7 @@ export const BillingClients = () => {
                         <MessageSquare className="h-4 w-4" />
                       </Button>
                     </div>
-                    
+
                     {client.promotionEligible && promotionDiscount > 0 && (
                       <Button
                         size="sm"
@@ -312,8 +375,8 @@ export const BillingClients = () => {
                       </Button>
                     )}
 
-                    {/* Morosity Warning Button - Solo visible para clientes con 2 estrellas o menos */}
-                    {client.rating <= 2 && (
+                    {/* Advertencia por morosidad */}
+                    {rating <= 2 && (
                       <Button
                         size="sm"
                         onClick={() => {
@@ -326,15 +389,15 @@ export const BillingClients = () => {
                         Advertencia por Morosidad
                       </Button>
                     )}
-                    
-                    {client.rating === 0 && (
+
+                    {rating === 0 && (
                       <div className="w-full bg-red-50 border border-red-200 rounded p-2 text-center">
                         <p className="text-xs text-red-800 font-medium">
                           ⚠️ CRÉDITO DESACTIVADO - Solo Admin General puede reactivar
                         </p>
                       </div>
                     )}
-                    
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -350,8 +413,8 @@ export const BillingClients = () => {
                   </div>
                 </div>
 
-                {/* Promotional System Info */}
-                {promotionDiscount === 0 && client.rating < 3 && (
+                {/* Info de promociones */}
+                {promotionDiscount === 0 && rating < 3 && (
                   <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-sm text-red-800">
                       <AlertTriangle className="h-4 w-4 inline mr-2" />
@@ -365,16 +428,16 @@ export const BillingClients = () => {
         })}
       </div>
 
-      {/* Edit Modal */}
+      {/* Modal Editar */}
       {showEditModal && selectedClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-lg mx-4">
             <CardHeader>
               <CardTitle>Editar Condiciones del Cliente</CardTitle>
-              <p className="text-stone-600">{selectedClient.name}</p>
+              <p className="text-stone-600">{selectedClient.name || selectedClient.comercialName}</p>
               <div className="flex items-center gap-2">
                 {renderCreditStars(selectedClient.rating)}
-                <span className="text-sm">({selectedClient.rating}/5.0)</span>
+                <span className="text-sm">({(selectedClient.rating ?? 0).toFixed(1)}/5.0)</span>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -382,8 +445,10 @@ export const BillingClients = () => {
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Términos de Pago</label>
                   <Select
-                    defaultValue={selectedClient.paymentTerms}
-                    onValueChange={(value) => setSelectedClient({ ...selectedClient, paymentTerms: value })}
+                    defaultValue={selectedClient.paymentTerms ?? 'contado'}
+                    onValueChange={(value) =>
+                      setSelectedClient({ ...selectedClient, paymentTerms: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -402,8 +467,13 @@ export const BillingClients = () => {
                   <label className="text-sm font-medium">Límite de Crédito</label>
                   <Input
                     type="number"
-                    value={selectedClient.creditLimit}
-                    onChange={e => setSelectedClient({ ...selectedClient, creditLimit: Number(e.target.value) })}
+                    value={selectedClient.creditLimit ?? 0}
+                    onChange={(e) =>
+                      setSelectedClient({
+                        ...selectedClient,
+                        creditLimit: Number(e.target.value || 0),
+                      })
+                    }
                     placeholder="S/ 0.00"
                   />
                 </div>
@@ -419,7 +489,7 @@ export const BillingClients = () => {
                   <li>• 4 estrellas = 3% descuento automático</li>
                   <li>• 3 estrellas = 1% descuento automático</li>
                   <li>• Menos de 3 estrellas = Sin promociones</li>
-                  <li>• 0-1 estrella = Posible recargo administrativo</li>
+                  <li>• 0–1 estrella = Posible recargo administrativo</li>
                 </ul>
               </div>
 
@@ -429,17 +499,14 @@ export const BillingClients = () => {
                   onClick={() =>
                     handleSaveEdit({
                       paymentTerms: selectedClient.paymentTerms,
-                      creditLimit: selectedClient.creditLimit,
+                      creditLimit: selectedClient.creditLimit ?? 0,
                     })
                   }
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Guardar Cambios
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowEditModal(false)}
-                >
+                <Button variant="outline" onClick={() => setShowEditModal(false)}>
                   Cancelar
                 </Button>
               </div>
@@ -448,29 +515,35 @@ export const BillingClients = () => {
         </div>
       )}
 
-      {/* Morosity Warning Confirmation Modal */}
+      {/* Modal Advertencia por Morosidad */}
       {showMorosityWarning && selectedClient && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Card className="w-full max-w-md mx-4">
             <CardHeader>
               <CardTitle className="text-red-800">Confirmar Advertencia por Morosidad</CardTitle>
-              <p className="text-stone-600">{selectedClient.name}</p>
+              <p className="text-stone-600">
+                {selectedClient.name || selectedClient.comercialName || selectedClient.ruc}
+              </p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                 <p className="text-sm text-red-800">
                   <Bell className="h-4 w-4 inline mr-2" />
-                  Se enviará una advertencia formal por morosidad con notificación de sobrecargo administrativo del 10%.
+                  Se enviará una advertencia formal por morosidad con notificación de sobrecargo
+                  administrativo del 10%.
                 </p>
               </div>
-              
+
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                 <p className="text-xs text-yellow-800">
-                  <strong>Mensaje a enviar:</strong><br />
-                  "AVISO IMPORTANTE: {selectedClient.name}, su cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos. Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar."
+                  <strong>Mensaje a enviar:</strong>
+                  <br />
+                  "AVISO IMPORTANTE: {selectedClient.name || selectedClient.comercialName || selectedClient.ruc}, su
+                  cuenta presenta morosidad. Se aplicará sobrecargo administrativo del 10% por retraso en pagos.
+                  Regularice su situación a la brevedad para evitar restricciones. Pecaditos del Mar."
                 </p>
               </div>
-              
+
               <div className="flex gap-2">
                 <Button
                   onClick={() => sendMorosityWarning(selectedClient)}
@@ -479,10 +552,7 @@ export const BillingClients = () => {
                   <MessageSquare className="h-4 w-4 mr-2" />
                   Confirmar Envío
                 </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowMorosityWarning(false)}
-                >
+                <Button variant="outline" onClick={() => setShowMorosityWarning(false)}>
                   Cancelar
                 </Button>
               </div>

@@ -1,109 +1,237 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { 
-  Phone, 
-  MessageSquare, 
-  CheckCircle, 
+import {
+  Phone,
+  MessageSquare,
+  CheckCircle,
   X,
   Edit,
   Trash2,
   History,
-  AlertTriangle,
   Search,
   Filter
 } from 'lucide-react';
+import { ref, onValue, off, update, push } from 'firebase/database';
+import { db } from '@/config/firebase';
+import { toast } from '@/hooks/use-toast';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
 import { BillingOrderEditModal } from './BillingOrderEditModal';
 import { BillingOrderDeleteModal } from './BillingOrderDeleteModal';
 
+type RawOrder = any;
+
+type ViewOrder = {
+  id: string;
+  code: string;
+  client: string;
+  comercialName?: string;
+  ruc?: string;
+  amount: number;
+  date?: number | string;
+  dueDate?: number | string;
+  phone?: string;
+  whatsapp?: string;
+  // estado visual de cobranzas
+  status: 'pending_payment' | 'payment_overdue' | 'paid' | 'rejected';
+  // crudo completo por si lo necesitan los modales
+  _raw: RawOrder;
+};
+
+const ORDERS_PATH = 'pedidos';            // <-- AJUSTA si usas 'orders'
+const BILLING_MOVEMENTS = 'billingMovements';
+
+// --------- Helpers ----------
+const toDate = (v?: number | string) => {
+  if (!v) return undefined;
+  const d = typeof v === 'number' ? new Date(v) : new Date(String(v));
+  return isNaN(d.getTime()) ? undefined : d;
+};
+
+const sanitizePhone = (p?: string) => (p ? p.replace(/\D/g, '') : '');
+
+const getStatusInfo = (status: ViewOrder['status']) => {
+  switch (status) {
+    case 'pending_payment':
+      return { color: 'bg-yellow-100 text-yellow-800', text: 'Pendiente de Pago' };
+    case 'payment_overdue':
+      return { color: 'bg-red-100 text-red-800', text: 'Pago Vencido' };
+    case 'paid':
+      return { color: 'bg-green-100 text-green-800', text: 'Pagado' };
+    case 'rejected':
+      return { color: 'bg-gray-100 text-gray-800', text: 'Rechazado' };
+    default:
+      return { color: 'bg-gray-100 text-gray-800', text: status };
+  }
+};
+
+// Mapea el pedido de tu BD a lo que muestra la UI.
+// Ajusta aquí si tus campos reales tienen otros nombres.
+const mapToView = (id: string, o: RawOrder): ViewOrder | null => {
+  const estado = String(o?.estado || o?.status || '').toLowerCase();
+
+  // Consideramos estos como "entregados / listos para cobrar"
+  const deliveredLike = ['entregado', 'delivered', 'por_cobrar', 'ready_for_billing'];
+  if (!deliveredLike.includes(estado)) return null;
+
+  const amount = Number(o?.total ?? o?.amount ?? 0);
+  const client =
+    o?.cliente?.nombre ||
+    o?.customer?.name ||
+    o?.clienteNombre ||
+    '—';
+  const comercialName = o?.cliente?.comercial || o?.customer?.tradeName || o?.comercialName;
+  const ruc = o?.cliente?.ruc || o?.customer?.taxId || o?.ruc;
+  const phone = o?.cliente?.telefono || o?.customer?.phone || o?.phone;
+  const code = o?.codigo || id;
+  const date = o?.createdAt || o?.fecha;
+  const dueDate = o?.billing?.dueDate || o?.dueDate;
+
+  // estado de cobranzas en base al billing/status y vencimiento
+  const billingStatus = String(o?.billing?.status || '').toLowerCase();
+  let status: ViewOrder['status'] = 'pending_payment';
+
+  if (billingStatus === 'pagado' || billingStatus === 'paid') status = 'paid';
+  else if (billingStatus === 'rechazado' || billingStatus === 'rejected') status = 'rejected';
+  else {
+    const due = toDate(dueDate);
+    if (due && due.getTime() < Date.now()) status = 'payment_overdue';
+  }
+
+  return {
+    id,
+    code,
+    client,
+    comercialName,
+    ruc,
+    amount,
+    date,
+    dueDate,
+    phone,
+    whatsapp: phone,
+    status,
+    _raw: o,
+  };
+};
+
+// ------------------------------------------------------
+
 export const BillingOrdersAdmin = () => {
   const { isAdminMode } = useAdminBilling();
-  const [filterStatus, setFilterStatus] = useState('todos');
+  const [filterStatus, setFilterStatus] = useState<'todos' | ViewOrder['status']>('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  // State for orders with ability to remove them
-  const [orders, setOrders] = useState([
-    {
-      id: "PEC-2024-001",
-      client: "Distribuidora El Sol SAC",
-      comercialName: "El Sol Distribuciones",
-      ruc: "20123456789",
-      amount: 450.00,
-      date: "2024-01-15",
-      status: "pending_payment",
-      paymentMethod: "credito_30",
-      dueDate: "2024-02-14",
-      phone: "+51 999 111 222",
-      whatsapp: "+51 999 111 222"
-    },
-    {
-      id: "PEC-2024-002",
-      client: "Minimarket Los Andes",
-      comercialName: "Los Andes Market", 
-      ruc: "20555666777",
-      amount: 780.00,
-      date: "2024-01-14",
-      status: "payment_overdue",
-      paymentMethod: "credito_15",
-      dueDate: "2024-01-29",
-      phone: "+51 999 333 444",
-      whatsapp: "+51 999 333 444"
+  const [orders, setOrders] = useState<ViewOrder[]>([]);
+
+  // Suscripción a pedidos reales
+  useEffect(() => {
+    const r = ref(db, ORDERS_PATH);
+    const cb = (snap: any) => {
+      const data = snap.val() || {};
+      const arr: ViewOrder[] = [];
+      for (const [id, value] of Object.entries<any>(data)) {
+        const mapped = mapToView(id, value);
+        if (mapped && mapped.status !== 'paid') arr.push(mapped);
+      }
+      // ordena desc por fecha de creación
+      arr.sort((a, b) => {
+        const A = toDate(a.date)?.getTime() || 0;
+        const B = toDate(b.date)?.getTime() || 0;
+        return B - A;
+      });
+      setOrders(arr);
+    };
+    onValue(r, cb);
+    return () => off(r, 'value', cb);
+  }, []);
+
+  // Acciones
+  const handleAcceptOrder = async (order: ViewOrder) => {
+    try {
+      await update(ref(db, `${ORDERS_PATH}/${order.id}`), {
+        billing: {
+          ...(order._raw?.billing || {}),
+          status: 'pagado',
+          paidAt: new Date().toISOString(),
+        },
+      });
+
+      await push(ref(db, BILLING_MOVEMENTS), {
+        type: 'payment_received',
+        orderId: order.id,
+        client: order.client,
+        amount: order.amount || 0,
+        timestamp: Date.now(),
+        details: `Pago de ${order.code}`,
+        user: 'cobranzas',
+      });
+
+      toast({ title: 'Pago registrado', description: `Se marcó como pagado ${order.code}` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Error', description: 'No se pudo registrar el pago', variant: 'destructive' });
     }
-  ]);
+  };
 
-  const getStatusInfo = (status: string) => {
-    switch (status) {
-      case 'pending_payment':
-        return { color: 'bg-yellow-100 text-yellow-800', text: 'Pendiente de Pago' };
-      case 'payment_overdue':
-        return { color: 'bg-red-100 text-red-800', text: 'Pago Vencido' };
-      case 'paid':
-        return { color: 'bg-green-100 text-green-800', text: 'Pagado' };
-      case 'rejected':
-        return { color: 'bg-gray-100 text-gray-800', text: 'Rechazado' };
-      default:
-        return { color: 'bg-gray-100 text-gray-800', text: status };
+  const handleRejectOrder = async (order: ViewOrder) => {
+    const reason = prompt('Motivo del rechazo / observación:');
+    if (!reason) return;
+    try {
+      await update(ref(db, `${ORDERS_PATH}/${order.id}`), {
+        billing: {
+          ...(order._raw?.billing || {}),
+          status: 'rechazado',
+          rejectedAt: new Date().toISOString(),
+          reason,
+        },
+      });
+
+      await push(ref(db, BILLING_MOVEMENTS), {
+        type: 'invoice_rejected',
+        orderId: order.id,
+        client: order.client,
+        amount: order.amount || 0,
+        timestamp: Date.now(),
+        details: reason,
+        user: 'cobranzas',
+      });
+
+      toast({ title: 'Rechazo registrado', description: `Se registró rechazo para ${order.code}` });
+    } catch (e) {
+      console.error(e);
+      toast({ title: 'Error', description: 'No se pudo registrar el rechazo', variant: 'destructive' });
     }
   };
 
-  const handleAcceptOrder = (order: any) => {
-    console.log(`Aceptando pedido ${order.id} automáticamente`);
-    setOrders(prev => prev.filter(o => o.id !== order.id));
+  const handleCallClient = (phone?: string) => {
+    if (!phone) return;
+    window.open(`tel:${sanitizePhone(phone)}`, '_blank');
   };
 
-  const handleRejectOrder = (order: any) => {
-    console.log(`Rechazando pedido ${order.id}`);
-    setOrders(prev => prev.map(o => 
-      o.id === order.id ? { ...o, status: 'rejected' } : o
-    ));
+  const handleWhatsAppClient = (phone?: string) => {
+    if (!phone) return;
+    window.open(`https://wa.me/${sanitizePhone(phone)}`, '_blank');
   };
 
-  const handleCallClient = (phone: string) => {
-    console.log(`Iniciando llamada a ${phone}`);
-    // TODO: Integrate with phone system
-  };
-
-  const handleWhatsAppClient = (phone: string) => {
-    console.log(`Abriendo WhatsApp para ${phone}`);
-    // TODO: Open WhatsApp with phone number
-  };
-
-  const filteredOrders = orders.filter(order => {
-    const matchesStatus = filterStatus === 'todos' || order.status === filterStatus;
-    const matchesSearch = !searchTerm || 
-      order.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.ruc.includes(searchTerm) ||
-      order.client.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesStatus && matchesSearch;
-  });
+  // Filtros
+  const filteredOrders = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return orders.filter(o => {
+      const byStatus = filterStatus === 'todos' || o.status === filterStatus;
+      const bySearch =
+        !q ||
+        o.code.toLowerCase().includes(q) ||
+        (o.ruc || '').toLowerCase().includes(q) ||
+        o.client.toLowerCase().includes(q);
+      return byStatus && bySearch;
+    });
+  }, [orders, filterStatus, searchTerm]);
 
   return (
     <div className="space-y-6">
@@ -112,7 +240,7 @@ export const BillingOrdersAdmin = () => {
         <p className="text-stone-600">Control y validación de todos los pedidos del sistema</p>
       </div>
 
-      {/* Filters */}
+      {/* Filtros */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -131,7 +259,7 @@ export const BillingOrdersAdmin = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
               <SelectTrigger>
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
@@ -147,70 +275,82 @@ export const BillingOrdersAdmin = () => {
         </CardContent>
       </Card>
 
-      {/* Orders List */}
+      {/* Lista */}
       <div className="space-y-4">
         {filteredOrders.map((order) => {
           const statusInfo = getStatusInfo(order.status);
           const isOverdue = order.status === 'payment_overdue';
-          
+
           return (
-            <Card 
-              key={order.id} 
+            <Card
+              key={order.id}
               className={`hover:shadow-lg transition-all ${isOverdue ? 'animate-pulse border-red-300 bg-red-50' : ''}`}
             >
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      {order.id}
-                      <Badge className={statusInfo.color}>
-                        {statusInfo.text}
-                      </Badge>
+                      {order.code}
+                      <Badge className={statusInfo.color}>{statusInfo.text}</Badge>
                     </CardTitle>
                     <div className="mt-1 space-y-1">
                       <p className="text-stone-800 font-medium">{order.client}</p>
-                      <p className="text-stone-600 text-sm">Comercial: {order.comercialName}</p>
-                      <p className="text-stone-500 text-xs">RUC: {order.ruc}</p>
+                      {order.comercialName && (
+                        <p className="text-stone-600 text-sm">Comercial: {order.comercialName}</p>
+                      )}
+                      {order.ruc && <p className="text-stone-500 text-xs">RUC: {order.ruc}</p>}
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-lg font-bold">S/ {order.amount.toFixed(2)}</div>
-                    <div className="text-sm text-stone-500">
-                      Vence: {new Date(order.dueDate).toLocaleDateString()}
-                    </div>
+                    <div className="text-lg font-bold">S/ {(order.amount || 0).toFixed(2)}</div>
+                    {order.dueDate && (
+                      <div className="text-sm text-stone-500">
+                        Vence: {toDate(order.dueDate)?.toLocaleDateString('es-PE')}
+                      </div>
+                    )}
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
-                    <div className="text-sm">
-                      <span className="font-medium">Fecha:</span> {new Date(order.date).toLocaleDateString()}
-                    </div>
-                    <div className="text-sm">
-                      <span className="font-medium">Teléfono:</span> {order.phone}
-                    </div>
+                    {order.date && (
+                      <div className="text-sm">
+                        <span className="font-medium">Fecha:</span>{' '}
+                        {toDate(order.date)?.toLocaleDateString('es-PE')}
+                      </div>
+                    )}
+                    {order.phone && (
+                      <div className="text-sm">
+                        <span className="font-medium">Teléfono:</span> {order.phone}
+                      </div>
+                    )}
                   </div>
+
                   <div className="flex gap-2 flex-wrap">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleCallClient(order.phone)}
                       className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      disabled={!order.phone}
                     >
                       <Phone className="h-4 w-4 mr-2" />
-                      {order.phone}
+                      {order.phone || 'Llamar'}
                     </Button>
+
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleWhatsAppClient(order.whatsapp)}
                       className="text-green-600 border-green-300 hover:bg-green-50"
+                      disabled={!order.whatsapp}
                     >
                       <MessageSquare className="h-4 w-4 mr-2" />
                       WhatsApp
                     </Button>
-                    
+
+                    {/* Acciones */}
                     {order.status !== 'paid' && order.status !== 'rejected' && (
                       <>
                         <Button
@@ -264,6 +404,10 @@ export const BillingOrdersAdmin = () => {
                           size="sm"
                           variant="outline"
                           className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                          onClick={() => {
+                            // Aquí puedes abrir tu historial por orderId
+                            // o navegar a /cobranzas/historial?orderId=...
+                          }}
                         >
                           <History className="h-4 w-4 mr-2" />
                           Historial
@@ -278,7 +422,7 @@ export const BillingOrdersAdmin = () => {
         })}
       </div>
 
-      {/* Modals */}
+      {/* Modales */}
       <BillingOrderEditModal
         order={selectedOrder}
         isOpen={showEditModal}

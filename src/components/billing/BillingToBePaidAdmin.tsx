@@ -1,4 +1,5 @@
-import { useState } from 'react';
+// src/components/billing/BillingToBePaidAdmin.tsx
+import { useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -6,10 +7,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { 
-  Phone, 
-  MessageSquare, 
-  CheckCircle, 
+import {
+  Phone,
+  MessageSquare,
+  CheckCircle,
   AlertTriangle,
   Download,
   Calendar,
@@ -20,230 +21,213 @@ import {
   Search,
   Bell,
   Copy,
-  X
+  X,
 } from 'lucide-react';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
 import { useToast } from '@/hooks/use-toast';
+// ⬇️ Usa ruta relativa para evitar el error del alias '@'
+import { useBilling, type Invoice as HookInvoice, type Client as HookClient } from '../../hooks/useBilling';
+
+type SortKey = 'amount_desc' | 'amount_asc' | 'overdue_desc' | 'overdue_asc';
+
+type UIInvoice = {
+  id: string;
+  orderNumber?: string;
+  amount: number;
+  issueDate?: string;
+  dueDate: string;
+  status: 'pending' | 'overdue' | 'paid' | 'rejected';
+  daysOverdue: number;
+  paymentMethod?: string;
+};
+
+type UIClient = {
+  clientId: string;
+  client: string;
+  comercialName?: string;
+  ruc?: string;
+  phone?: string;
+  totalDebt: number;
+  overdueDays: number;
+  invoices: UIInvoice[];
+};
 
 export const BillingToBePaidAdmin = () => {
-  const { isAdminMode, sendWarningMessage } = useAdminBilling();
+  const { sendWarningMessage } = useAdminBilling();
   const { toast } = useToast();
-  
-  const [filterStatus, setFilterStatus] = useState('todos');
+  const { invoices: rawInvoices, clients: rawClients } = useBilling();
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortBy, setSortBy] = useState('amount_desc');
-  const [selectedClient, setSelectedClient] = useState<string | null>(null);
-  
-  // Modals state
-  const [showConfirmWarning, setShowConfirmWarning] = useState(false);
+  const [sortBy, setSortBy] = useState<SortKey>('amount_desc');
+
+  // Modals
   const [showCollectModal, setShowCollectModal] = useState(false);
   const [showCommitmentModal, setShowCommitmentModal] = useState(false);
   const [showCreditNoteModal, setShowCreditNoteModal] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
-  const [selectedInvoice, setSelectedInvoice] = useState<any>(null);
-  
-  // Form data
+  const [selectedInvoice, setSelectedInvoice] = useState<UIInvoice | null>(null);
+
+  // Forms
   const [collectData, setCollectData] = useState({
     amount: '',
     date: '',
     operationNumber: '',
     bank: '',
-    responsible: ''
+    responsible: '',
   });
-  
+
   const [commitmentData, setCommitmentData] = useState({
     date: '',
     observation: '',
-    sendWhatsApp: false
+    sendWhatsApp: false,
   });
-  
+
   const [creditNoteData, setCreditNoteData] = useState({
     number: '',
     reason: '',
     date: '',
     amount: '',
-    authCode: ''
+    authCode: '',
   });
 
-  // Enhanced mock invoices data grouped by client
-  const clientsData = [
-    {
-      clientId: "20123456789",
-      client: "Distribuidora El Sol SAC",
-      comercialName: "El Sol Distribuciones",
-      ruc: "20123456789",
-      phone: "+51 999 111 222",
-      totalDebt: 1230.00,
-      overdueDays: 22,
-      invoices: [
-        {
-          id: "FAC-2024-001",
-          orderNumber: "PEC-2024-001",
-          amount: 780.00,
-          issueDate: "2024-01-01",
-          dueDate: "2024-01-15",
-          status: "overdue",
-          daysOverdue: 15,
-          paymentMethod: "credito_30"
-        },
-        {
-          id: "FAC-2024-003",
-          orderNumber: "PEC-2024-003",
-          amount: 450.00,
-          issueDate: "2024-01-10",
-          dueDate: "2024-01-25",
-          status: "overdue",
-          daysOverdue: 7,
-          paymentMethod: "credito_15"
-        }
-      ]
-    },
-    {
-      clientId: "20555666777",
-      client: "Minimarket Los Andes",
-      comercialName: "Los Andes Market",
-      ruc: "20555666777",
-      phone: "+51 999 333 444",
-      totalDebt: 450.00,
-      overdueDays: 7,
-      invoices: [
-        {
-          id: "FAC-2024-002",
-          orderNumber: "PEC-2024-002",
-          amount: 450.00,
-          issueDate: "2024-01-10",
-          dueDate: "2024-01-25",
-          status: "overdue",
-          daysOverdue: 7,
-          paymentMethod: "credito_15"
-        }
-      ]
-    }
-  ];
+  // --------- Transformación desde el hook (sin mocks) ----------
+  const clientsData: UIClient[] = useMemo(() => {
+    const byClient: Record<string, UIClient> = {};
+    const now = new Date();
 
-  // Action handlers
-  const handleCollect = (invoice: any) => {
+    const getClient = (id: string): HookClient | undefined => rawClients[id];
+
+    (rawInvoices as HookInvoice[]).forEach((inv) => {
+      if (!inv) return;
+      if (inv.status !== 'pending' && inv.status !== 'overdue') return;
+
+      const c = getClient(inv.clientId);
+      if (!byClient[inv.clientId]) {
+        byClient[inv.clientId] = {
+          clientId: inv.clientId,
+          client: c?.nombre ?? c?.comercial ?? inv.clientId,
+          comercialName: c?.comercial,
+          ruc: c?.ruc,
+          phone: c?.telefono ?? c?.whatsapp,
+          totalDebt: 0,
+          overdueDays: 0,
+          invoices: [],
+        };
+      }
+
+      const due = new Date(inv.dueDate);
+      const daysOver =
+        due.getTime() < now.getTime()
+          ? Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
+          : 0;
+
+      const uiInv: UIInvoice = {
+        id: inv.id,
+        orderNumber: inv.orderId,
+        amount: Number(inv.amount || 0),
+        issueDate: inv.createdAt,
+        dueDate: inv.dueDate,
+        status: inv.status,
+        daysOverdue: daysOver,
+        paymentMethod: undefined, // asigna si lo guardas en DB
+      };
+
+      byClient[inv.clientId].invoices.push(uiInv);
+      byClient[inv.clientId].totalDebt += uiInv.amount;
+      byClient[inv.clientId].overdueDays = Math.max(byClient[inv.clientId].overdueDays, daysOver);
+    });
+
+    Object.values(byClient).forEach((c) =>
+      c.invoices.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    );
+
+    return Object.values(byClient);
+  }, [rawInvoices, rawClients]);
+
+  // --------- Helpers / Actions ----------
+  const findClientByInvoice = (invoice: UIInvoice) =>
+    clientsData.find((c) => c.invoices.some((inv) => inv.id === invoice.id));
+
+  const handleCollect = (invoice: UIInvoice) => {
     setSelectedInvoice(invoice);
     setCollectData({
       amount: invoice.amount.toString(),
       date: new Date().toISOString().split('T')[0],
       operationNumber: '',
       bank: '',
-      responsible: ''
+      responsible: '',
     });
     setShowCollectModal(true);
   };
 
-  const handleCommitment = (invoice: any) => {
+  const handleCommitment = (invoice: UIInvoice) => {
     setSelectedInvoice(invoice);
-    setCommitmentData({
-      date: '',
-      observation: '',
-      sendWhatsApp: false
-    });
+    setCommitmentData({ date: '', observation: '', sendWhatsApp: false });
     setShowCommitmentModal(true);
   };
 
-  const handleCreditNote = (invoice: any) => {
+  const handleCreditNote = (invoice: UIInvoice) => {
     setSelectedInvoice(invoice);
     setCreditNoteData({
       number: '',
       reason: '',
       date: new Date().toISOString().split('T')[0],
       amount: invoice.amount.toString(),
-      authCode: ''
+      authCode: '',
     });
     setShowCreditNoteModal(true);
   };
 
-  const handleWhatsApp = (invoice: any) => {
-    const client = clientsData.find(c => c.invoices.some(inv => inv.id === invoice.id));
-    if (client) {
-      const message = `Hola ${client.comercialName}, le recordamos que tiene una factura pendiente (${invoice.id}) por S/ ${invoice.amount.toFixed(2)} con vencimiento el ${new Date(invoice.dueDate).toLocaleDateString()}. Por favor, regularice su pago a la brevedad. Gracias.`;
-      const whatsappUrl = `https://wa.me/${client.phone.replace(/\s+/g, '')}?text=${encodeURIComponent(message)}`;
-      window.open(whatsappUrl, '_blank');
-    }
+  const handleWhatsApp = (invoice: UIInvoice) => {
+    const client = findClientByInvoice(invoice);
+    if (!client || !client.phone) return;
+    const message = `Hola ${client.comercialName ?? client.client}, le recordamos que tiene una factura pendiente (${invoice.id}) por S/ ${invoice.amount.toFixed(
+      2
+    )} con vencimiento el ${new Date(invoice.dueDate).toLocaleDateString()}. Gracias.`;
+    const digits = client.phone.replace(/\D/g, '');
+    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
-  const handleWarning = (invoice: any) => {
+  const handleWarning = (invoice: UIInvoice) => {
     setSelectedInvoice(invoice);
     setShowWarningDialog(true);
   };
 
-  const handleDownloadPDF = (invoice: any) => {
-    console.log(`Descargando PDF de factura ${invoice.id}`);
-    toast({
-      title: "Descarga iniciada",
-      description: `Descargando PDF de ${invoice.id}`,
-    });
+  const handleDownloadPDF = (invoice: UIInvoice) => {
+    console.log(`Descargando PDF de ${invoice.id}`);
+    toast({ title: 'Descarga iniciada', description: `Descargando PDF de ${invoice.id}` });
   };
 
-  const handleCall = (phone: string) => {
-    console.log(`Iniciando llamada a ${phone}`);
-    toast({
-      title: "Llamada iniciada",
-      description: `Marcando ${phone}`,
-    });
+  const handleCall = (phone?: string) => {
+    if (!phone) return;
+    const digits = phone.replace(/\D/g, '');
+    window.open(`tel:${digits}`, '_self');
   };
 
-  // Confirmation handlers
+  // --------- Confirmaciones ----------
   const confirmCollect = () => {
     if (!collectData.amount || !collectData.date || !collectData.responsible) {
-      toast({
-        title: "Error",
-        description: "Complete todos los campos obligatorios",
-        variant: "destructive"
-      });
+      toast({ title: 'Error', description: 'Complete los campos obligatorios', variant: 'destructive' });
       return;
     }
-    
-    console.log('Registrando pago:', {
-      invoiceId: selectedInvoice?.id,
-      ...collectData,
-      timestamp: new Date().toISOString()
-    });
-    
-    toast({
-      title: "Pago registrado",
-      description: `Pago de S/ ${collectData.amount} registrado correctamente`,
-    });
-    
+    // TODO: persistir en DB
+    toast({ title: 'Pago registrado', description: `Pago de S/ ${collectData.amount}` });
     setShowCollectModal(false);
     setSelectedInvoice(null);
-    setCollectData({
-      amount: '',
-      date: '',
-      operationNumber: '',
-      bank: '',
-      responsible: ''
-    });
+    setCollectData({ amount: '', date: '', operationNumber: '', bank: '', responsible: '' });
   };
 
   const confirmCommitment = () => {
     if (!commitmentData.date) {
-      toast({
-        title: "Error",
-        description: "Seleccione la fecha de compromiso",
-        variant: "destructive"
-      });
+      toast({ title: 'Error', description: 'Seleccione la fecha de compromiso', variant: 'destructive' });
       return;
     }
-    
-    console.log('Registrando compromiso de pago:', {
-      invoiceId: selectedInvoice?.id,
-      ...commitmentData,
-      timestamp: new Date().toISOString()
-    });
-
-    if (commitmentData.sendWhatsApp) {
-      handleWhatsApp(selectedInvoice);
-    }
-    
+    // TODO: persistir en DB
+    if (commitmentData.sendWhatsApp && selectedInvoice) handleWhatsApp(selectedInvoice);
     toast({
-      title: "Compromiso registrado",
-      description: `Compromiso de pago para el ${new Date(commitmentData.date).toLocaleDateString()}`,
+      title: 'Compromiso registrado',
+      description: `Para el ${new Date(commitmentData.date).toLocaleDateString()}`,
     });
-    
     setShowCommitmentModal(false);
     setSelectedInvoice(null);
     setCommitmentData({ date: '', observation: '', sendWhatsApp: false });
@@ -251,96 +235,76 @@ export const BillingToBePaidAdmin = () => {
 
   const confirmCreditNote = () => {
     if (!creditNoteData.number || !creditNoteData.reason || !creditNoteData.amount) {
-      toast({
-        title: "Error",
-        description: "Complete todos los campos obligatorios",
-        variant: "destructive"
-      });
+      toast({ title: 'Error', description: 'Complete los campos obligatorios', variant: 'destructive' });
       return;
     }
-    
-    console.log('Generando nota de crédito:', {
-      invoiceId: selectedInvoice?.id,
-      ...creditNoteData,
-      timestamp: new Date().toISOString()
-    });
-    
+    // TODO: persistir en DB
     toast({
-      title: "Nota de crédito generada",
-      description: `Nota de crédito ${creditNoteData.number} por S/ ${creditNoteData.amount}`,
+      title: 'Nota de crédito generada',
+      description: `Nota ${creditNoteData.number} por S/ ${creditNoteData.amount}`,
     });
-    
     setShowCreditNoteModal(false);
     setSelectedInvoice(null);
-    setCreditNoteData({
-      number: '',
-      reason: '',
-      date: '',
-      amount: '',
-      authCode: ''
-    });
+    setCreditNoteData({ number: '', reason: '', date: '', amount: '', authCode: '' });
+  };
+
+  const getWarningMessage = (invoice: UIInvoice) => {
+    const c = findClientByInvoice(invoice);
+    if (!c) return '';
+    return `Estimado cliente ${c.client}, tiene una factura pendiente (${invoice.id}) por S/ ${invoice.amount.toFixed(
+      2
+    )} con vencimiento el ${new Date(invoice.dueDate).toLocaleDateString()}. Por favor, regularice su pago.`;
+  };
+
+  const copyWarningMessage = () => {
+    if (!selectedInvoice) return;
+    navigator.clipboard.writeText(getWarningMessage(selectedInvoice));
+    toast({ title: 'Mensaje copiado', description: 'Se copió al portapapeles' });
   };
 
   const confirmWarning = () => {
-    const client = clientsData.find(c => c.invoices.some(inv => inv.id === selectedInvoice.id));
-    if (client) {
-      const message = `Estimado cliente ${client.client}, le recordamos que tiene una factura pendiente (${selectedInvoice.id}) por S/ ${selectedInvoice.amount.toFixed(2)} con vencimiento el ${new Date(selectedInvoice.dueDate).toLocaleDateString()}. Por favor, regularice su pago a la brevedad. Gracias.`;
-      
-      sendWarningMessage(client.clientId, message);
-      
-      console.log(`Enviando advertencia a cliente ${client.clientId}: ${message}`);
-      
-      toast({
-        title: "Advertencia enviada",
-        description: `Mensaje de advertencia enviado a ${client.comercialName}`,
-      });
-    }
-    
+    if (!selectedInvoice) return;
+    const c = findClientByInvoice(selectedInvoice);
+    if (!c) return;
+    // TODO: si tu backend envía WhatsApp, integra aquí
+    sendWarningMessage(c.clientId, getWarningMessage(selectedInvoice));
+    toast({ title: 'Advertencia enviada', description: c.comercialName ?? c.client });
     setShowWarningDialog(false);
     setSelectedInvoice(null);
   };
 
-  // Filter and sort clients
-  const filteredClients = clientsData.filter(client => {
-    const matchesSearch = !searchTerm || 
-      client.ruc.includes(searchTerm) ||
-      client.client.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.comercialName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesSearch;
-  });
+  // --------- Filtros & orden ----------
+  const filteredClients = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return clientsData;
+    return clientsData.filter(
+      (client) =>
+        (client.ruc ?? '').includes(term) ||
+        client.client.toLowerCase().includes(term) ||
+        (client.comercialName ?? '').toLowerCase().includes(term)
+    );
+  }, [clientsData, searchTerm]);
 
-  const sortedClients = [...filteredClients].sort((a, b) => {
+  const sortedClients = useMemo(() => {
+    const arr = [...filteredClients];
     switch (sortBy) {
       case 'amount_desc':
-        return b.totalDebt - a.totalDebt;
+        arr.sort((a, b) => b.totalDebt - a.totalDebt);
+        break;
       case 'amount_asc':
-        return a.totalDebt - b.totalDebt;
+        arr.sort((a, b) => a.totalDebt - b.totalDebt);
+        break;
       case 'overdue_desc':
-        return b.overdueDays - a.overdueDays;
+        arr.sort((a, b) => b.overdueDays - a.overdueDays);
+        break;
       case 'overdue_asc':
-        return a.overdueDays - b.overdueDays;
-      default:
-        return 0;
+        arr.sort((a, b) => a.overdueDays - b.overdueDays);
+        break;
     }
-  });
+    return arr;
+  }, [filteredClients, sortBy]);
 
-  const getWarningMessage = (invoice: any) => {
-    const client = clientsData.find(c => c.invoices.some(inv => inv.id === invoice.id));
-    if (!client) return '';
-    
-    return `Estimado cliente ${client.client}, le recordamos que tiene una factura pendiente (${invoice.id}) por S/ ${invoice.amount.toFixed(2)} con vencimiento el ${new Date(invoice.dueDate).toLocaleDateString()}. Por favor, regularice su pago a la brevedad. Gracias.`;
-  };
-
-  const copyWarningMessage = () => {
-    const message = getWarningMessage(selectedInvoice);
-    navigator.clipboard.writeText(message);
-    toast({
-      title: "Mensaje copiado",
-      description: "El mensaje de advertencia ha sido copiado al portapapeles",
-    });
-  };
-
+  // --------- UI ----------
   return (
     <div className="space-y-6">
       <div>
@@ -348,47 +312,58 @@ export const BillingToBePaidAdmin = () => {
         <p className="text-stone-600">Gestión completa de facturas pendientes agrupadas por cliente</p>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="border-red-200 bg-red-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-red-600">Clientes con deuda vencida</p>
-                <p className="text-2xl font-bold text-red-700">{clientsData.filter(c => c.overdueDays > 0).length}</p>
+                <p className="text-2xl font-bold text-red-700">
+                  {sortedClients.filter((c) => c.overdueDays > 0).length}
+                </p>
               </div>
               <AlertTriangle className="h-8 w-8 text-red-500 animate-pulse" />
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-orange-600">Total Adeudado</p>
-                <p className="text-2xl font-bold text-orange-700">S/ {clientsData.reduce((sum, client) => sum + client.totalDebt, 0).toFixed(2)}</p>
+                <p className="text-2xl font-bold text-orange-700">
+                  S/ {sortedClients.reduce((sum, c) => sum + c.totalDebt, 0).toFixed(2)}
+                </p>
               </div>
               <DollarSign className="h-8 w-8 text-orange-500" />
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-yellow-600">Facturas pendientes</p>
-                <p className="text-2xl font-bold text-yellow-700">{clientsData.reduce((sum, client) => sum + client.invoices.length, 0)}</p>
+                <p className="text-2xl font-bold text-yellow-700">
+                  {sortedClients.reduce((sum, c) => sum + c.invoices.length, 0)}
+                </p>
               </div>
               <FileText className="h-8 w-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-blue-600">Mayor deudor</p>
-                <p className="text-lg font-bold text-blue-700">S/ {Math.max(...clientsData.map(c => c.totalDebt)).toFixed(2)}</p>
+                <p className="text-lg font-bold text-blue-700">
+                  S/ {Math.max(0, ...sortedClients.map((c) => c.totalDebt)).toFixed(2)}
+                </p>
               </div>
               <Clock className="h-8 w-8 text-blue-500" />
             </div>
@@ -396,12 +371,12 @@ export const BillingToBePaidAdmin = () => {
         </Card>
       </div>
 
-      {/* Enhanced Filters */}
+      {/* Filters */}
       <Card>
         <CardContent className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
               <Input
                 placeholder="Buscar cliente, RUC, razón social..."
                 value={searchTerm}
@@ -409,7 +384,8 @@ export const BillingToBePaidAdmin = () => {
                 className="pl-10"
               />
             </div>
-            <Select value={sortBy} onValueChange={setSortBy}>
+
+            <Select value={sortBy} onValueChange={(v: SortKey) => setSortBy(v)}>
               <SelectTrigger>
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
@@ -424,14 +400,12 @@ export const BillingToBePaidAdmin = () => {
         </CardContent>
       </Card>
 
-      {/* Clients List */}
+      {/* Clients */}
       <div className="space-y-4">
         {sortedClients.map((client) => (
-          <Card 
-            key={client.clientId} 
-            className={`hover:shadow-lg transition-all ${
-              client.overdueDays > 0 ? 'border-red-300 bg-red-50' : ''
-            }`}
+          <Card
+            key={client.clientId}
+            className={`hover:shadow-lg transition-all ${client.overdueDays > 0 ? 'border-red-300 bg-red-50' : ''}`}
           >
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -443,42 +417,36 @@ export const BillingToBePaidAdmin = () => {
                     </Badge>
                   </CardTitle>
                   <div className="mt-1 space-y-1">
-                    <p className="text-stone-600 text-sm">Comercial: {client.comercialName}</p>
-                    <p className="text-stone-500 text-xs">RUC: {client.ruc}</p>
-                    <p className="text-stone-500 text-xs">Teléfono: {client.phone}</p>
+                    <p className="text-stone-600 text-sm">Comercial: {client.comercialName ?? '-'}</p>
+                    <p className="text-stone-500 text-xs">RUC: {client.ruc ?? '-'}</p>
+                    <p className="text-stone-500 text-xs">Teléfono: {client.phone ?? '-'}</p>
                   </div>
                 </div>
                 <div className="text-right">
                   <div className="text-xl font-bold text-red-600">S/ {client.totalDebt.toFixed(2)}</div>
-                  <div className="text-sm text-stone-500">
-                    {client.invoices.length} facturas pendientes
-                  </div>
+                  <div className="text-sm text-stone-500">{client.invoices.length} facturas pendientes</div>
                 </div>
               </div>
             </CardHeader>
+
             <CardContent>
               <div className="space-y-3">
-                {/* Lista de facturas del cliente */}
                 {client.invoices.map((invoice) => (
                   <div key={invoice.id} className="border rounded-lg p-3 bg-white">
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <p className="font-medium text-stone-800">{invoice.id}</p>
-                        <p className="text-sm text-stone-600">Orden: {invoice.orderNumber}</p>
+                        {invoice.orderNumber && <p className="text-sm text-stone-600">Orden: {invoice.orderNumber}</p>}
                         <p className="text-xs text-stone-500">
-                          Vence: {new Date(invoice.dueDate).toLocaleDateString()} 
-                          ({invoice.daysOverdue} días vencida)
+                          Vence: {new Date(invoice.dueDate).toLocaleDateString()} ({invoice.daysOverdue} días vencida)
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-stone-800">S/ {invoice.amount.toFixed(2)}</p>
-                        <Badge className="bg-red-100 text-red-800 text-xs">
-                          {invoice.paymentMethod}
-                        </Badge>
+                        <Badge className="bg-red-100 text-red-800 text-xs">{invoice.paymentMethod ?? 'crédito'}</Badge>
                       </div>
                     </div>
-                    
-                    {/* Botones de acción por factura */}
+
                     <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
@@ -488,6 +456,7 @@ export const BillingToBePaidAdmin = () => {
                         <CheckCircle className="h-4 w-4 mr-1" />
                         Cobrar
                       </Button>
+
                       <Button
                         size="sm"
                         onClick={() => handleCommitment(invoice)}
@@ -496,6 +465,7 @@ export const BillingToBePaidAdmin = () => {
                         <Calendar className="h-4 w-4 mr-1" />
                         Compromiso
                       </Button>
+
                       <Button
                         size="sm"
                         onClick={() => handleCreditNote(invoice)}
@@ -505,6 +475,7 @@ export const BillingToBePaidAdmin = () => {
                         <CreditCard className="h-4 w-4 mr-1" />
                         N. Crédito
                       </Button>
+
                       <Button
                         size="sm"
                         onClick={() => handleWarning(invoice)}
@@ -514,6 +485,7 @@ export const BillingToBePaidAdmin = () => {
                         <Bell className="h-4 w-4 mr-1" />
                         Advertir
                       </Button>
+
                       <Button
                         size="sm"
                         onClick={() => handleDownloadPDF(invoice)}
@@ -523,6 +495,7 @@ export const BillingToBePaidAdmin = () => {
                         <Download className="h-4 w-4 mr-1" />
                         PDF
                       </Button>
+
                       <Button
                         size="sm"
                         onClick={() => handleCall(client.phone)}
@@ -540,26 +513,6 @@ export const BillingToBePaidAdmin = () => {
           </Card>
         ))}
       </div>
-
-      {/* Warning Confirmation Modal */}
-      <Dialog open={showConfirmWarning} onOpenChange={setShowConfirmWarning}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirmar Advertencia</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p>¿Está seguro que desea enviar una advertencia de pago al cliente?</p>
-            <div className="flex gap-2">
-              <Button onClick={confirmWarning} className="bg-red-600 hover:bg-red-700 text-white">
-                Enviar Advertencia
-              </Button>
-              <Button variant="outline" onClick={() => setShowConfirmWarning(false)}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Warning Message Dialog */}
       <Dialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
@@ -678,12 +631,13 @@ export const BillingToBePaidAdmin = () => {
                 onChange={(e) => setCommitmentData({ ...commitmentData, observation: e.target.value })}
               />
             </div>
-            <div className="flex items-center space-x-2">
-              <Input
+            <div className="flex items-center gap-2">
+              <input
                 type="checkbox"
                 id="sendWhatsApp"
                 checked={commitmentData.sendWhatsApp}
                 onChange={(e) => setCommitmentData({ ...commitmentData, sendWhatsApp: e.target.checked })}
+                className="rounded"
               />
               <label htmlFor="sendWhatsApp" className="text-sm font-medium text-stone-700">
                 Enviar recordatorio por WhatsApp
