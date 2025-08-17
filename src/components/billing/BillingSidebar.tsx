@@ -1,22 +1,35 @@
-
-import { 
-  LayoutDashboard, 
-  ShoppingCart, 
-  AlertCircle, 
-  CheckCircle, 
-  Users, 
-  History, 
-  FileText 
+// src/components/billing/BillingSidebar.tsx
+import {
+  type LucideIcon,
+  LayoutDashboard,
+  ShoppingCart,
+  AlertCircle,
+  CheckCircle,
+  Users,
+  History,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Section } from './types.ts';
+import * as React from 'react';
 
-interface BillingSidebarProps {
-  activeSection: string;
-  setActiveSection: (section: string) => void;
-}
+type BillingSidebarProps = {
+  activeSection: Section;
+  // Importante: usar el mismo tipo que devuelve useState<Section>
+  setActiveSection: React.Dispatch<React.SetStateAction<Section>>;
+};
 
-export const BillingSidebar = ({ activeSection, setActiveSection }: BillingSidebarProps) => {
-  const menuItems = [
+type MenuItem = {
+  id: Section;
+  label: string;
+  icon: LucideIcon;
+};
+
+export const BillingSidebar: React.FC<BillingSidebarProps> = ({
+  activeSection,
+  setActiveSection,
+}) => {
+  const menuItems: MenuItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Pedidos', icon: ShoppingCart },
     { id: 'to-be-paid', label: 'Por Cobrar', icon: AlertCircle },
@@ -36,10 +49,10 @@ export const BillingSidebar = ({ activeSection, setActiveSection }: BillingSideb
               key={item.id}
               onClick={() => setActiveSection(item.id)}
               className={cn(
-                "w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors",
+                'w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors',
                 activeSection === item.id
-                  ? "bg-green-100 text-green-700 font-medium"
-                  : "text-stone-600 hover:bg-stone-50 hover:text-stone-800"
+                  ? 'bg-green-100 text-green-700 font-medium'
+                  : 'text-stone-600 hover:bg-stone-50 hover:text-stone-800'
               )}
             >
               <Icon className="h-5 w-5" />

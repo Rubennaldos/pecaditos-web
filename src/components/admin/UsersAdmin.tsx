@@ -25,7 +25,24 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { toast } from '@/hooks/use-toast';
 
-type Rol = 'admin' | 'adminGeneral' | 'pedidos' | 'produccion' | 'reparto' | 'cobranzas';
+type Rol =
+  | 'admin'
+  | 'adminGeneral'
+  | 'pedidos'
+  | 'produccion'
+  | 'reparto'
+  | 'cobranzas'
+  | 'mayorista'; // << NUEVO
+
+const ROLE_LABEL: Record<Rol, string> = {
+  admin: 'Admin',
+  adminGeneral: 'Admin General',
+  pedidos: 'Pedidos',
+  produccion: 'Producción',
+  reparto: 'Reparto',
+  cobranzas: 'Cobranzas',
+  mayorista: 'Mayorista', // << NUEVO
+};
 
 type UserRecord = {
   id: string;           // uid en RTDB (coincide con Auth cuando lo crea la Function)
@@ -133,7 +150,6 @@ const UsersAdmin: React.FC = () => {
         });
 
         if (pwd || pwd2) {
-          // Aclaración: aún no implementamos cambio de contraseña en Auth desde aquí
           toast({
             title: 'Contraseña no cambiada',
             description: 'Para cambiar contraseña en Auth creamos otra función en el siguiente paso.',
@@ -164,7 +180,7 @@ const UsersAdmin: React.FC = () => {
           email: form.correo,
           password: pwd,
           nombre: form.nombre,
-          rol: form.rol,
+          rol: form.rol, // <-- puede ser 'mayorista'
         });
 
         toast({ title: 'Usuario creado', description: 'Se agregó el nuevo usuario en Auth y RTDB' });
@@ -264,6 +280,7 @@ const UsersAdmin: React.FC = () => {
                         <SelectItem value="produccion">Producción</SelectItem>
                         <SelectItem value="reparto">Reparto</SelectItem>
                         <SelectItem value="cobranzas">Cobranzas</SelectItem>
+                        <SelectItem value="mayorista">Mayorista</SelectItem> {/* << NUEVO */}
                       </SelectContent>
                     </Select>
                   </div>
@@ -356,7 +373,7 @@ const UsersAdmin: React.FC = () => {
                     <TableCell className="font-medium">{u.nombre}</TableCell>
                     <TableCell>{u.correo}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{u.rol}</Badge>
+                      <Badge variant="outline">{ROLE_LABEL[u.rol] ?? u.rol}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge variant={u.activo ? 'default' : 'secondary'}>

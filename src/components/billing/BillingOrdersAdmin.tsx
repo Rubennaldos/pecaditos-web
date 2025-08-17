@@ -16,7 +16,7 @@ import {
   Filter
 } from 'lucide-react';
 import { ref, onValue, off, update, push } from 'firebase/database';
-import { db } from '@/config/firebase';
+import { db } from '../../config/firebase'         // ✅
 import { toast } from '@/hooks/use-toast';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
 import { BillingOrderEditModal } from './BillingOrderEditModal';

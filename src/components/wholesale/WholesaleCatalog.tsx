@@ -1,139 +1,247 @@
+// src/components/wholesale/WholesaleCatalog.tsx
+import { useEffect, useMemo, useState } from 'react';
+import { onValue, ref } from 'firebase/database';
+import { db } from '@/config/firebase';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
 
-import { useState, useMemo } from 'react';
-import { mockProducts } from '@/data/mockData';
-import { WholesaleProductCard } from './WholesaleProductCard';
+// Tipo mínimo para lo que necesita addItem del carrito
+type AddItemArg = {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  unit?: string;
+};
 
-/**
- * CATÁLOGO MAYORISTA
- * 
- * Catálogo específico para mayoristas con:
- * - Cantidades solo en múltiplos de 6
- * - Pedido mínimo S/ 300
- * - Precios con descuentos mayoristas
- * - Productos frecuentes guardados
- * 
- * PARA PERSONALIZAR:
- * - Modificar múltiplos permitidos
- * - Cambiar pedido mínimo
- * - Agregar más filtros
- */
+type DbProduct = {
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  unit?: string;
+  tags?: string[];
+  price?: number;
+  wholesalePrice?: number;
+  categoryId?: string;
+  active?: boolean;
+  activeWholesale?: boolean;
+  minMultiple?: number;
+  stock?: number;
+  sortOrder?: number;
+};
 
-interface WholesaleCatalogProps {
-  selectedCategory: string;
+type UiProduct = {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  unit?: string;
+  tags: string[];
+  price?: number;
+  wholesalePrice: number;
+  categoryId: string;
+  minMultiple: number;
+  stock?: number;
+};
+
+type Props = {
+  selectedCategory: string;   // 'todas' | id de categoría
   searchQuery: string;
-}
+};
 
-export const WholesaleCatalog = ({ selectedCategory, searchQuery }: WholesaleCatalogProps) => {
-  const [sortBy, setSortBy] = useState<'name' | 'price' | 'category'>('name');
+export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
+  const { toast } = useToast();
+  const { addItem } = useWholesaleCart();
+  const [products, setProducts] = useState<UiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Filtrar y ordenar productos para mayoristas
-  const filteredProducts = useMemo(() => {
-    let filtered = mockProducts.filter(product => {
-      // Filtrar por categoría
-      const categoryMatch = selectedCategory === 'todas' || product.category === selectedCategory;
-      
-      // Filtrar por búsqueda
-      const searchMatch = searchQuery === '' || 
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.ingredients.some(ingredient => 
-          ingredient.toLowerCase().includes(searchQuery.toLowerCase())
-        );
+  useEffect(() => {
+    const r = ref(db, 'catalog/products');
 
-      return categoryMatch && searchMatch && product.available;
+    const unsub = onValue(
+      r,
+      (snap) => {
+        const val = (snap.val() || {}) as Record<string, DbProduct>;
+
+        const list: UiProduct[] = Object.entries(val)
+          .map(([id, p]) => ({
+            id,
+            name: p?.name ?? id,
+            description: p?.description,
+            imageUrl: p?.imageUrl,
+            unit: p?.unit,
+            tags: Array.isArray(p?.tags) ? (p!.tags as string[]) : [],
+            price: Number.isFinite(p?.price) ? (p!.price as number) : undefined,
+            wholesalePrice: Number.isFinite(p?.wholesalePrice) ? (p!.wholesalePrice as number) : 0,
+            categoryId: p?.categoryId ?? 'sin-categoria',
+            minMultiple: Number.isFinite(p?.minMultiple) ? (p!.minMultiple as number) : 6,
+            stock: Number.isFinite(p?.stock) ? (p!.stock as number) : undefined,
+            _active: p?.active !== false,
+            _activeWholesale: p?.activeWholesale !== false,
+            _sortOrder: Number.isFinite(p?.sortOrder) ? (p!.sortOrder as number) : 9999,
+          }) as any)
+          .filter((x: any) => x._active && x._activeWholesale)
+          .sort(
+            (a: any, b: any) =>
+              (a._sortOrder ?? 9999) - (b._sortOrder ?? 9999) ||
+              a.name.localeCompare(b.name)
+          )
+          .map((x: any) => {
+            delete x._active; delete x._activeWholesale; delete x._sortOrder;
+            return x as UiProduct;
+          });
+
+        setProducts(list);
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
+
+    return () => unsub();
+  }, []);
+
+  const filtered = useMemo(() => {
+    let out = products.filter(
+      (p) => selectedCategory === 'todas' || p.categoryId === selectedCategory
+    );
+
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      out = out.filter((p) => {
+        const haystack = `${p.name} ${p.description ?? ''} ${p.tags.join(' ')}`.toLowerCase();
+        return haystack.includes(q);
+      });
+    }
+    return out;
+  }, [products, selectedCategory, searchQuery]);
+
+  const [qtyById, setQtyById] = useState<Record<string, number>>({});
+
+  const stepFor = (p: UiProduct) => Math.max(1, p.minMultiple || 6);
+
+  const setQty = (id: string, qty: number, p: UiProduct) => {
+    const step = stepFor(p);
+    const normalized = qty <= 0 ? step : Math.round(qty / step) * step;
+    setQtyById((prev) => ({ ...prev, [id]: normalized }));
+  };
+
+  const dec = (p: UiProduct) => {
+    const step = stepFor(p);
+    const current = qtyById[p.id] ?? step;
+    const next = Math.max(step, current - step);
+    setQty(p.id, next, p);
+  };
+
+  const inc = (p: UiProduct) => {
+    const step = stepFor(p);
+    const current = qtyById[p.id] ?? step;
+    const next = current + step;
+    setQty(p.id, next, p);
+  };
+
+  const addToCart = (p: UiProduct) => {
+    const step = stepFor(p);
+    const qty = qtyById[p.id] ?? step;
+
+    const payload: AddItemArg = {
+      id: p.id,
+      name: p.name,
+      price: p.wholesalePrice,
+      imageUrl: p.imageUrl,
+      unit: p.unit,
+    };
+
+    addItem(payload as any, qty); // si tu addItem sólo usa id/name/price, ignora los extras
+
+    toast({
+      title: 'Agregado al carrito',
+      description: `${qty} ${p.unit ?? 'und.'} de ${p.name}`,
     });
-
-    // Ordenar productos
-    filtered.sort((a, b) => {
-      switch (sortBy) {
-        case 'price':
-          return a.price - b.price;
-        case 'category':
-          return a.category.localeCompare(b.category);
-        case 'name':
-        default:
-          return a.name.localeCompare(b.name);
-      }
-    });
-
-    return filtered;
-  }, [selectedCategory, searchQuery, sortBy]);
+  };
 
   return (
-    <section className="py-8">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-2xl font-bold text-stone-800 mb-2">
-              {selectedCategory === 'todas' ? 'Catálogo Mayorista' : 
-               selectedCategory === 'clasicas' ? 'Galletas Clásicas' :
-               selectedCategory === 'especiales' ? 'Galletas Especiales' :
-               selectedCategory === 'combos' ? 'Combos Mayoristas' : 'Productos'}
-            </h2>
-            <p className="text-stone-600">
-              {filteredProducts.length} producto{filteredProducts.length !== 1 ? 's' : ''} disponible{filteredProducts.length !== 1 ? 's' : ''}
-              {searchQuery && ` para "${searchQuery}"`}
-            </p>
-            <div className="mt-2 space-y-1">
-              <p className="text-sm text-amber-600 font-medium">
-                📦 Cantidades mínimas: múltiplos de 6 unidades
-              </p>
-              <p className="text-sm text-stone-500">
-                🛒 Pedido mínimo: S/ 300.00
-              </p>
+    <section>
+      {loading ? (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="border rounded-lg p-4">
+              <div className="w-full h-40 bg-stone-200 animate-pulse rounded mb-3" />
+              <div className="h-4 w-2/3 bg-stone-200 animate-pulse rounded mb-2" />
+              <div className="h-4 w-1/3 bg-stone-200 animate-pulse rounded mb-4" />
+              <div className="flex gap-2">
+                <div className="h-10 w-20 bg-stone-200 animate-pulse rounded" />
+                <div className="h-10 w-24 bg-stone-200 animate-pulse rounded" />
+              </div>
             </div>
-          </div>
-
-          {/* Selector de ordenamiento */}
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium text-stone-700">
-              Ordenar por:
-            </label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as 'name' | 'price' | 'category')}
-              className="px-3 py-2 border border-stone-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
-            >
-              <option value="name">Nombre</option>
-              <option value="price">Precio</option>
-              <option value="category">Categoría</option>
-            </select>
-          </div>
+          ))}
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center text-stone-600 py-12">
+          No hay productos para mostrar.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {filtered.map((p) => {
+            const step = stepFor(p);
+            const qty = qtyById[p.id] ?? step;
 
-        {/* Grid de productos mayoristas - tarjetas cuadradas y centradas */}
-        {filteredProducts.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6 justify-items-center">
-            {filteredProducts.map((product) => (
-              <WholesaleProductCard 
-                key={product.id} 
-                product={product}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-16">
-            <div className="max-w-md mx-auto">
-              <div className="text-6xl mb-4">🍪</div>
-              <h3 className="text-xl font-semibold text-stone-800 mb-2">
-                No se encontraron productos
-              </h3>
-              <p className="text-stone-600 mb-4">
-                {searchQuery 
-                  ? `No hay productos que coincidan con "${searchQuery}"`
-                  : 'No hay productos disponibles en esta categoría'
-                }
-              </p>
-              {searchQuery && (
-                <p className="text-sm text-stone-500">
-                  Intenta con otros términos de búsqueda o explora diferentes categorías.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
+            return (
+              <div key={p.id} className="border rounded-lg p-4 hover:shadow-md transition">
+                <div className="aspect-square w-full mb-3 bg-stone-100 rounded overflow-hidden">
+                  {p.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-stone-400">
+                      Sin imagen
+                    </div>
+                  )}
+                </div>
 
-      </div>
+                <div className="space-y-1">
+                  <h3 className="font-semibold text-stone-800 line-clamp-2">{p.name}</h3>
+                  {p.unit && (
+                    <p className="text-xs text-stone-500">Unidad: {p.unit}</p>
+                  )}
+                  <div className="text-lg font-bold text-green-700">
+                    S/ {p.wholesalePrice.toFixed(2)}
+                    <span className="ml-1 text-xs text-stone-500"> mayorista</span>
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center gap-2">
+                  <Button type="button" variant="outline" onClick={() => dec(p)} className="px-3">
+                    −
+                  </Button>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={step}
+                    step={step}
+                    value={qty}
+                    onChange={(e) => setQty(p.id, Number(e.target.value || step), p)}
+                    className="w-20 text-center"
+                  />
+                  <Button type="button" variant="outline" onClick={() => inc(p)} className="px-3">
+                    +
+                  </Button>
+                </div>
+
+                <Button className="mt-3 w-full" onClick={() => addToCart(p)}>
+                  Añadir al carrito
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 };
