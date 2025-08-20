@@ -7,28 +7,51 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
 
-// Tipo mínimo para lo que necesita addItem del carrito
-type AddItemArg = {
-  id: string;
-  name: string;
-  price: number;
-  imageUrl?: string;
-  unit?: string;
+/* -------------------- Helpers locales -------------------- */
+const normalizeToStep = (qty: number, step: number) => {
+  const s = Math.max(1, step || 1);
+  const n = Math.round((Number(qty) || s) / s) * s;
+  return n <= 0 ? s : n;
 };
+
+// Devuelve el precio unitario efectivo para una cantidad dada.
+// Si hay niveles de quantityDiscounts, toma el de mayor minQty <= qty.
+// Si no hay niveles aplicables, devuelve wholesalePrice.
+const unitPriceForQty = (
+  wholesalePrice: number,
+  qty: number,
+  tiers: QtyPrice[] = []
+) => {
+  if (!Array.isArray(tiers) || tiers.length === 0) return wholesalePrice;
+  const sorted = [...tiers]
+    .map(t => ({ minQty: Number(t.minQty) || 0, price: Number(t.price) || 0 }))
+    .filter(t => t.minQty > 0 && t.price > 0)
+    .sort((a, b) => a.minQty - b.minQty);
+
+  let price = wholesalePrice;
+  for (const t of sorted) {
+    if (qty >= t.minQty) price = t.price;
+    else break;
+  }
+  return price || wholesalePrice;
+};
+
+/* -------------------- Tipos -------------------- */
+// Lo que está en /products (tu estructura)
+type QtyPrice = { minQty: number | string; price: number | string };
 
 type DbProduct = {
   name?: string;
   description?: string;
-  imageUrl?: string;
+  image?: string;             // <- en products
   unit?: string;
-  tags?: string[];
-  price?: number;
-  wholesalePrice?: number;
-  categoryId?: string;
-  active?: boolean;
-  activeWholesale?: boolean;
-  minMultiple?: number;
+  price?: number;             // normal (opcional para mostrar)
+  wholesalePrice?: number;    // base mayorista
+  category?: string;          // <- en products
+  isActive?: boolean;
+  minOrder?: number;          // <- múltiplo
   stock?: number;
+  quantityDiscounts?: QtyPrice[]; // [{minQty, price}]
   sortOrder?: number;
 };
 
@@ -38,17 +61,26 @@ type UiProduct = {
   description?: string;
   imageUrl?: string;
   unit?: string;
-  tags: string[];
   price?: number;
   wholesalePrice: number;
   categoryId: string;
   minMultiple: number;
   stock?: number;
+  tiers: QtyPrice[];
 };
 
 type Props = {
-  selectedCategory: string;   // 'todas' | id de categoría
+  selectedCategory: string; // 'todas' | id de categoría
   searchQuery: string;
+};
+
+// Tipo mínimo para addItem del carrito
+type AddItemArg = {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl?: string;
+  unit?: string;
 };
 
 export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
@@ -57,8 +89,9 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
   const [products, setProducts] = useState<UiProduct[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /* -------------------- Carga desde /products -------------------- */
   useEffect(() => {
-    const r = ref(db, 'catalog/products');
+    const r = ref(db, 'products');
 
     const unsub = onValue(
       r,
@@ -66,32 +99,34 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
         const val = (snap.val() || {}) as Record<string, DbProduct>;
 
         const list: UiProduct[] = Object.entries(val)
-          .map(([id, p]) => ({
-            id,
-            name: p?.name ?? id,
-            description: p?.description,
-            imageUrl: p?.imageUrl,
-            unit: p?.unit,
-            tags: Array.isArray(p?.tags) ? (p!.tags as string[]) : [],
-            price: Number.isFinite(p?.price) ? (p!.price as number) : undefined,
-            wholesalePrice: Number.isFinite(p?.wholesalePrice) ? (p!.wholesalePrice as number) : 0,
-            categoryId: p?.categoryId ?? 'sin-categoria',
-            minMultiple: Number.isFinite(p?.minMultiple) ? (p!.minMultiple as number) : 6,
-            stock: Number.isFinite(p?.stock) ? (p!.stock as number) : undefined,
-            _active: p?.active !== false,
-            _activeWholesale: p?.activeWholesale !== false,
-            _sortOrder: Number.isFinite(p?.sortOrder) ? (p!.sortOrder as number) : 9999,
-          }) as any)
-          .filter((x: any) => x._active && x._activeWholesale)
+          .map(([id, p]) => {
+            const item: UiProduct & {
+              _active: boolean;
+              _sortOrder: number;
+            } = {
+              id,
+              name: p?.name ?? id,
+              description: p?.description || '',
+              imageUrl: p?.image, // products usa 'image'
+              unit: p?.unit || 'und.',
+              price: Number.isFinite(p?.price) ? (p!.price as number) : undefined,
+              wholesalePrice: Number.isFinite(p?.wholesalePrice) ? (p!.wholesalePrice as number) : 0,
+              categoryId: p?.category || 'sin-categoria',
+              minMultiple: Number.isFinite(p?.minOrder) ? (p!.minOrder as number) : 6,
+              stock: Number.isFinite(p?.stock) ? (p!.stock as number) : undefined,
+              tiers: Array.isArray(p?.quantityDiscounts) ? (p!.quantityDiscounts as QtyPrice[]) : [],
+              _active: p?.isActive !== false,
+              _sortOrder: Number.isFinite(p?.sortOrder) ? (p!.sortOrder as number) : 9999,
+            };
+            return item;
+          })
+          .filter((x) => x._active)
           .sort(
             (a: any, b: any) =>
               (a._sortOrder ?? 9999) - (b._sortOrder ?? 9999) ||
               a.name.localeCompare(b.name)
           )
-          .map((x: any) => {
-            delete x._active; delete x._activeWholesale; delete x._sortOrder;
-            return x as UiProduct;
-          });
+          .map(({ _active, _sortOrder, ...clean }) => clean as UiProduct);
 
         setProducts(list);
         setLoading(false);
@@ -102,6 +137,7 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
     return () => unsub();
   }, []);
 
+  /* -------------------- Filtros búsqueda/categoría -------------------- */
   const filtered = useMemo(() => {
     let out = products.filter(
       (p) => selectedCategory === 'todas' || p.categoryId === selectedCategory
@@ -110,20 +146,21 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       out = out.filter((p) => {
-        const haystack = `${p.name} ${p.description ?? ''} ${p.tags.join(' ')}`.toLowerCase();
+        const haystack = `${p.name} ${p.description ?? ''}`.toLowerCase();
         return haystack.includes(q);
       });
     }
     return out;
   }, [products, selectedCategory, searchQuery]);
 
+  /* -------------------- Cantidades y carrito -------------------- */
   const [qtyById, setQtyById] = useState<Record<string, number>>({});
 
   const stepFor = (p: UiProduct) => Math.max(1, p.minMultiple || 6);
 
   const setQty = (id: string, qty: number, p: UiProduct) => {
     const step = stepFor(p);
-    const normalized = qty <= 0 ? step : Math.round(qty / step) * step;
+    const normalized = normalizeToStep(Number(qty || step), step);
     setQtyById((prev) => ({ ...prev, [id]: normalized }));
   };
 
@@ -145,15 +182,17 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
     const step = stepFor(p);
     const qty = qtyById[p.id] ?? step;
 
+    const unit = unitPriceForQty(p.wholesalePrice, qty, p.tiers);
+
     const payload: AddItemArg = {
       id: p.id,
       name: p.name,
-      price: p.wholesalePrice,
+      price: unit,
       imageUrl: p.imageUrl,
       unit: p.unit,
     };
 
-    addItem(payload as any, qty); // si tu addItem sólo usa id/name/price, ignora los extras
+    addItem(payload as any, qty);
 
     toast({
       title: 'Agregado al carrito',
@@ -161,6 +200,7 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
     });
   };
 
+  /* -------------------- UI -------------------- */
   return (
     <section>
       {loading ? (
@@ -186,6 +226,8 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
           {filtered.map((p) => {
             const step = stepFor(p);
             const qty = qtyById[p.id] ?? step;
+            const unit = unitPriceForQty(p.wholesalePrice, qty, p.tiers);
+            const hasDiscount = unit < (p.wholesalePrice || unit);
 
             return (
               <div key={p.id} className="border rounded-lg p-4 hover:shadow-md transition">
@@ -207,13 +249,18 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
 
                 <div className="space-y-1">
                   <h3 className="font-semibold text-stone-800 line-clamp-2">{p.name}</h3>
-                  {p.unit && (
-                    <p className="text-xs text-stone-500">Unidad: {p.unit}</p>
-                  )}
+                  {p.unit && <p className="text-xs text-stone-500">Unidad: {p.unit}</p>}
+
                   <div className="text-lg font-bold text-green-700">
-                    S/ {p.wholesalePrice.toFixed(2)}
+                    S/ {unit.toFixed(2)}
                     <span className="ml-1 text-xs text-stone-500"> mayorista</span>
                   </div>
+
+                  {hasDiscount && (
+                    <div className="text-xs text-stone-500">
+                      Antes: <s>S/ {p.wholesalePrice.toFixed(2)}</s>
+                    </div>
+                  )}
                 </div>
 
                 <div className="mt-3 flex items-center gap-2">
