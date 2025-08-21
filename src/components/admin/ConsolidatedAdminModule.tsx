@@ -92,19 +92,16 @@ async function fileToTargetDataUrl(
       return { dataUrl, bytes };
     }
 
-    // Baja calidad hasta minQuality, luego reduce dimensiones y resetea un poco la calidad
     if (quality > minQuality) {
       quality = Math.max(minQuality, quality - 0.15);
     } else if (max > minMax) {
       max = Math.max(minMax, Math.round(max * 0.75));
       quality = Math.min(0.85, quality + 0.1);
     } else {
-      // No se pudo llegar al objetivo, devuelve lo conseguido
       return { dataUrl, bytes };
     }
   }
 
-  // Último intento (mínimos)
   const { w, h } = fitWithin(img.width, img.height, minMax, minMax);
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -117,23 +114,47 @@ async function fileToTargetDataUrl(
 
 /* ======================== Tipos ======================== */
 
-interface QtyPrice {
-  minQty: number | string; // ej: 12
-  price: number | string;  // ej: 4.50 (precio unitario al comprar >= minQty)
+// NUEVO MODELO: paquetes (Y unidades por total S/ Z)
+interface BundleDiscount {
+  qty: number | string;   // Y unidades
+  total: number | string; // Z total del paquete
 }
+
+// Solo numérico para cálculos
+type BundleNum = { qty: number; total: number };
+
+interface LegacyQtyPrice {
+  minQty: number | string; // compatibilidad con data antigua
+  price: number | string;  // precio unitario
+}
+
 interface Product {
   id: string;
   name: string;
   description: string;
-  price: number;                // normal
-  wholesalePrice: number;       // mayorista base
+  price: number;                // normal (retail opcional)
+  wholesalePrice: number;       // **Precio unitario base** (mayorista)
   image: string;                // URL o dataURL (base64) de imagen
-  category: string;             // key de categoría
+  category: string;
   stock: number;
-  minOrder: number;             // múltiplo requerido (p.ej. 6)
+  minOrder: number;             // **Múltiplo** requerido (p.ej. 6)
   isActive: boolean;
-  quantityDiscounts?: QtyPrice[]; // [{minQty, price}]
-  isEditing?: boolean;
+  bundleDiscounts?: BundleDiscount[];  // [{qty,total}]
+  quantityDiscounts?: LegacyQtyPrice[]; // legado
+  isEditing?: boolean;          // UI only
+  isNew?: boolean;              // UI only (para cerrar al cancelar si es nuevo)
+}
+
+/* ======================== Helpers UI y números ======================== */
+const fmtMoney = (n: number) => `S/ ${Number(n || 0).toFixed(2)}`;
+const pct = (n: number) => `${Math.max(0, Math.min(100, Math.round(n)))}%`;
+
+// Redondea cantidad al múltiplo (hacia arriba, mínimo el propio múltiplo)
+function toMultiple(qty: number, multiple: number) {
+  const m = Math.max(1, Number(multiple || 1));
+  const q = Math.max(0, Math.floor(Number(qty || 0)));
+  if (m <= 1) return q;
+  return Math.max(m, Math.ceil(q / m) * m);
 }
 
 /* ======================== Módulo principal ======================== */
@@ -141,7 +162,6 @@ interface Product {
 export default function ConsolidatedAdminModule() {
   const { toast } = useToast();
 
-  /* -------- Productos -------- */
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
@@ -149,11 +169,26 @@ export default function ConsolidatedAdminModule() {
     const unsub = onValue(productsRef, (snapshot) => {
       const data = snapshot.val();
       if (!data) { setProducts([]); return; }
-      const arr: Product[] = Object.entries(data).map(([id, p]: any) => ({
-        ...p,
-        id,
-        quantityDiscounts: p.quantityDiscounts || [],
-      }));
+
+      const arr: Product[] = Object.entries(data).map(([id, p]: any) => {
+        // Compatibilidad: si hay quantityDiscounts (unitario), convertir a paquetes
+        let bundleDiscounts: BundleDiscount[] = p.bundleDiscounts || [];
+        if ((!bundleDiscounts || bundleDiscounts.length === 0) && Array.isArray(p.quantityDiscounts)) {
+          bundleDiscounts = p.quantityDiscounts
+            .filter((d: any) => Number(d?.minQty) > 0 && Number(d?.price) > 0)
+            .map((d: any) => ({
+              qty: Number(d.minQty),
+              total: Number(d.price) * Number(d.minQty),
+            }));
+        }
+
+        return {
+          ...p,
+          id,
+          bundleDiscounts,
+        } as Product;
+      });
+
       setProducts(arr);
     });
     return () => unsub();
@@ -167,13 +202,14 @@ export default function ConsolidatedAdminModule() {
         description: '',
         price: 0,
         wholesalePrice: 0,
-        image: '/placeholder.svg', // puedes pegar una URL o se reemplaza al subir
+        image: '/placeholder.svg',
         category: '',
         stock: 0,
         minOrder: 6,
         isActive: true,
-        quantityDiscounts: [],
+        bundleDiscounts: [],
         isEditing: true,
+        isNew: true, // marcar como nuevo
       },
       ...prev,
     ]);
@@ -183,37 +219,44 @@ export default function ConsolidatedAdminModule() {
   const handleSaveProduct = async (product: Product) => {
     try {
       if (!product.name || !product.wholesalePrice) {
-        toast({ title: 'Completa nombre y precio mayorista', variant: 'destructive' });
+        toast({ title: 'Completa nombre y precio unitario', variant: 'destructive' });
         return;
       }
 
-      // Normaliza descuentos y limpia vacíos
-      const cleanDiscounts: QtyPrice[] = (product.quantityDiscounts || [])
-        .filter(d => Number(d.minQty) > 0 && Number(d.price) > 0)
-        .map(d => ({ minQty: Number(d.minQty), price: Number(d.price) }));
+      // Normaliza paquetes a SOLO NÚMEROS y al múltiplo
+      const step = Math.max(1, Number(product.minOrder || 1));
+      const cleanBundles: BundleNum[] = (product.bundleDiscounts || [])
+        .map(b => {
+          const q = toMultiple(Number(b.qty || 0), step);
+          const t = Number(b.total || 0);
+          return { qty: q, total: t };
+        })
+        .filter(b => b.qty > 0 && b.total > 0);
 
       const imageUrl = product.image || '/placeholder.svg';
+      const base = Number(product.wholesalePrice || 0);
 
-      // 1) /products/{id} - TU estructura para gestión
+      // No guardamos flags de UI en RTDB
+      const { isEditing, isNew, quantityDiscounts, ...rest } = product;
+
+      // 1) /products/{id}
       const rtdbPayload = {
-        ...product,
+        ...rest,
         image: imageUrl,
-        quantityDiscounts: cleanDiscounts,
-        isEditing: false,
+        bundleDiscounts: cleanBundles as unknown as BundleDiscount[],
         updatedAt: Date.now(),
       };
       await set(ref(db, `products/${product.id}`), rtdbPayload);
 
       // 2) /catalog/products/{id} - proyección para catálogo mayorista
-      //    [{minQty, price}] -> [{from, discountPct}] respecto a wholesalePrice
-      const base = Number(product.wholesalePrice || 0);
-      const qtyDiscounts = cleanDiscounts
-        .filter(d => base > 0)
-        .map(d => {
-          const unit = Number(d.price);
-          const pct = Math.max(0, Math.min(100, Math.round(100 - (unit / base) * 100)));
-          return { from: Number(d.minQty), discountPct: pct };
-        });
+      const qtyDiscounts = cleanBundles
+        .filter(b => base > 0)
+        .map(b => {
+          const unitAtTier = b.total / b.qty;
+          const discountPct = Math.max(0, Math.min(100, Math.round((1 - unitAtTier / base) * 100)));
+          return { from: b.qty, discountPct };
+        })
+        .sort((a, b) => a.from - b.from);
 
       const catalogPayload = {
         name: product.name,
@@ -225,7 +268,7 @@ export default function ConsolidatedAdminModule() {
         categoryId: product.category || 'sin-categoria',
         active: product.isActive ?? true,
         activeWholesale: product.isActive ?? true,
-        minMultiple: Number(product.minOrder || 6),
+        minMultiple: step,
         stock: Number.isFinite(product.stock) ? product.stock : undefined,
         sortOrder: 9999,
         qtyDiscounts,                              // [{from, discountPct}]
@@ -258,6 +301,16 @@ export default function ConsolidatedAdminModule() {
         p.id === id ? { ...p, isEditing: true } : { ...p, isEditing: false }
       )
     );
+  };
+
+  // Cancelar: si es nuevo, cerrar (eliminar de la lista). Si no, sólo salir de edición.
+  const handleCancelProduct = (prod: Product) => {
+    setProducts(prev => {
+      if (prod.isNew) {
+        return prev.filter(p => p.id !== prod.id);
+      }
+      return prev.map(p => (p.id === prod.id ? { ...p, isEditing: false } : p));
+    });
   };
 
   /* -------- Config general -------- */
@@ -307,6 +360,7 @@ export default function ConsolidatedAdminModule() {
                 onSave={handleSaveProduct}
                 onDelete={handleDeleteProduct}
                 onEdit={handleEditProduct}
+                onCancel={handleCancelProduct} // <<----
               />
             ))}
           </div>
@@ -380,18 +434,20 @@ export default function ConsolidatedAdminModule() {
   );
 }
 
-/* ======================== CARD DE PRODUCTO ======================== */
+/* ======================== CARD DE PRODUCTO (VERSIÓN SIMPLE) ======================== */
 
 function ProductCard({
   product,
   onSave,
   onDelete,
   onEdit,
+  onCancel,
 }: {
   product: Product;
   onSave: (p: Product) => Promise<void> | void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
+  onCancel: (p: Product) => void;
 }) {
   const [editData, setEditData] = useState<Product>(product);
   const [processingImage, setProcessingImage] = useState(false);
@@ -401,229 +457,272 @@ function ProductCard({
     setProcessingImage(false);
   }, [product]);
 
+  // Ajusta automáticamente paquetes al cambiar el múltiplo
+  useEffect(() => {
+    const step = Math.max(1, Number(editData.minOrder || 1));
+    setEditData((p) => ({
+      ...p,
+      bundleDiscounts: (p.bundleDiscounts || []).map((b) => ({
+        qty: String(toMultiple(Number(b.qty || 0), step)),
+        total: b.total,
+      })),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editData.minOrder]);
+
+  // info de cada paquete (X unidades por Total Z) -> unitario y % desc. vs base
+  const packInfo = (qty: number, total: number, base: number) => {
+    if (!qty || !total || !base) return { unit: 0, discount: 0 };
+    const unit = total / qty;
+    const discount = (1 - unit / base) * 100;
+    return { unit, discount };
+  };
+
   if (product.isEditing) {
+    const step = Math.max(1, Number(editData.minOrder || 1));
+
     return (
       <Card className="border-2 border-blue-300">
         <CardContent className="p-4 space-y-4 bg-orange-50">
           <div className="bg-blue-50 p-3 rounded-lg mb-4 border-l-4 border-blue-400">
-            <h4 className="font-medium text-blue-800 mb-1">💡 Descuentos por cantidad (mayoreo)</h4>
+            <h4 className="font-medium text-blue-800 mb-1">
+              💡 Descuentos por cantidad (simple)
+            </h4>
             <p className="text-sm text-blue-700">
-              Ingresa niveles: desde <b>cierta cantidad</b> de unidades usa un <b>precio especial</b>.
-              El % de descuento se calcula automáticamente en el catálogo.
+              Define el <b>Precio unitario</b> y agrega opciones de <b>X unidades por Total S/ Z</b>.
+              Calculamos el precio por unidad del paquete y el % de descuento automáticamente.
+              El valor <b>X</b> debe ser <b>múltiplo de {step}</b>.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Nombre del producto *</Label>
+          {/* Nombre + Descripción */}
+          <div className="space-y-2">
+            <Label>Nombre del producto *</Label>
+            <Input
+              value={editData.name}
+              onChange={(e) => setEditData((p) => ({ ...p, name: e.target.value }))}
+              placeholder="Ej: Galleta de avena"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Descripción del producto</Label>
+            <Textarea
+              value={editData.description}
+              onChange={(e) => setEditData((p) => ({ ...p, description: e.target.value }))}
+              rows={2}
+              placeholder="Características, presentación, peso…"
+            />
+          </div>
+
+          {/* Imagen: URL + subir desde PC con compresión */}
+          <div className="space-y-2">
+            <Label>Imagen del producto</Label>
+            <div className="flex items-center gap-3">
+              <div className="w-16 h-16 rounded bg-stone-100 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={editData.image || '/placeholder.svg'}
+                  alt="preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <Input
-                value={editData.name}
-                onChange={e => setEditData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Ej: Arroz Extra Premium 5kg"
+                type="url"
+                placeholder="Pega aquí una URL (opcional)"
+                value={editData.image}
+                onChange={(e) => setEditData((p) => ({ ...p, image: e.target.value }))}
+                className="max-w-xs"
               />
-
-              <Label>Descripción del producto</Label>
-              <Textarea
-                value={editData.description}
-                onChange={e => setEditData(prev => ({ ...prev, description: e.target.value }))}
-                rows={2}
-                placeholder="Características, presentación, peso..."
-              />
-
-              {/* Imagen: pegar URL y/o subir desde PC con compresión */}
-              <div className="space-y-1">
-                <Label>Imagen del producto</Label>
-                <div className="flex items-center gap-3">
-                  <div className="w-16 h-16 rounded bg-stone-100 overflow-hidden">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={editData.image || '/placeholder.svg'}
-                      alt="preview"
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <Input
-                    type="url"
-                    placeholder="Pega aquí una URL (opcional)"
-                    value={editData.image}
-                    onChange={(e) => setEditData(prev => ({ ...prev, image: e.target.value }))}
-                    className="max-w-xs"
-                  />
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      try {
-                        setProcessingImage(true);
-                        const { dataUrl } = await fileToTargetDataUrl(
-                          file,
-                          Math.floor(1.5 * 1024 * 1024) // 1.5 MB dataURL
-                        );
-                        setEditData(prev => ({ ...prev, image: dataUrl }));
-                      } catch (err) {
-                        console.error(err);
-                      } finally {
-                        setProcessingImage(false);
-                      }
-                    }}
-                    className="max-w-xs"
-                  />
-                  {processingImage && (
-                    <span className="text-xs text-stone-500">Procesando imagen…</span>
-                  )}
-                </div>
-
-                {editData.image && (
-                  <p className="text-[11px] text-stone-500">
-                    Tamaño aprox.: {(approxBytesFromDataUrl(editData.image) / 1024).toFixed(0)} KB (máx. 1536 KB)
-                  </p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Precio Normal (S/)*</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={editData.price}
-                    onFocus={e => e.target.select()}
-                    onChange={e =>
-                      setEditData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))
-                    }
-                  />
-                </div>
-                <div>
-                  <Label>Precio Mayorista (S/)*</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={editData.wholesalePrice}
-                    onFocus={e => e.target.select()}
-                    onChange={e =>
-                      setEditData(prev => ({ ...prev, wholesalePrice: parseFloat(e.target.value) || 0 }))
-                    }
-                  />
-                  {editData.price > 0 && editData.wholesalePrice > 0 && (
-                    <span className="block text-xs text-green-600 mt-1">
-                      Descuento: {Math.round((1 - editData.wholesalePrice / editData.price) * 100)}%
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label>Stock</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={editData.stock}
-                    onChange={e => setEditData(prev => ({ ...prev, stock: Number(e.target.value) || 0 }))}
-                  />
-                </div>
-                <div>
-                  <Label>Múltiplo (min. por pedido)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={editData.minOrder}
-                    onChange={e => setEditData(prev => ({ ...prev, minOrder: Number(e.target.value) || 6 }))}
-                  />
-                </div>
-              </div>
             </div>
 
-            {/* Descuentos por cantidad (tu forma: minQty + price) */}
+            <div className="flex items-center gap-3">
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try {
+                    setProcessingImage(true);
+                    const { dataUrl } = await fileToTargetDataUrl(
+                      file,
+                      Math.floor(1.5 * 1024 * 1024) // 1.5 MB
+                    );
+                    setEditData((p) => ({ ...p, image: dataUrl }));
+                  } catch (err) {
+                    console.error(err);
+                  } finally {
+                    setProcessingImage(false);
+                  }
+                }}
+                className="max-w-xs"
+              />
+              {processingImage && (
+                <span className="text-xs text-stone-500">Procesando imagen…</span>
+              )}
+            </div>
+
+            {editData.image && (
+              <p className="text-[11px] text-stone-500">
+                Tamaño aprox.: {(approxBytesFromDataUrl(editData.image) / 1024).toFixed(0)} KB
+                (máx. 1536 KB)
+              </p>
+            )}
+          </div>
+
+          {/* Precio unitario + Múltiplo */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Descuentos por cantidad</Label>
-              <div className="space-y-2">
-                {(editData.quantityDiscounts || []).map((d, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      value={d.minQty}
-                      placeholder="Unidades"
-                      onFocus={e => e.target.select()}
-                      onChange={e => {
-                        const value = e.target.value;
-                        setEditData(prev => ({
-                          ...prev,
-                          quantityDiscounts: prev.quantityDiscounts?.map((q, i) =>
-                            i === idx ? { ...q, minQty: value.replace(/^0+(?=\d)/, '') } : q
-                          )
-                        }));
-                      }}
-                      className="w-20"
-                    />
-                    <span className="text-gray-600">unid. →</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={d.price}
-                      placeholder="Precio S/"
-                      onFocus={e => e.target.select()}
-                      onChange={e => {
-                        const val = e.target.value;
-                        setEditData(prev => ({
-                          ...prev,
-                          quantityDiscounts: prev.quantityDiscounts?.map((q, i) =>
-                            i === idx ? { ...q, price: val.replace(/^0+(?=\d)/, '') } : q
-                          )
-                        }));
-                      }}
-                      className="w-24"
-                    />
-                    <span className="text-xs text-green-700">
-                      {d.price && editData.wholesalePrice > 0
-                        ? `(${Math.round(100 - (Number(d.price) / editData.wholesalePrice) * 100)}% desc. vs. mayorista)`
-                        : ''}
-                    </span>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="text-red-600"
-                      onClick={() =>
-                        setEditData(prev => ({
-                          ...prev,
-                          quantityDiscounts: prev.quantityDiscounts?.filter((_, i) => i !== idx)
-                        }))
-                      }
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+              <Label>Precio unitario (S/)*</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={editData.wholesalePrice}
+                onFocus={(e) => e.target.select()}
+                onChange={(e) =>
+                  setEditData((p) => ({
+                    ...p,
+                    wholesalePrice: parseFloat(e.target.value) || 0,
+                  }))
+                }
+              />
+            </div>
+
+            <div>
+              <Label>Múltiplo (min. por pedido)</Label>
+              <Input
+                type="number"
+                min={1}
+                value={editData.minOrder}
+                onChange={(e) =>
+                  setEditData((p) => ({ ...p, minOrder: Number(e.target.value) || 1 }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* Opciones: X unidades por Total S/ Z */}
+          <div>
+            <Label>Precio por X unidades</Label>
+            <div className="space-y-2">
+              {(editData.bundleDiscounts || []).map((d, idx) => {
+                const qty = Number(d.qty || 0);
+                const total = Number(d.total || 0);
+                const notMultiple = qty > 0 && qty % step !== 0;
+                const info = packInfo(qty, total, Number(editData.wholesalePrice || 0));
+
+                return (
+                  <div key={idx} className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        min={step}
+                        step={step}
+                        value={d.qty}
+                        placeholder="X (unidades)"
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditData((p) => ({
+                            ...p,
+                            bundleDiscounts: (p.bundleDiscounts || []).map((row, i) =>
+                              i === idx ? { ...row, qty: val.replace(/^0+(?=\d)/, '') } : row
+                            ),
+                          }));
+                        }}
+                        onBlur={(e) => {
+                          const fixed = toMultiple(Number(e.target.value || 0), step);
+                          setEditData((p) => ({
+                            ...p,
+                            bundleDiscounts: (p.bundleDiscounts || []).map((row, i) =>
+                              i === idx ? { ...row, qty: String(fixed) } : row
+                            ),
+                          }));
+                        }}
+                        className="w-28"
+                      />
+                      <span className="text-gray-600">unid. por</span>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={d.total}
+                        placeholder="Total S/ (Z)"
+                        onFocus={(e) => e.target.select()}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setEditData((p) => ({
+                            ...p,
+                            bundleDiscounts: (p.bundleDiscounts || []).map((row, i) =>
+                              i === idx ? { ...row, total: val.replace(/^0+(?=\d)/, '') } : row
+                            ),
+                          }));
+                        }}
+                        className="w-36"
+                      />
+
+                      <span className="text-xs text-stone-600">
+                        {qty > 0 && total > 0 && editData.wholesalePrice > 0
+                          ? <>({fmtMoney(info.unit)} c/u · {pct(info.discount)} desc.)</>
+                          : ''}
+                      </span>
+
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="text-red-600"
+                        onClick={() =>
+                          setEditData((p) => ({
+                            ...p,
+                            bundleDiscounts: (p.bundleDiscounts || []).filter((_, i) => i !== idx),
+                          }))
+                        }
+                        title="Eliminar opción"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {notMultiple && (
+                      <span className="text-[11px] text-red-600 pl-1">
+                        La cantidad debe ser múltiplo de {step}.
+                      </span>
+                    )}
                   </div>
-                ))}
+                );
+              })}
+
+              <div className="flex items-center gap-3">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
                   onClick={() =>
-                    setEditData(prev => ({
-                      ...prev,
-                      quantityDiscounts: [
-                        ...(prev.quantityDiscounts || []),
-                        { minQty: '', price: '' }
-                      ]
+                    setEditData((p) => ({
+                      ...p,
+                      bundleDiscounts: [...(p.bundleDiscounts || []), { qty: '', total: '' }],
                     }))
                   }
                 >
-                  <Plus className="h-4 w-4 mr-1" /> Agregar nivel de descuento
+                  <Plus className="h-4 w-4 mr-1" /> Agregar opción
                 </Button>
+
+                {editData.wholesalePrice > 0 ? (
+                  <span className="text-xs text-stone-500">
+                    Precio unitario base: <b>{fmtMoney(editData.wholesalePrice)}</b>
+                  </span>
+                ) : (
+                  <span className="text-xs text-red-600">
+                    Define el <b>Precio unitario</b> para calcular descuentos.
+                  </span>
+                )}
               </div>
             </div>
           </div>
 
+          {/* Acciones */}
           <div className="flex gap-2 justify-end pt-4 border-t">
             <Button
               size="sm"
@@ -637,7 +736,7 @@ function ProductCard({
               size="sm"
               variant="outline"
               className="flex-1"
-              onClick={() => onEdit(product.id)}
+              onClick={() => onCancel(product)} // <<---- ahora sí cierra
             >
               Cancelar
             </Button>
@@ -647,41 +746,46 @@ function ProductCard({
     );
   }
 
-  // Vista normal (no edición)
+  // ── Vista normal (no edición) ────────────────────────────────────────────────
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <h3 className="font-semibold text-lg">{product.name}</h3>
-            <p className="text-stone-600 text-sm mb-1">{product.description}</p>
+            <p className="text-stone-600 text-sm mb-1 whitespace-pre-line">
+              {product.description}
+            </p>
             <div className="flex items-center gap-4 text-sm">
-              <span>Normal: S/ {product.price?.toFixed(2)}</span>
-              <span className="font-medium text-green-600">
-                Mayorista: S/ {product.wholesalePrice?.toFixed(2)}
-              </span>
+              <span>Precio unitario: {fmtMoney(product.wholesalePrice)}</span>
               <Badge variant={product.isActive ? 'default' : 'secondary'}>
                 {product.isActive ? 'Activo' : 'Inactivo'}
               </Badge>
             </div>
-            {product.quantityDiscounts?.length > 0 && (
-              <div className="mt-2 space-y-1">
-                <b className="text-xs text-blue-700">Descuentos por cantidad:</b>
-                {product.quantityDiscounts.map((q, idx) => (
-                  <div key={idx} className="text-xs text-gray-700 pl-2">
-                    Desde <b>{q.minQty}</b> unid. → S/ {Number(q.price).toFixed(2)}{' '}
-                    {product.wholesalePrice > 0 && (
-                      <>
-                        (
-                        {Math.round(100 - (Number(q.price) / product.wholesalePrice) * 100)}
-                        % desc. vs. mayorista)
-                      </>
-                    )}
-                  </div>
-                ))}
+
+            {/* Lista de opciones (X por Z) */}
+            {product.bundleDiscounts?.length ? (
+              <div className="mt-3 space-y-1">
+                <b className="text-xs text-blue-700">Opciones:</b>
+                {product.bundleDiscounts.map((b, i) => {
+                  const qty = Number(b.qty || 0);
+                  const total = Number(b.total || 0);
+                  const unit = qty > 0 ? total / qty : 0;
+                  const discount =
+                    product.wholesalePrice > 0
+                      ? Math.round((1 - unit / product.wholesalePrice) * 100)
+                      : 0;
+                  return (
+                    <div key={i} className="text-xs text-gray-700 pl-2">
+                      {qty} unid. → Total {fmtMoney(total)} ({fmtMoney(unit)} c/u ·{' '}
+                      {Math.max(0, discount)}% desc.)
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            ) : null}
           </div>
+
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => onEdit(product.id)}>
               <Edit3 className="h-4 w-4" />
