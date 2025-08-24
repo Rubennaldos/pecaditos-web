@@ -22,37 +22,52 @@ interface WholesaleProductCardProps {
     qtyDiscounts?: QtyDiscount[];
     wholesalePrice?: number;
     description?: string;
+    imageUrl?: string; // por si tu objeto trae imageUrl en vez de image
   };
 }
 
 export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => {
+  // múltiplo del producto (por defecto 6)
   const step = Math.max(1, Number(product.minMultiple || 6));
+
+  // precio base unitario mayorista (si no viene, 20% menos del minorista como fallback)
   const baseUnit = Number(product.wholesalePrice ?? product.price * 0.8) || 0;
+
+  // tramos de descuento (definidos en la creación del producto)
   const tiers: QtyDiscount[] = Array.isArray(product.qtyDiscounts) ? product.qtyDiscounts : [];
 
+  // cantidad seleccionada en la card
   const [quantity, setQuantity] = useState<number>(0);
 
+  // carrito mayorista
   const { addItem, updateQuantity, removeItem, items } = useWholesaleCart();
 
-  const line = useMemo(
-    () => computeLine(baseUnit, tiers, quantity),
-    [baseUnit, tiers, quantity]
-  );
+  // línea calculada: unitario aplicado, %desc, total y ahorro
+  const line = useMemo(() => computeLine(baseUnit, tiers, quantity), [baseUnit, tiers, quantity]);
 
-  const nextTier = useMemo(
-    () => nextTierInfo(quantity, tiers),
-    [quantity, tiers]
-  );
+  // próximo tramo por alcanzar (para hint)
+  const nextTier = useMemo(() => nextTierInfo(quantity, tiers), [quantity, tiers]);
 
+  // buscar si ya está en el carrito
   const existingItem = items.find((i) => i.product.id === product.id);
 
+  // sincroniza con el carrito
   const syncCart = (qty: number) => {
     try {
       if (qty > 0) {
         if (existingItem) {
-          updateQuantity(product.id, qty);
+          updateQuantity(product.id, qty); // el contexto recalcula usando computeLine
         } else {
-          addItem(product, qty);
+          // IMPORTANTE: pasar el producto completo (con wholesalePrice, minMultiple y qtyDiscounts)
+          addItem(
+            {
+              ...product,
+              wholesalePrice: baseUnit,
+              minMultiple: step,
+              qtyDiscounts: tiers,
+            } as Product, // cast si tu Product no incluye opcionales
+            qty
+          );
         }
       } else if (existingItem) {
         removeItem(product.id);
@@ -67,6 +82,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
     }
   };
 
+  // fija cantidad en múltiplos al salir del input
   const setQtyNormalized = (raw: number) => {
     const q = Number(raw) || 0;
     if (q <= 0) {
@@ -97,14 +113,23 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
     syncCart(next);
   };
 
+  // imagen con fallbacks
+  const imgSrc =
+    (product as any).image ||
+    (product as any).imageUrl ||
+    '/placeholder.svg';
+
   return (
     <Card className="w-full max-w-xs bg-white border shadow-sm hover:shadow-md transition-all duration-200 mx-auto">
       <div className="h-48 relative overflow-hidden rounded-t-lg">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={product.image}
+          src={imgSrc}
           alt={product.name}
           className="w-full h-full object-cover"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
+          }}
         />
       </div>
 
@@ -113,14 +138,13 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
           {product.name}
         </h3>
 
-        {/* Precios / info */}
+        {/* Info de precios */}
         <div className="text-center mb-3">
           <p className="text-xs text-gray-500 mb-1 line-clamp-3">
             {product.description || 'Producto mayorista'}
           </p>
 
           <div className="space-y-1">
-            {/* Base y aplicada */}
             <p className="text-sm text-gray-600">
               Base mayorista: <b>{money(baseUnit)}</b> c/u
             </p>
@@ -128,7 +152,10 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
             <p className="text-lg font-bold text-amber-700">
               {quantity > 0 && line.discountPct > 0 ? (
                 <>
-                  {money(line.unit)} <span className="text-xs text-green-600">({line.discountPct}% desc.)</span>
+                  {money(line.unit)}{' '}
+                  <span className="text-xs text-green-600">
+                    ({line.discountPct}% desc.)
+                  </span>
                 </>
               ) : (
                 money(baseUnit)
@@ -138,7 +165,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
           </div>
         </div>
 
-        {/* Controles cantidad */}
+        {/* Controles de cantidad */}
         <div className="space-y-3 mt-auto">
           <div className="flex items-center gap-2">
             <Button
@@ -188,7 +215,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
             Cantidades en múltiplos de {step} unidades
           </p>
 
-          {/* Hint siguiente tramo */}
+          {/* Próximo tramo */}
           {quantity > 0 && nextTier && (
             <p className="text-[11px] text-blue-700 text-center">
               Te faltan <b>{nextTier.missing}</b> unid. para {nextTier.discountPct}% de descuento.
