@@ -9,6 +9,9 @@ import { LandingConfig } from './LandingConfig';
 import UsersAdmin from './UsersAdmin';
 import FooterEditor from './FooterEditor';
 
+// Opción con ruta relativa
+import WholesaleClientsTab from '../wholesale/WholesaleClientsTab';
+
 import { Settings, Database, Eye, Calendar } from 'lucide-react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -110,12 +113,14 @@ export const SystemConfiguration = () => {
       <LivePreview companyInfo={companyInfo} />
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        {/* 👇 Ajustamos a 6 columnas e incluimos el trigger de Mayoristas */}
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="parameters">Parámetros</TabsTrigger>
           <TabsTrigger value="audit">Auditoría</TabsTrigger>
           <TabsTrigger value="footer">Footer</TabsTrigger>
           <TabsTrigger value="landing">Inicio</TabsTrigger>
+          <TabsTrigger value="wholesale">Ajustes Mayoristas</TabsTrigger>
         </TabsList>
 
         {/* USUARIOS */}
@@ -396,6 +401,11 @@ export const SystemConfiguration = () => {
         {/* INICIO (Landing) */}
         <TabsContent value="landing">
           <LandingConfig />
+        </TabsContent>
+
+        {/* 👇 NUEVO: AJUSTES MAYORISTAS */}
+        <TabsContent value="wholesale" className="space-y-6">
+          <WholesaleClientsTab />
         </TabsContent>
       </Tabs>
     </div>
