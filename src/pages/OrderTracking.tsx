@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   Search, Download, RotateCcw, MessageCircle, CheckCircle,
@@ -10,11 +10,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 
-// Firebase imports
-import { db } from '@/config/firebase'; // Asegúrate que este alias esté bien configurado
-import { ref, get, child } from 'firebase/database';
+// Firebase
+import { db } from '@/config/firebase';
+import { ref, get, query, orderByChild, equalTo, onValue } from 'firebase/database';
 
-interface OrderStatus {
+interface OrderStatusStep {
   id: string;
   name: string;
   description: string;
@@ -24,18 +24,27 @@ interface OrderStatus {
 }
 
 interface OrderDetails {
+  orderId: string;
   orderNumber: string;
-  items?: Array<{ name: string; quantity: number }>;
+  items: Array<{ name: string; quantity: number }>;
   deliveryAddress?: string;
   customerName?: string;
   total?: number;
   status?: string;
   observations?: string;
-  createdAt?: string;
+  createdAt?: number; // timestamp
 }
 
 const SUPPORT_PHONE = '51999888777';
 const SUPPORT_EMAIL = 'soporte@pecaditos.com';
+
+// Mapea/normaliza nombres de estado del backend a los pasos de UI
+const normalizeStatus = (s?: string) => {
+  const x = (s || '').toLowerCase();
+  if (x === 'listo_envio' || x === 'listo') return 'listo_envio';
+  if (x === 'despacho' || x === 'en_reparto') return 'en_reparto';
+  return x; // pendiente, en_preparacion, entregado, observado, cancelado...
+};
 
 const OrderTracking = () => {
   const { orderId } = useParams();
@@ -44,55 +53,56 @@ const OrderTracking = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  // Busca automáticamente si hay orderId en la URL
+  // para desuscribir el listener en tiempo real al cambiar de pedido
+  const liveUnsubRef = useRef<(() => void) | null>(null);
+
   useEffect(() => {
     if (orderId) {
       setOrderNumber(orderId);
       handleSearch(orderId);
     }
-    // eslint-disable-next-line
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId]);
 
-  // Estados de la orden
-  const getOrderStatuses = (currentStatus?: string): OrderStatus[] => {
-    const status = currentStatus || '';
-    const allStatuses: OrderStatus[] = [
+  const getOrderStatuses = (currentStatus?: string): OrderStatusStep[] => {
+    const status = normalizeStatus(currentStatus);
+    const steps: OrderStatusStep[] = [
       {
-        id: 'recibido',
+        id: 'pendiente',
         name: 'Recibido',
         description: 'Tu pedido ha sido recibido y está en cola de preparación',
         icon: CheckCircle,
-        completed: ['recibido', 'en_preparacion', 'listo_envio', 'en_reparto', 'entregado', 'observado'].includes(status),
-        current: status === 'recibido',
+        completed: ['pendiente','en_preparacion','listo_envio','en_reparto','entregado','observado','cancelado'].includes(status),
+        current: status === 'pendiente',
       },
       {
         id: 'en_preparacion',
         name: 'En Preparación',
         description: 'Estamos preparando tus galletas con mucho cariño',
         icon: Package,
-        completed: ['en_preparacion', 'listo_envio', 'en_reparto', 'entregado', 'observado'].includes(status),
+        completed: ['en_preparacion','listo_envio','en_reparto','entregado','observado','cancelado'].includes(status),
         current: status === 'en_preparacion',
       },
       {
         id: 'listo_envio',
         name: 'Listo para Envío',
-        description: 'Tu pedido está listo y será enviado pronto',
+        description: 'Tu pedido está listo para despacho',
         icon: Clock,
-        completed: ['listo_envio', 'en_reparto', 'entregado', 'observado'].includes(status),
+        completed: ['listo_envio','en_reparto','entregado','observado','cancelado'].includes(status),
         current: status === 'listo_envio',
       },
       {
         id: 'en_reparto',
         name: 'En Reparto',
-        description: 'Tu pedido está en camino hacia tu dirección',
+        description: 'Tu pedido está en camino',
         icon: Truck,
-        completed: ['en_reparto', 'entregado', 'observado'].includes(status),
+        completed: ['en_reparto','entregado','observado','cancelado'].includes(status),
         current: status === 'en_reparto',
       },
       {
         id: 'entregado',
         name: 'Entregado',
-        description: '¡Tu pedido ha sido entregado exitosamente!',
+        description: '¡Tu pedido ha sido entregado!',
         icon: CheckCircle,
         completed: status === 'entregado',
         current: status === 'entregado',
@@ -100,7 +110,7 @@ const OrderTracking = () => {
     ];
 
     if (status === 'observado') {
-      allStatuses.push({
+      steps.push({
         id: 'observado',
         name: 'Observado',
         description: 'Hay una observación importante sobre tu pedido',
@@ -109,78 +119,149 @@ const OrderTracking = () => {
         current: true,
       });
     }
+    if (status === 'cancelado') {
+      steps.push({
+        id: 'cancelado',
+        name: 'Cancelado',
+        description: 'Este pedido fue cancelado',
+        icon: AlertCircle,
+        completed: false,
+        current: true,
+      });
+    }
 
-    return allStatuses;
+    return steps;
   };
 
-  // Buscar la orden por número
+  const clearLiveSubscription = () => {
+    if (liveUnsubRef.current) {
+      liveUnsubRef.current();
+      liveUnsubRef.current = null;
+    }
+  };
+
+  // Suscripción en vivo al pedido por id (orders/{id})
+  const subscribeLiveToOrder = (id: string) => {
+    clearLiveSubscription();
+    const r = ref(db, `orders/${id}`);
+    const off = onValue(r, (snap) => {
+      const v = snap.val();
+      if (!v) return;
+
+      const mapped = mapAdminOrderToDetails(id, v);
+      setOrderDetails(mapped);
+    });
+    liveUnsubRef.current = off;
+  };
+
+  // Buscar la orden por número en admin.orders (number) y si no existe, en wholesale.orders (orderNumber)
   const handleSearch = async (customOrderNumber?: string) => {
-    const numberToSearch = typeof customOrderNumber === 'string' ? customOrderNumber : orderNumber;
-    if (!numberToSearch.trim()) {
-      toast({
-        title: "Error",
-        description: "Por favor ingresa un número de pedido",
-        variant: "destructive"
-      });
+    const numToSearch = typeof customOrderNumber === 'string' ? customOrderNumber : orderNumber;
+    if (!numToSearch.trim()) {
+      toast({ title: "Error", description: "Por favor ingresa un número de pedido", variant: "destructive" });
       return;
     }
 
     setIsLoading(true);
     setNotFound(false);
     setOrderDetails(null);
+    clearLiveSubscription();
 
     try {
-      const ordersRef = ref(db, 'orders');
-      const snapshot = await get(ordersRef);
+      // 1) Buscar en /orders por `number`
+      const qAdmin = query(ref(db, 'orders'), orderByChild('number'), equalTo(numToSearch));
+      const sAdmin = await get(qAdmin);
 
-      let foundOrder: any = null;
-      if (snapshot.exists()) {
-        const ordersObj = snapshot.val();
-        for (const key in ordersObj) {
-          if (
-            ordersObj[key]?.orderNumber &&
-            ordersObj[key].orderNumber.trim().toLowerCase() === numberToSearch.trim().toLowerCase()
-          ) {
-            foundOrder = ordersObj[key];
-            break;
-          }
-        }
+      if (sAdmin.exists()) {
+        const obj = sAdmin.val();
+        const id = Object.keys(obj)[0];
+        const data = obj[id];
+        const mapped = mapAdminOrderToDetails(id, data);
+        setOrderDetails(mapped);
+        subscribeLiveToOrder(id);
+
+        toast({ title: "Pedido encontrado", description: `Estado actual: ${normalizeStatus(mapped.status).replace('_',' ')}` });
+        setIsLoading(false);
+        return;
       }
 
-      if (foundOrder) {
-        setOrderDetails(foundOrder);
-        toast({
-          title: "Pedido encontrado",
-          description: `Estado actual: ${foundOrder.status?.replace('_', ' ')}`
-        });
-      } else {
-        setNotFound(true);
+      // 2) Buscar en /wholesale/orders por `orderNumber` (fallback)
+      const qWs = query(ref(db, 'wholesale/orders'), orderByChild('orderNumber'), equalTo(numToSearch));
+      const sWs = await get(qWs);
+
+      if (sWs.exists()) {
+        const obj = sWs.val();
+        const id = Object.keys(obj)[0];
+        const data = obj[id];
+        const mapped = mapWholesaleOrderToDetails(id, data);
+        setOrderDetails(mapped);
+        // intentar suscribir a espejo admin si existe (mismo id)
+        subscribeLiveToOrder(id);
+
+        toast({ title: "Pedido encontrado (mayorista)", description: `Estado actual: ${normalizeStatus(mapped.status).replace('_',' ')}` });
+        setIsLoading(false);
+        return;
       }
+
+      // No encontrado
+      setNotFound(true);
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Hubo un problema al buscar tu pedido",
-        variant: "destructive"
-      });
+      console.error(error);
+      toast({ title: "Error", description: "Hubo un problema al buscar tu pedido", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Acciones
+  // Mapeos ---------------------------------------------
+
+  // /orders (admin)
+  const mapAdminOrderToDetails = (id: string, v: any): OrderDetails => {
+    const items = Array.isArray(v?.items) ? v.items : Object.values(v?.items || {});
+    return {
+      orderId: id,
+      orderNumber: v?.number || v?.orderNumber || id,
+      items: items.map((it: any) => ({
+        name: it?.name ?? 'Producto',
+        quantity: it?.qty ?? it?.quantity ?? 0,
+      })),
+      deliveryAddress: v?.shipping?.address || v?.shipping?.siteName ? `${v?.shipping?.siteName ?? ''} ${v?.shipping?.address ?? ''}`.trim() : v?.site?.address,
+      customerName: v?.customerName || v?.clientName || '',
+      total: v?.totals?.total ?? v?.total ?? undefined,
+      status: v?.status ?? '',
+      observations: v?.notes ?? v?.observations ?? '',
+      createdAt: v?.createdAt ?? Date.now(),
+    };
+  };
+
+  // /wholesale/orders
+  const mapWholesaleOrderToDetails = (id: string, v: any): OrderDetails => {
+    const items = Array.isArray(v?.items) ? v.items : Object.values(v?.items || {});
+    return {
+      orderId: id,
+      orderNumber: v?.orderNumber || id,
+      items: items.map((it: any) => ({
+        name: it?.name ?? 'Producto',
+        quantity: it?.qty ?? it?.quantity ?? 0,
+      })),
+      deliveryAddress: v?.site?.address || '',
+      customerName: v?.site?.name || '',
+      total: v?.totals?.total ?? undefined,
+      status: v?.status ?? '',
+      observations: v?.observations ?? '',
+      createdAt: v?.createdAt ?? Date.now(),
+    };
+  };
+
+  // Acciones ---------------------------------------------
+
   const handleDownloadPDF = () => {
-    toast({
-      title: "Descarga iniciada",
-      description: "Tu orden de pedido se está descargando"
-    });
-    // Aquí implementa la lógica real de descarga
+    toast({ title: "Descarga iniciada", description: "Tu orden de pedido se está descargando" });
+    // TODO: Implementar descarga real (si guardas el PDF al confirmar)
   };
 
   const handleRepeatOrder = () => {
-    toast({
-      title: "Redirigiendo",
-      description: "Te llevaremos al catálogo para repetir tu pedido"
-    });
+    toast({ title: "Redirigiendo", description: "Te llevaremos al catálogo para repetir tu pedido" });
     // window.location.href = '/catalogo?repeat=' + orderDetails?.orderNumber;
   };
 
@@ -189,12 +270,16 @@ const OrderTracking = () => {
     window.open(`https://wa.me/${SUPPORT_PHONE}?text=${message}`, '_blank');
   };
 
-  // Formatea fecha segura
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Fecha desconocida';
-    const d = new Date(dateString);
-    return isNaN(d.getTime()) ? 'Fecha desconocida' : d.toLocaleDateString();
+  const formatDateDisplay = (ts?: number) => {
+    if (!ts) return 'Fecha desconocida';
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? 'Fecha desconocida' : d.toLocaleString('es-PE');
   };
+
+  // Cleanup de listener en vivo
+  useEffect(() => {
+    return () => clearLiveSubscription();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sand-50 to-sand-100 py-8">
@@ -220,10 +305,7 @@ const OrderTracking = () => {
               Buscar Pedido
             </CardTitle>
             <CardDescription className="text-brown-700">
-              {orderId ?
-                `Buscando información del pedido: ${orderId}` :
-                'Ingresa el número de pedido que recibiste al confirmar tu compra'
-              }
+              {orderId ? `Buscando información del pedido: ${orderId}` : 'Ingresa el número de pedido que recibiste al confirmar tu compra'}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -231,7 +313,7 @@ const OrderTracking = () => {
               <div className="flex-1">
                 <Input
                   type="text"
-                  placeholder="Ej: PEC-2024-001, PEC-2024-002..."
+                  placeholder="Ej: MW-ABC12345"
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
                   className="h-12 border-sand-300 bg-white focus:border-primary"
@@ -279,13 +361,13 @@ const OrderTracking = () => {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div>
-                    <CardTitle className="text-brown-900">Pedido {orderDetails.orderNumber || 'Desconocido'}</CardTitle>
+                    <CardTitle className="text-brown-900">Pedido {orderDetails.orderNumber}</CardTitle>
                     <CardDescription className="text-brown-700">
-                      Realizado el {formatDate(orderDetails.createdAt)}
+                      Realizado el {formatDateDisplay(orderDetails.createdAt)}
                     </CardDescription>
                   </div>
                   <Badge variant="outline" className="text-sm border-primary/20 text-primary">
-                    Total: S/ {orderDetails.total ?? '--'}
+                    Total: S/ {orderDetails.total?.toFixed(2) ?? '--'}
                   </Badge>
                 </div>
               </CardHeader>
@@ -366,6 +448,7 @@ const OrderTracking = () => {
                     );
                   })}
                 </div>
+
                 {/* Observaciones */}
                 {orderDetails.observations && (
                   <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">

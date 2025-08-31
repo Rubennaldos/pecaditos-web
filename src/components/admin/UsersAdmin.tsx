@@ -1,7 +1,7 @@
 // src/components/admin/UsersAdmin.tsx
 import React, { useEffect, useMemo, useState } from 'react';
 import { db, functions } from '@/config/firebase';
-import { ref, onValue, update, remove } from 'firebase/database';
+import { ref, onValue, update, remove, get, set } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
 
 import {
@@ -32,7 +32,7 @@ type Rol =
   | 'produccion'
   | 'reparto'
   | 'cobranzas'
-  | 'mayorista'; // << NUEVO
+  | 'mayorista';
 
 const ROLE_LABEL: Record<Rol, string> = {
   admin: 'Admin',
@@ -41,7 +41,7 @@ const ROLE_LABEL: Record<Rol, string> = {
   produccion: 'Producción',
   reparto: 'Reparto',
   cobranzas: 'Cobranzas',
-  mayorista: 'Mayorista', // << NUEVO
+  mayorista: 'Mayorista',
 };
 
 type UserRecord = {
@@ -61,8 +61,52 @@ const emptyUser: Omit<UserRecord, 'id'> = {
   createdAt: null,
 };
 
+// ==== Tipos y helpers Mayorista ====
+type WholesaleClient = {
+  id: string;
+  name: string;
+  ruc?: string;
+};
+type InternalWholesaleRole = 'comprador' | 'aprobador' | 'visor';
+
+// Lee clientId actual de un usuario (si existiera)
+async function getUserClientId(uid: string): Promise<string | undefined> {
+  const snap = await get(ref(db, `wholesale/users/${uid}`));
+  return snap.val()?.clientId;
+}
+
+// Enlaza usuario -> cliente (y cliente -> usuario). Desenlaza del anterior si cambió.
+async function linkUserToClient(
+  uid: string,
+  clientId: string,
+  internalRole: InternalWholesaleRole
+) {
+  const prev = await getUserClientId(uid);
+  const ops: Promise<any>[] = [];
+
+  if (prev && prev !== clientId) {
+    ops.push(remove(ref(db, `wholesale/clients/${prev}/users/${uid}`)));
+  }
+
+  ops.push(set(ref(db, `wholesale/users/${uid}`), { clientId, role: internalRole }));
+  ops.push(set(ref(db, `wholesale/clients/${clientId}/users/${uid}`), { role: internalRole }));
+
+  await Promise.all(ops);
+}
+
+// Elimina por completo el vínculo
+async function unlinkUserFromClient(uid: string) {
+  const prev = await getUserClientId(uid);
+  if (!prev) return;
+  await Promise.all([
+    remove(ref(db, `wholesale/users/${uid}`)),
+    remove(ref(db, `wholesale/clients/${prev}/users/${uid}`)),
+  ]);
+}
+
 const UsersAdmin: React.FC = () => {
   const [users, setUsers] = useState<UserRecord[]>([]);
+  const [clients, setClients] = useState<WholesaleClient[]>([]); // <-- clientes mayoristas
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<UserRecord | null>(null);
@@ -73,10 +117,15 @@ const UsersAdmin: React.FC = () => {
   const [seePwd, setSeePwd] = useState(false);
   const [seePwd2, setSeePwd2] = useState(false);
 
-  // Campos del formulario de usuario
+  // Form de usuario
   const [form, setForm] = useState<Omit<UserRecord, 'id'>>({ ...emptyUser });
   const [saving, setSaving] = useState(false);
 
+  // Campos de vínculo mayorista (solo si rol === 'mayorista')
+  const [clientId, setClientId] = useState<string>(''); // cliente seleccionado
+  const [internalRole, setInternalRole] = useState<InternalWholesaleRole>('comprador');
+
+  // Carga usuarios
   useEffect(() => {
     const r = ref(db, 'usuarios');
     const off = onValue(r, (snap) => {
@@ -87,13 +136,27 @@ const UsersAdmin: React.FC = () => {
         correo: u.correo || '',
         rol: (u.rol || 'adminGeneral') as Rol,
         activo: u.activo !== false,
-        createdAt: u.createdAt ?? null, // puede ser string ISO o number
+        createdAt: u.createdAt ?? null,
       }));
-      // ordenar por nombre
       list.sort((a, b) => a.nombre.localeCompare(b.nombre));
       setUsers(list);
     });
     return () => off();
+  }, []);
+
+  // Carga clientes mayoristas
+  useEffect(() => {
+    const r = ref(db, 'wholesale/clients');
+    return onValue(r, (snap) => {
+      const val = snap.val() || {};
+      const list: WholesaleClient[] = Object.entries(val).map(([id, c]: [string, any]) => ({
+        id,
+        name: c?.name || c?.razonSocial || id,
+        ruc: c?.ruc || '',
+      }));
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      setClients(list);
+    });
   }, []);
 
   const filtered = useMemo(() => {
@@ -114,18 +177,42 @@ const UsersAdmin: React.FC = () => {
     setPwd2('');
     setSeePwd(false);
     setSeePwd2(false);
+    // limpiar vínculo mayorista
+    setClientId('');
+    setInternalRole('comprador');
     setModalOpen(true);
   };
 
-  const openEdit = (u: UserRecord) => {
+  const openEdit = async (u: UserRecord) => {
     setEditing(u);
     setForm({ nombre: u.nombre, correo: u.correo, rol: u.rol, activo: u.activo, createdAt: u.createdAt ?? null });
     setPwd('');
     setPwd2('');
     setSeePwd(false);
     setSeePwd2(false);
+
+    // precarga vínculo si es mayorista
+    if (u.rol === 'mayorista') {
+      const currentClient = await getUserClientId(u.id);
+      setClientId(currentClient || '');
+      setInternalRole('comprador');
+    } else {
+      setClientId('');
+      setInternalRole('comprador');
+    }
+
     setModalOpen(true);
   };
+
+  // Busca uid por correo en /usuarios (cuando createUser no devuelve uid)
+  async function findUidByEmail(email: string): Promise<string | null> {
+    const snap = await get(ref(db, 'usuarios'));
+    const val = snap.val() || {};
+    for (const [id, u] of Object.entries<any>(val)) {
+      if ((u?.correo || '').toLowerCase() === email.toLowerCase()) return id;
+    }
+    return null;
+  }
 
   const saveUser = async () => {
     // Validaciones mínimas
@@ -138,16 +225,29 @@ const UsersAdmin: React.FC = () => {
       return;
     }
 
+    // Si es mayorista, debe elegir cliente
+    if (form.rol === 'mayorista' && !clientId) {
+      toast({ title: 'Selecciona el Cliente Mayorista', description: 'Este usuario debe pertenecer a un cliente.', variant: 'destructive' });
+      return;
+    }
+
     setSaving(true);
     try {
       if (editing) {
-        // ACTUALIZAR (solo RTDB). Nota: aquí NO cambia contraseña en Auth.
+        // ACTUALIZAR (solo RTDB)
         await update(ref(db, `usuarios/${editing.id}`), {
           nombre: form.nombre,
           correo: form.correo,
           rol: form.rol,
           activo: form.activo,
         });
+
+        // Vinculación/desvinculación
+        if (form.rol === 'mayorista') {
+          await linkUserToClient(editing.id, clientId, internalRole);
+        } else {
+          await unlinkUserFromClient(editing.id);
+        }
 
         if (pwd || pwd2) {
           toast({
@@ -158,7 +258,7 @@ const UsersAdmin: React.FC = () => {
 
         toast({ title: 'Usuario actualizado', description: 'Los datos fueron guardados' });
       } else {
-        // CREAR → usar Cloud Function para crear en Auth + RTDB
+        // CREAR → Cloud Function para Auth + RTDB
         if (!pwd || !pwd2) {
           toast({ title: 'Falta contraseña', description: 'Debes ingresar y confirmar la contraseña', variant: 'destructive' });
           setSaving(false);
@@ -176,12 +276,23 @@ const UsersAdmin: React.FC = () => {
         }
 
         const call = httpsCallable(functions, 'createUser');
-        await call({
+        const res: any = await call({
           email: form.correo,
           password: pwd,
           nombre: form.nombre,
-          rol: form.rol, // <-- puede ser 'mayorista'
+          rol: form.rol, // puede ser 'mayorista'
         });
+
+        // intentar tomar uid retornado; si no viene, buscar por correo
+        let newUid: string | null = res?.data?.uid || res?.data?.userId || null;
+        if (!newUid) {
+          newUid = await findUidByEmail(form.correo);
+        }
+
+        // vincula si es mayorista
+        if (form.rol === 'mayorista' && newUid) {
+          await linkUserToClient(newUid, clientId, internalRole);
+        }
 
         toast({ title: 'Usuario creado', description: 'Se agregó el nuevo usuario en Auth y RTDB' });
       }
@@ -202,7 +313,7 @@ const UsersAdmin: React.FC = () => {
   const toggleActive = async (u: UserRecord) => {
     try {
       await update(ref(db, `usuarios/${u.id}`), { activo: !u.activo });
-    } catch (e) {
+    } catch {
       toast({ title: 'Error', description: 'No se pudo cambiar el estado.', variant: 'destructive' });
     }
   };
@@ -210,9 +321,12 @@ const UsersAdmin: React.FC = () => {
   const deleteUser = async (u: UserRecord) => {
     if (!confirm(`¿Eliminar a ${u.nombre}?`)) return;
     try {
+      // Borra el vínculo mayorista si lo tuviera
+      await unlinkUserFromClient(u.id);
+      // Borra el usuario de RTDB (no elimina en Auth)
       await remove(ref(db, `usuarios/${u.id}`));
       toast({ title: 'Eliminado', description: 'Usuario eliminado de RTDB (no borra de Auth).' });
-    } catch (e) {
+    } catch {
       toast({ title: 'Error', description: 'No se pudo eliminar.', variant: 'destructive' });
     }
   };
@@ -238,7 +352,7 @@ const UsersAdmin: React.FC = () => {
                   Agregar Usuario
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>{editing ? 'Editar Usuario' : 'Nuevo Usuario'}</DialogTitle>
                   <DialogDescription>
@@ -268,7 +382,14 @@ const UsersAdmin: React.FC = () => {
                     <Label>Perfil</Label>
                     <Select
                       value={form.rol}
-                      onValueChange={(rol: Rol) => setForm((p) => ({ ...p, rol }))}
+                      onValueChange={(rol: Rol) => {
+                        setForm((p) => ({ ...p, rol }));
+                        // si cambia a no-mayorista, limpiamos selección
+                        if (rol !== 'mayorista') {
+                          setClientId('');
+                          setInternalRole('comprador');
+                        }
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecciona un perfil" />
@@ -280,7 +401,7 @@ const UsersAdmin: React.FC = () => {
                         <SelectItem value="produccion">Producción</SelectItem>
                         <SelectItem value="reparto">Reparto</SelectItem>
                         <SelectItem value="cobranzas">Cobranzas</SelectItem>
-                        <SelectItem value="mayorista">Mayorista</SelectItem> {/* << NUEVO */}
+                        <SelectItem value="mayorista">Mayorista</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -327,6 +448,48 @@ const UsersAdmin: React.FC = () => {
                       </button>
                     </div>
                   </div>
+
+                  {/* Bloque de vínculo mayorista */}
+                  {form.rol === 'mayorista' && (
+                    <div className="border rounded-lg p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label>Cliente mayorista</Label>
+                          <Select value={clientId} onValueChange={(v: any) => setClientId(v)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Selecciona el cliente" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {clients.map((c) => (
+                                <SelectItem key={c.id} value={c.id}>
+                                  {c.name}{c.ruc ? ` · ${c.ruc}` : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label>Rol interno</Label>
+                          <Select
+                            value={internalRole}
+                            onValueChange={(v: any) => setInternalRole(v as InternalWholesaleRole)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Rol" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="comprador">Comprador</SelectItem>
+                              <SelectItem value="aprobador">Aprobador</SelectItem>
+                              <SelectItem value="visor">Visor</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <p className="text-xs text-stone-500 mt-2">
+                        Este usuario podrá operar únicamente para el cliente seleccionado.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <DialogFooter>

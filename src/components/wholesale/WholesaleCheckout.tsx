@@ -1,178 +1,298 @@
-import { useState } from 'react';
-import { 
-  MapPin, 
-  Clock, 
-  MessageSquare, 
-  Check, 
-  ArrowLeft, 
+import { useEffect, useMemo, useState } from 'react';
+import {
+  MapPin,
+  Clock,
+  MessageSquare,
+  Check,
+  ArrowLeft,
   Download,
   AlertCircle,
-  Building
+  Building,
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
 import { useToast } from '@/hooks/use-toast';
 
-/**
- * MÓDULO DE CHECKOUT MAYORISTA
- * 
- * Módulo completo de pago/entrega con:
- * - Selección de sede (si hay múltiples)
- * - Observaciones del cliente
- * - Tiempo de entrega aproximado
- * - Confirmación con 24 horas de plazo
- * - Generación de número de orden
- * - Descarga de PDF
- */
+import { db } from '@/config/firebase';
+import { ref, onValue, push, set } from 'firebase/database';
+import { getAuth } from 'firebase/auth';
 
 interface WholesaleCheckoutProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-interface DeliveryLocation {
+type DeliveryLocation = {
   id: string;
   name: string;
   address: string;
-  deliveryTime: string;
-  zone: string;
-}
-
-// Sedes disponibles para entrega
-const DELIVERY_LOCATIONS: DeliveryLocation[] = [
-  {
-    id: 'miraflores',
-    name: 'Sede Miraflores',
-    address: 'Av. Larco 1234, Miraflores',
-    deliveryTime: '2-3 horas',
-    zone: 'Zona 1'
-  },
-  {
-    id: 'san-isidro',
-    name: 'Sede San Isidro', 
-    address: 'Av. Conquistadores 456, San Isidro',
-    deliveryTime: '3-4 horas',
-    zone: 'Zona 1'
-  },
-  {
-    id: 'surco',
-    name: 'Sede Surco',
-    address: 'Av. Primavera 789, Surco', 
-    deliveryTime: '4-5 horas',
-    zone: 'Zona 2'
-  }
-];
+  deliveryTime?: string;
+  zone?: string;
+};
 
 export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) => {
   const [step, setStep] = useState<'delivery' | 'confirmation' | 'confirmed'>('delivery');
+
+  const [clientId, setClientId] = useState<string>('');
+  const [locations, setLocations] = useState<DeliveryLocation[]>([]);
+  const [defaultSiteId, setDefaultSiteId] = useState<string>('');
   const [selectedLocation, setSelectedLocation] = useState<string>('');
+
   const [customerObservations, setCustomerObservations] = useState('');
   const [orderNumber, setOrderNumber] = useState('');
-  
+
   const { items, finalTotal, itemCount, clearCart } = useWholesaleCart();
   const { toast } = useToast();
 
-  const selectedLocationData = DELIVERY_LOCATIONS.find(loc => loc.id === selectedLocation);
+  // Acepta address como string o como objeto { street, district, province }
+  const formatAddress = (addr: any) => {
+    if (!addr) return '';
+    if (typeof addr === 'string') return addr;
+    const parts = [addr?.street, addr?.district, addr?.province].filter(Boolean);
+    return parts.join(', ');
+  };
+
+  // Lee clientId del usuario y luego las sedes reales del cliente (solo cuando el modal está abierto)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const uid = getAuth().currentUser?.uid;
+    if (!uid) return;
+
+    const userRef = ref(db, `wholesale/users/${uid}`);
+    let unSubClient: (() => void) | null = null;
+
+    const unSubUser = onValue(userRef, (snap) => {
+      const cId = snap.val()?.clientId as string | undefined;
+      setClientId(cId || '');
+
+      if (unSubClient) {
+        unSubClient();
+        unSubClient = null;
+      }
+
+      if (!cId) {
+        setLocations([]);
+        setDefaultSiteId('');
+        setSelectedLocation('');
+        return;
+      }
+
+      const clientRef = ref(db, `wholesale/clients/${cId}`);
+      unSubClient = onValue(clientRef, (snap2) => {
+        const v = snap2.val() || {};
+
+        // Si tus sedes están en un array: v.sites = [{ id, name, address, ...}]
+        const sites: DeliveryLocation[] = Array.isArray(v?.sites)
+          ? (v.sites as any[])
+              .filter(Boolean)
+              .map((s) => ({
+                id: s?.id || crypto.randomUUID(),
+                name: s?.name || '',
+                address: formatAddress(s?.address),
+                deliveryTime: s?.deliveryHours || s?.deliveryTime || '',
+                zone: s?.zone || '',
+              }))
+          : [];
+
+        const defId = v?.defaultSiteId || '';
+
+        setLocations(sites);
+        setDefaultSiteId(defId);
+        setSelectedLocation((curr) => curr || defId || (sites[0]?.id ?? ''));
+      });
+    });
+
+    return () => {
+      unSubUser?.();
+      if (unSubClient) unSubClient();
+    };
+  }, [isOpen]);
+
+  const selectedLocationData = useMemo(
+    () => locations.find((loc) => loc.id === selectedLocation),
+    [locations, selectedLocation]
+  );
 
   const handleConfirmDelivery = () => {
     if (!selectedLocation) {
       toast({
-        title: "Selecciona una sede",
-        description: "Debes seleccionar una sede para la entrega",
-        variant: "destructive"
+        title: 'Selecciona una sede',
+        description: 'Debes seleccionar una sede para la entrega',
+        variant: 'destructive',
       });
       return;
     }
     setStep('confirmation');
   };
 
-  const handleConfirmOrder = () => {
-    // Generar número de orden único - PENDIENTE DE CONFIRMACIÓN
-    const orderNum = `MW-${Date.now().toString().slice(-8)}`;
-    setOrderNumber(orderNum);
-    setStep('confirmed');
-    
-    // Notificar al área de pedidos para confirmación
-    console.log('🔔 NUEVO PEDIDO MAYORISTA PENDIENTE CONFIRMACIÓN:', {
-      orderId: orderNum,
-      customer: 'Usuario Mayorista',
-      total: finalTotal,
-      items: items.length,
-      location: selectedLocation,
-      timestamp: new Date().toISOString(),
-      status: 'pendiente_confirmacion_2h'
-    });
-    
-    toast({
-      title: "¡Pedido enviado!",
-      description: `Orden ${orderNum} enviada. Será confirmada en 2 horas.`,
-    });
+  // === GUARDA EL PEDIDO EN RTDB ===
+  const handleConfirmOrder = async () => {
+    const auth = getAuth();
+    const uid = auth.currentUser?.uid;
+    if (!uid || !clientId || !selectedLocationData) {
+      toast({
+        title: 'Falta información',
+        description: 'Usuario, cliente o sede no disponibles.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Generar ID de pedido mayorista
+    const wholesaleOrdersRef = ref(db, 'wholesale/orders');
+    const newRef = push(wholesaleOrdersRef);
+    const orderId = newRef.key!;
+    const orderNum = `MW-${orderId.slice(-8).toUpperCase()}`;
+    const now = Date.now();
+
+    // timeline inicial como objeto (clave = timestamp string)
+    const timelineKey = String(now);
+    const firstEvent = {
+      at: now,
+      status: 'pendiente',
+      message: 'Pedido registrado y en cola de revisión',
+    };
+
+    // Payload mayorista
+    const wholesalePayload = {
+      id: orderId,
+      orderNumber: orderNum,
+      userId: uid,
+      clientId,
+      siteId: selectedLocationData.id,
+      site: {
+        name: selectedLocationData.name,
+        address: selectedLocationData.address,
+        deliveryTime: selectedLocationData.deliveryTime || '',
+        zone: selectedLocationData.zone || '',
+      },
+      items: items.map((i) => ({
+        id: i.product.id,
+        name: i.product.name,
+        qty: i.quantity,
+        unit: i.unitPrice ?? Number((i.finalPrice / Math.max(1, i.quantity)).toFixed(2)),
+        total: Number(i.finalPrice.toFixed(2)),
+      })),
+      totals: {
+        total: Number(finalTotal.toFixed(2)),
+        items: itemCount,
+      },
+      observations: customerObservations || '',
+      status: 'pendiente',
+      createdAt: now,
+      trackingCode: null as string | null, // opcional
+      statusTimeline: {
+        [timelineKey]: firstEvent,
+      } as Record<string, { at: number; status: string; message?: string }>,
+    };
+
+    // Payload admin (cola de pedidos)
+    const adminPayload = {
+      id: orderId,
+      number: orderNum,
+      channel: 'wholesale',
+      status: 'pendiente',
+      createdAt: now,
+      userId: uid,
+      clientId,
+      shipping: {
+        siteId: selectedLocationData.id,
+        siteName: selectedLocationData.name,
+        address: selectedLocationData.address,
+        eta: selectedLocationData.deliveryTime || '',
+        zone: selectedLocationData.zone || '',
+      },
+      items: wholesalePayload.items,
+      totals: wholesalePayload.totals,
+      notes: wholesalePayload.observations,
+      statusTimeline: wholesalePayload.statusTimeline,
+    };
+
+    try {
+      // 1) guarda en mayorista
+      await set(newRef, wholesalePayload);
+      // índices para historial
+      await set(ref(db, `wholesale/userOrders/${uid}/${orderId}`), true);
+      await set(ref(db, `wholesale/clientOrders/${clientId}/${orderId}`), true);
+
+      // 2) crea espejo para el panel admin
+      await set(ref(db, `orders/${orderId}`), adminPayload);
+      await set(ref(db, `ordersByStatus/pendiente/${orderId}`), true);
+
+      setOrderNumber(orderNum);
+      setStep('confirmed');
+
+      toast({
+        title: '¡Pedido enviado!',
+        description: `Orden ${orderNum} registrada.`,
+      });
+    } catch (e) {
+      console.error(e);
+      toast({
+        title: 'Error',
+        description: 'No se pudo registrar el pedido.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDownloadPDF = () => {
     import('jspdf').then(({ jsPDF }) => {
       const doc = new jsPDF();
-      
-      // Configurar PDF
+
       doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
+      doc.setFont('helvetica', 'bold');
       doc.text('PECADITOS INTEGRALES S.A.C.', 20, 30);
-      
+
       doc.setFontSize(16);
-      doc.setFont("helvetica", "normal");
+      doc.setFont('helvetica', 'normal');
       doc.text('ORDEN DE PEDIDO MAYORISTA', 20, 45);
-      
-      // Número de orden
+
       doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
+      doc.setFont('helvetica', 'bold');
       doc.text(`Orden N°: ${orderNumber}`, 20, 65);
       doc.text(`Fecha: ${new Date().toLocaleDateString('es-PE')}`, 20, 75);
-      
-      // Información de entrega
-      doc.setFont("helvetica", "normal");
+
+      doc.setFont('helvetica', 'normal');
       doc.text('INFORMACIÓN DE ENTREGA:', 20, 95);
-      doc.text(`Sede: ${selectedLocationData?.name}`, 25, 105);
-      doc.text(`Dirección: ${selectedLocationData?.address}`, 25, 115);
-      doc.text(`Tiempo estimado: ${selectedLocationData?.deliveryTime}`, 25, 125);
-      
-      // Lista de productos
+      doc.text(`Sede: ${selectedLocationData?.name ?? '-'}`, 25, 105);
+      doc.text(`Dirección: ${selectedLocationData?.address ?? '-'}`, 25, 115);
+      doc.text(`Tiempo estimado: ${selectedLocationData?.deliveryTime || '—'}`, 25, 125);
+
       doc.text('PRODUCTOS SOLICITADOS:', 20, 145);
       let yPos = 155;
       items.forEach((item, index) => {
         doc.text(`${index + 1}. ${item.product.name}`, 25, yPos);
-        doc.text(`   Cantidad: ${item.quantity} | Precio: S/ ${item.finalPrice.toFixed(2)}`, 25, yPos + 10);
+        doc.text(
+          `   Cantidad: ${item.quantity} | Precio: S/ ${item.finalPrice.toFixed(2)}`,
+          25,
+          yPos + 10
+        );
         yPos += 20;
       });
-      
-      // Total
-      doc.setFont("helvetica", "bold");
+
+      doc.setFont('helvetica', 'bold');
       doc.text(`TOTAL: S/ ${finalTotal.toFixed(2)}`, 20, yPos + 20);
-      
-      // Observaciones
+
       if (customerObservations) {
-        doc.setFont("helvetica", "normal");
+        doc.setFont('helvetica', 'normal');
         doc.text('OBSERVACIONES:', 20, yPos + 40);
         const splitText = doc.splitTextToSize(customerObservations, 170);
         doc.text(splitText, 25, yPos + 50);
       }
-      
-      // Términos
+
       doc.setFontSize(10);
       doc.text('IMPORTANTE: Este pedido será confirmado en las próximas 2 horas.', 20, 270);
       doc.text('Para consultas: WhatsApp 999-888-777', 20, 280);
-      
-      // Descargar
+
       doc.save(`Pedido-${orderNumber}.pdf`);
-      
-      toast({
-        title: "PDF Descargado",
-        description: "Tu orden ha sido descargada exitosamente",
-      });
     });
   };
 
@@ -180,8 +300,8 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
     clearCart();
     onClose();
     toast({
-      title: "Nuevo pedido disponible",
-      description: "Puedes iniciar un nuevo pedido mayorista",
+      title: 'Nuevo pedido disponible',
+      description: 'Puedes iniciar un nuevo pedido mayorista',
     });
   };
 
@@ -190,17 +310,11 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[95vh] overflow-y-auto">
-        
         {/* Header */}
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
             {step !== 'confirmed' && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClose}
-                className="p-1"
-              >
+              <Button variant="ghost" size="sm" onClick={onClose} className="p-1">
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}
@@ -210,21 +324,21 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
               {step === 'confirmed' && 'Pedido Confirmado'}
             </h2>
           </div>
-          
-          {/* Indicador de pasos */}
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${step === 'delivery' ? 'bg-blue-500' : 'bg-green-500'}`} />
-            <div className={`w-3 h-3 rounded-full ${step === 'confirmation' ? 'bg-blue-500' : step === 'confirmed' ? 'bg-green-500' : 'bg-stone-300'}`} />
+            <div
+              className={`w-3 h-3 rounded-full ${
+                step === 'confirmation' ? 'bg-blue-500' : step === 'confirmed' ? 'bg-green-500' : 'bg-stone-300'
+              }`}
+            />
             <div className={`w-3 h-3 rounded-full ${step === 'confirmed' ? 'bg-green-500' : 'bg-stone-300'}`} />
           </div>
         </div>
 
         <div className="p-6">
-          {/* PASO 1: Configuración de entrega */}
+          {/* Paso 1 */}
           {step === 'delivery' && (
             <div className="space-y-6">
-              
-              {/* Resumen del pedido */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -246,7 +360,6 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                 </CardContent>
               </Card>
 
-              {/* Selección de sede */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -256,39 +369,48 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <Label>Sede disponible para tu zona:</Label>
-                  <Select value={selectedLocation} onValueChange={setSelectedLocation}>
+                  <Select
+                    value={selectedLocation}
+                    onValueChange={setSelectedLocation}
+                    disabled={locations.length === 0}
+                  >
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona una sede..." />
+                      <SelectValue
+                        placeholder={locations.length ? 'Selecciona una sede…' : 'No hay sedes configuradas'}
+                      />
                     </SelectTrigger>
                     <SelectContent>
-                      {DELIVERY_LOCATIONS.map((location) => (
+                      {locations.map((location) => (
                         <SelectItem key={location.id} value={location.id}>
                           <div className="flex flex-col">
-                            <span className="font-medium">{location.name}</span>
+                            <span className="font-medium">
+                              {location.name}
+                              {defaultSiteId && defaultSiteId === location.id ? ' • Predeterminada' : ''}
+                            </span>
                             <span className="text-sm text-stone-500">{location.address}</span>
                           </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  
+
                   {selectedLocationData && (
                     <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Clock className="h-4 w-4 text-blue-600" />
                         <span className="font-medium text-blue-800">
-                          Tiempo estimado: {selectedLocationData.deliveryTime}
+                          Tiempo estimado: {selectedLocationData.deliveryTime || 'Según programación'}
                         </span>
                       </div>
                       <p className="text-sm text-blue-700">
-                        📍 {selectedLocationData.address} • {selectedLocationData.zone}
+                        📍 {selectedLocationData.address}
+                        {selectedLocationData.zone ? ` • ${selectedLocationData.zone}` : ''}
                       </p>
                     </div>
                   )}
                 </CardContent>
               </Card>
 
-              {/* Observaciones del cliente */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -297,9 +419,7 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <Label htmlFor="observations">
-                    Comentarios especiales para tu pedido (opcional):
-                  </Label>
+                  <Label htmlFor="observations">Comentarios especiales para tu pedido (opcional):</Label>
                   <Textarea
                     id="observations"
                     placeholder="Ej: Entregar en horario de mañana, solicitar factura, instrucciones especiales..."
@@ -311,7 +431,6 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                 </CardContent>
               </Card>
 
-              {/* Botón continuar */}
               <Button
                 onClick={handleConfirmDelivery}
                 disabled={!selectedLocation}
@@ -322,44 +441,36 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
             </div>
           )}
 
-          {/* PASO 2: Confirmación final */}
+          {/* Paso 2 */}
           {step === 'confirmation' && (
             <div className="space-y-6">
-              
-              {/* Aviso importante */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <div className="flex items-start gap-3">
                   <AlertCircle className="h-5 w-5 text-amber-600 mt-0.5" />
                   <div>
-                    <h3 className="font-medium text-amber-800 mb-1">
-                      Importante: Plazo de confirmación
-                    </h3>
+                    <h3 className="font-medium text-amber-800 mb-1">Importante: Plazo de confirmación</h3>
                     <p className="text-sm text-amber-700">
-                      Tienes <strong>24 horas</strong> para confirmar este pedido. 
-                      Después de este tiempo, deberás generar un nuevo pedido.
+                      Tienes <strong>24 horas</strong> para confirmar este pedido. Después de este tiempo, deberás
+                      generar un nuevo pedido.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Resumen completo */}
               <Card>
                 <CardHeader>
                   <CardTitle>Resumen Final del Pedido</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  
-                  {/* Información de entrega */}
                   <div className="grid md:grid-cols-2 gap-4">
                     <div>
                       <h4 className="font-medium text-stone-800 mb-2">📍 Entrega</h4>
                       <p className="text-sm text-stone-600">{selectedLocationData?.name}</p>
                       <p className="text-xs text-stone-500">{selectedLocationData?.address}</p>
                       <p className="text-xs text-blue-600 mt-1">
-                        ⏱️ {selectedLocationData?.deliveryTime}
+                        ⏱️ {selectedLocationData?.deliveryTime || '—'}
                       </p>
                     </div>
-                    
                     <div>
                       <h4 className="font-medium text-stone-800 mb-2">💰 Total</h4>
                       <p className="text-lg font-bold text-stone-800">S/ {finalTotal.toFixed(2)}</p>
@@ -367,23 +478,21 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                     </div>
                   </div>
 
-                  {/* Observaciones */}
                   {customerObservations && (
                     <div>
                       <h4 className="font-medium text-stone-800 mb-2">💬 Observaciones</h4>
-                      <p className="text-sm text-stone-600 bg-stone-50 p-3 rounded-lg">
-                        {customerObservations}
-                      </p>
+                      <p className="text-sm text-stone-600 bg-stone-50 p-3 rounded-lg">{customerObservations}</p>
                     </div>
                   )}
 
-                  {/* Lista de productos resumida */}
                   <div>
                     <h4 className="font-medium text-stone-800 mb-2">📦 Productos</h4>
                     <div className="space-y-2 max-h-40 overflow-y-auto">
                       {items.map((item) => (
                         <div key={item.product.id} className="flex justify-between text-sm">
-                          <span>{item.product.name} x {item.quantity}</span>
+                          <span>
+                            {item.product.name} x {item.quantity}
+                          </span>
                           <span className="font-medium">S/ {item.finalPrice.toFixed(2)}</span>
                         </div>
                       ))}
@@ -392,19 +501,11 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                 </CardContent>
               </Card>
 
-              {/* Botones */}
               <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setStep('delivery')}
-                  className="flex-1"
-                >
+                <Button variant="outline" onClick={() => setStep('delivery')} className="flex-1">
                   Volver a Entrega
                 </Button>
-                <Button
-                  onClick={handleConfirmOrder}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white"
-                >
+                <Button onClick={handleConfirmOrder} className="flex-1 bg-green-500 hover:bg-green-600 text-white">
                   <Check className="h-4 w-4 mr-2" />
                   Confirmar Pedido
                 </Button>
@@ -412,36 +513,29 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
             </div>
           )}
 
-          {/* PASO 3: Pedido confirmado */}
+          {/* Paso 3 */}
           {step === 'confirmed' && (
             <div className="text-center space-y-6">
-              
-              {/* Icono de éxito */}
               <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto">
                 <Check className="h-10 w-10 text-green-600" />
               </div>
 
               <div>
-                <h3 className="text-2xl font-bold text-green-600 mb-2">
-                  ¡Pedido Confirmado!
-                </h3>
-                <p className="text-stone-600">
-                  Tu pedido mayorista ha sido registrado exitosamente
-                </p>
+                <h3 className="text-2xl font-bold text-green-600 mb-2">¡Pedido Confirmado!</h3>
+                <p className="text-stone-600">Tu pedido mayorista ha sido registrado exitosamente</p>
               </div>
 
-              {/* Número de orden */}
               <Card>
                 <CardContent className="pt-6">
                   <div className="text-center">
                     <p className="text-sm text-stone-600 mb-1">Número de Orden:</p>
                     <p className="text-3xl font-bold text-blue-600 mb-4">{orderNumber}</p>
-                    
+
                     <div className="grid md:grid-cols-2 gap-4 text-left">
                       <div>
                         <p className="text-sm font-medium text-stone-800">📍 Entrega en:</p>
                         <p className="text-sm text-stone-600">{selectedLocationData?.name}</p>
-                        <p className="text-xs text-stone-500">{selectedLocationData?.deliveryTime}</p>
+                        <p className="text-xs text-stone-500">{selectedLocationData?.deliveryTime || '—'}</p>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-stone-800">💰 Total pagado:</p>
@@ -452,28 +546,19 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
                 </CardContent>
               </Card>
 
-              {/* Aviso de confirmación en 2 horas */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm text-amber-800">
-                  <strong>⏰ Confirmación pendiente:</strong> Tu pedido será confirmado por nuestro equipo dentro de las próximas <strong>2 horas</strong>. 
-                  Te notificaremos por WhatsApp o a través de tu perfil mayorista.
+                  <strong>⏰ Confirmación pendiente:</strong> Tu pedido será confirmado por nuestro equipo dentro de las
+                  próximas <strong>2 horas</strong>.
                 </p>
               </div>
 
-              {/* Botones de acción */}
               <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  onClick={handleDownloadPDF}
-                  variant="outline"
-                  className="flex-1"
-                >
+                <Button onClick={handleDownloadPDF} variant="outline" className="flex-1">
                   <Download className="h-4 w-4 mr-2" />
                   Descargar PDF
                 </Button>
-                <Button
-                  onClick={handleBackToShopping}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white"
-                >
+                <Button onClick={handleBackToShopping} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white">
                   Nuevo Pedido
                 </Button>
               </div>

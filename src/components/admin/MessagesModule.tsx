@@ -89,7 +89,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
   const [showEditModal, setShowEditModal] = useState<null|Message>(null);
   const [selectedMessage, setSelectedMessage] = useState<Message|null>(null);
 
-  // popup (se mantiene igual a tu versión anterior, opcional)
+  // popup (controlado)
   const [showPopup, setShowPopup] = useState(false);
   const [activePopupMessage, setActivePopupMessage] = useState<Message | null>(null);
 
@@ -138,17 +138,42 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
     });
   }, []);
 
-  // ---------- popup por destinatario ----------
+  // ---------- utilidades de vigencia/activo ----------
+  const withinRange = (m: Message) => {
+    const now = Date.now();
+    const start = m.startAt ? new Date(m.startAt).getTime() : -Infinity;
+    const end = m.endAt ? new Date(m.endAt).getTime() : Infinity;
+    return now >= start && now <= end;
+  };
+
+  const effectiveActive = (m: Message) => (m.active !== false) && withinRange(m) && !m.archived;
+
+  // ---------- popup por destinatario (SOLO clientes) ----------
+  // FIX: Evitamos que se abra en módulos de administración. Solo clientes.
+  //      Además, respeta vigencia/activo/no archivado y “no repetido” por sesión.
   useEffect(() => {
-    if (!usuarioActual) return;
-    const list = messages.filter(m =>
-      Array.isArray(m.recipients) && (m.recipients.includes("all") || m.recipients.includes(usuarioActual.id))
+    if (!usuarioActual || usuarioActual.rol !== "cliente") return;
+
+    const candidate = messages.find(m =>
+      effectiveActive(m) &&
+      Array.isArray(m.recipients) &&
+      (m.recipients.includes("all") || m.recipients.includes(usuarioActual.id)) &&
+      !sessionStorage.getItem(`msg_dismissed_${m.id}`) // no repetido esta sesión
     );
-    if (list.length) {
-      setActivePopupMessage(list[0]);
+
+    if (candidate) {
+      setActivePopupMessage(candidate);
       setShowPopup(true);
     }
-  }, [messages, usuarioActual]);
+  }, [messages, usuarioActual]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // FIX: Centralizamos el cierre para marcar “descartado”
+  const closePopup = () => {
+    if (activePopupMessage?.id) {
+      sessionStorage.setItem(`msg_dismissed_${activePopupMessage.id}`, "1");
+    }
+    setShowPopup(false);
+  };
 
   // ---------- helpers ----------
   const adminsIds = useMemo(
@@ -181,15 +206,6 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
       return { ...prev, recipients: Array.from(s), toRole: null };
     });
   };
-
-  const withinRange = (m: Message) => {
-    const now = Date.now();
-    const start = m.startAt ? new Date(m.startAt).getTime() : -Infinity;
-    const end = m.endAt ? new Date(m.endAt).getTime() : Infinity;
-    return now >= start && now <= end;
-  };
-
-  const effectiveActive = (m: Message) => (m.active !== false) && withinRange(m) && !m.archived;
 
   // ---------- filtros de la grilla ----------
   const filtered = messages.filter(m => {
@@ -290,20 +306,26 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
 
   return (
     <div className="space-y-6">
-
-      {/* POPUP opcional */}
+      {/* POPUP opcional (controlado) */}
       {showPopup && activePopupMessage && (
-        <Dialog open={showPopup} onOpenChange={() => setShowPopup(false)}>
+        <Dialog
+          open={showPopup}
+          // FIX: marcar como “descartado” si se cierra por backdrop/esc
+          onOpenChange={(o) => { if (!o) closePopup(); }}
+        >
           <DialogContent className="max-w-xl">
             <DialogHeader>
               <DialogTitle>{activePopupMessage.title}</DialogTitle>
               <DialogDescription>Mensaje importante del sistema</DialogDescription>
             </DialogHeader>
             {activePopupMessage.image && (
-              <img src={activePopupMessage.image} className="w-full rounded-xl mb-3" />
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={activePopupMessage.image} alt="" className="w-full rounded-xl mb-3" />
             )}
             <p className="text-stone-700">{activePopupMessage.content}</p>
-            <DialogFooter><Button onClick={() => setShowPopup(false)}>Cerrar</Button></DialogFooter>
+            <DialogFooter>
+              <Button onClick={closePopup}>Cerrar</Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
@@ -362,7 +384,10 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
                     fr.onload=(ev)=> setNewMessage(p=>({...p,image: String(ev.target?.result||"")} ));
                     fr.readAsDataURL(f);
                   }}/>
-                {newMessage.image && <img src={newMessage.image} className="w-24 h-24 mt-2 rounded border object-cover" />}
+                {newMessage.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={newMessage.image} alt="" className="w-24 h-24 mt-2 rounded border object-cover" />
+                )}
               </div>
 
               <div className="space-y-2">
@@ -492,7 +517,10 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
                   </div>
                 </div>
 
-                {m.image && <img src={m.image} alt="img" className="w-full max-w-xs rounded-lg mb-4 border object-contain" />}
+                {m.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.image} alt="" className="w-full max-w-xs rounded-lg mb-4 border object-contain" />
+                )}
 
                 <p className="text-stone-700">{m.content.length > 240 ? m.content.slice(0,240)+"…" : m.content}</p>
 
@@ -520,7 +548,8 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
             <div className="space-y-4">
               {selectedMessage.image && (
                 <div className="flex justify-center mb-2">
-                  <img src={selectedMessage.image} className="max-w-sm max-h-64 rounded-lg object-contain"/>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={selectedMessage.image} alt="" className="max-w-sm max-h-64 rounded-lg object-contain"/>
                 </div>
               )}
               <p className="text-stone-700 whitespace-pre-wrap">{selectedMessage.content}</p>
