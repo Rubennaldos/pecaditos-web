@@ -10,7 +10,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Section } from './types.ts';
+import type { Section } from './types';
 import * as React from 'react';
 
 type BillingSidebarProps = {
