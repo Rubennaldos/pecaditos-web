@@ -52,53 +52,92 @@ const OrdersPanelContent = () => {
         return;
       }
       // Normaliza y ordena por createdAt descendente (más reciente primero)
-      const ordersArray = Object.entries(data).map(([id, o]: any) => ({ id, ...o }));
-      const normalized = ordersArray.map((o: any) => {
-        const itemsSrc = o.items || o.detalle || o.productos || [];
-        const items = Array.isArray(itemsSrc)
-          ? itemsSrc.map((it: any) => ({
-              product: it.product || it.name || it.nombre || it.titulo || '',
-              quantity: it.quantity ?? it.qty ?? it.cantidad ?? 0,
-              price: it.price ?? it.unitPrice ?? it.precio ?? it.precioUnitario ?? 0
-            }))
-          : [];
-        const createdAt = o.createdAt || o.fechaCreacion || o.created_at || o.fecha || null;
-        const total =
-          o.total ??
-          o.montoTotal ??
-          o.totalPagar ??
-          (Array.isArray(items)
-            ? items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.price) || 0), 0)
-            : 0);
+      const entries = Object.entries(data) as [string, any][];
+      const normalized = entries.map(([key, o]) => {
+        const itemsSrc = o.items ?? o.detalle ?? o.productos ?? o.orderItems ?? o.itemsList ?? [];
+        const srcArray = Array.isArray(itemsSrc) ? itemsSrc : Object.values(itemsSrc || {});
+        const parseNumber = (val: any) => {
+          if (val == null) return 0;
+          if (typeof val === 'number') return val;
+          const n = parseFloat(String(val).replace(/[^\d.,-]/g, '').replace(',', '.'));
+          return isNaN(n) ? 0 : n;
+        };
+        const items = srcArray.map((it: any) => {
+          const subtotalRaw = it.subtotal ?? it.importe ?? it.total ?? it.monto ?? null;
+          const qty = parseNumber(it.quantity ?? it.qty ?? it.cantidad ?? it.units ?? 0);
+          let unitPrice = parseNumber(
+            it.price ??
+            it.unitPrice ??
+            it.precio ??
+            it.precioUnitario ??
+            it.precio_unitario ??
+            it.pUnit ??
+            it.precioVenta ??
+            it.precio_venta ??
+            0
+          );
+          if (!unitPrice && subtotalRaw != null && qty > 0) {
+            unitPrice = parseNumber(subtotalRaw) / qty;
+          }
+          return {
+            product: it.product ?? it.name ?? it.nombre ?? it.titulo ?? it.title ?? it.producto ?? '',
+            quantity: qty,
+            price: unitPrice,
+          };
+        });
+        const createdAt = o.createdAt ?? o.fechaCreacion ?? o.created_at ?? o.fecha ?? o.timestamp ?? null;
+        const totalRaw = o.total ?? o.montoTotal ?? o.totalPagar ?? o.total_a_pagar ?? o.amount ?? o.importe ?? null;
+        const total = totalRaw != null
+          ? parseNumber(totalRaw)
+          : items.reduce((sum: number, it: any) => sum + (parseNumber(it.quantity) * parseNumber(it.price)), 0);
+        const customerName =
+          o.customerName ??
+          o.customer?.name ??
+          o.clientName ??
+          o.clienteNombre ??
+          o.nombreCliente ??
+          o.cliente?.nombre ??
+          o.datosCliente?.nombre ??
+          o.contact?.name ??
+          o.user?.name ??
+          '';
+        const customerPhone =
+          o.customerPhone ??
+          o.customer?.phone ??
+          o.phone ??
+          o.phoneNumber ??
+          o.telefono ??
+          o.celular ??
+          o.cliente?.telefono ??
+          o.datosCliente?.telefono ??
+          o.datosCliente?.celular ??
+          o.contact?.phone ??
+          o.user?.phone ??
+          '';
+        const customerAddress =
+          o.customerAddress ??
+          o.customer?.address ??
+          o.address ??
+          o.shippingAddress ??
+          o.direccion ??
+          o.direccionEntrega ??
+          o.direccion_envio ??
+          o.location?.address ??
+          o.cliente?.direccion ??
+          o.datosCliente?.direccion ??
+          '';
         return {
           ...o,
-          id: o.id, // preservamos el id creado arriba
-          customerName:
-            o.customerName ||
-            o.customer?.name ||
-            o.clienteNombre ||
-            o.nombreCliente ||
-            o.cliente?.nombre ||
-            '',
-          customerPhone:
-            o.customerPhone ||
-            o.customer?.phone ||
-            o.telefono ||
-            o.celular ||
-            o.cliente?.telefono ||
-            '',
-          customerAddress:
-            o.customerAddress ||
-            o.customer?.address ||
-            o.direccion ||
-            o.direccionEntrega ||
-            o.cliente?.direccion ||
-            '',
+          id: o.id ?? key,
+          customerName,
+          customerPhone,
+          customerAddress,
           items,
           total,
           createdAt,
         };
       });
+
       setOrders(
         normalized.sort((a: any, b: any) => {
           const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -259,7 +298,7 @@ const OrdersPanelContent = () => {
                 </div>
               </div>
               <div className="text-right">
-                <Badge className={`mb-2 ${
+                <Badge className={`${
                   order.status === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
                   order.status === 'en_preparacion' ? 'bg-blue-100 text-blue-800' :
                   order.status === 'listo' ? 'bg-green-100 text-green-800' :
@@ -269,7 +308,7 @@ const OrdersPanelContent = () => {
                   order.status === 'en_preparacion' ? 'En Preparación' :
                   order.status === 'listo' ? 'Listo' : order.status}
                 </Badge>
-                <p className="font-bold text-lg">S/ {order.total?.toFixed(2)}</p>
+                <p className="font-bold text-lg">S/ {Number(order.total || 0).toFixed(2)}</p>
                 <p className="text-sm text-stone-500">{order.items?.length} productos</p>
               </div>
             </div>
@@ -279,7 +318,7 @@ const OrdersPanelContent = () => {
                 {order.items?.slice(0, 2).map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{item.product}</span>
-                    <span>{item.quantity} x S/ {item.price}</span>
+                    <span>{item.quantity} x S/ {Number(item.price || 0)}</span>
                   </div>
                 ))}
                 {order.items?.length > 2 && (
