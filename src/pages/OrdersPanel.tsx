@@ -1,18 +1,31 @@
+// src/pages/OrdersPanel.tsx
 import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import {
-  Package, QrCode, LogOut, BarChart3, Clock, CheckCircle, AlertTriangle, Smile,
-  Edit, Trash2, History, MapPin, Phone
+  Package,
+  QrCode,
+  LogOut,
+  BarChart3,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Smile,
+  Edit,
+  Trash2,
+  History,
+  MapPin,
+  Phone,
+  Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
 import OrdersDashboard from '@/components/orders/OrdersDashboard';
 import QRReaderModal from '@/components/orders/QRReaderModal';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
-import { useAdminOrders } from '@/contexts/AdminOrdersContext'; // ⬅️ usar provider global
+import { useAdminOrders } from '@/contexts/AdminOrdersContext';
 import { AdminModeToggle } from '@/components/orders/AdminModeToggle';
 import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
@@ -23,70 +36,155 @@ import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
 import { db } from '@/config/firebase';
 import { ref, onValue, update, push } from 'firebase/database';
 
+type TOrder = {
+  id: string;
+  orderNumber?: string;
+  status: string;
+  createdAt?: number;
+  acceptedAt?: number;
+  readyAt?: number;
+  deliveredAt?: number;
+  // negocio/sede
+  tradeName?: string;
+  legalName?: string;
+  siteName?: string;
+  // contacto
+  customerName?: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  // items/total
+  items: Array<{ product: string; quantity: number; price: number }>;
+  total: number;
+  notes?: string;
+  orderType?: string;
+  urgency?: { isExpired: boolean; isUrgent: boolean; hoursLeft: number };
+};
+
+const toNumTs = (v: any): number =>
+  typeof v === 'number' ? v : Number.isFinite(Date.parse(v ?? '')) ? Date.parse(v) : 0;
+
+/** Normaliza cualquier forma de pedido que venga de RTDB a nuestra forma UI */
+const normalizeOrder = (id: string, o: any): TOrder => {
+  const rawItems = Array.isArray(o?.items) ? o.items : o?.items ? Object.values(o.items) : [];
+  const items = rawItems.map((it: any) => ({
+    product: it?.product ?? it?.name ?? '—',
+    quantity: it?.quantity ?? it?.qty ?? 0,
+    price: it?.price ?? it?.unit ?? 0
+  }));
+
+  const computedTotal =
+    typeof o?.total === 'number'
+      ? o.total
+      : typeof o?.totals?.total === 'number'
+      ? o.totals.total
+      : items.reduce(
+          (sum: number, it: any) =>
+            sum + (Number(it.price) || 0) * (Number(it.quantity) || 0),
+          0
+        );
+
+  // nombres de negocio / sede desde múltiples posibles caminos
+  const tradeName =
+    o?.tradeName ||
+    o?.commercialName ||
+    o?.company?.commercialName ||
+    o?.business?.tradeName ||
+    o?.store?.tradeName ||
+    o?.shopName ||
+    o?.nombreComercial ||
+    '';
+
+  const legalName =
+    o?.legalName ||
+    o?.razonSocial ||
+    o?.company?.legalName ||
+    o?.business?.legalName ||
+    o?.store?.legalName ||
+    '';
+
+  const siteName =
+    o?.site?.name ||
+    o?.shipping?.siteName ||
+    o?.branch?.name ||
+    o?.sede ||
+    o?.store?.branchName ||
+    '';
+
+  return {
+    id: o?.id ?? id,
+    orderNumber: o?.orderNumber ?? o?.number ?? undefined,
+    status: o?.status ?? 'pendiente',
+
+    // contacto
+    customerName:
+      o?.customerName ?? o?.clientName ?? o?.shipping?.siteName ?? o?.site?.name ?? '—',
+    customerPhone: o?.customerPhone ?? o?.phone ?? o?.contactPhone ?? '',
+    customerAddress: o?.customerAddress ?? o?.shipping?.address ?? o?.site?.address ?? '',
+
+    // negocio / sede
+    tradeName,
+    legalName,
+    siteName,
+
+    items,
+    total: Number(computedTotal) || 0,
+
+    createdAt: toNumTs(o?.createdAt),
+    acceptedAt: o?.acceptedAt ? toNumTs(o.acceptedAt) : undefined,
+    readyAt: o?.readyAt ? toNumTs(o.readyAt) : undefined,
+    deliveredAt: o?.deliveredAt ? toNumTs(o.deliveredAt) : undefined,
+
+    notes: o?.notes ?? o?.observations ?? '',
+    orderType: o?.orderType ?? 'normal'
+  };
+};
+
 const OrdersPanel = () => {
   const navigate = useNavigate();
   const { logout } = useAdmin();
   const { isAdminMode, changeOrderStatus } = useAdminOrders();
 
-  const [selectedTab, setSelectedTab] = useState<'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'alertas' | 'todos'>('dashboard');
+  const [selectedTab, setSelectedTab] = useState<
+    'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'alertas' | 'todos'
+  >('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
-  const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
+  const [qrScannedOrder, setQrScannedOrder] = useState<TOrder | null>(null);
 
-  // Estado de pedidos
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<TOrder[]>([]);
 
-  // Admin modals state
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  // Admin modals
+  const [selectedOrder, setSelectedOrder] = useState<TOrder | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
 
-  // Normaliza timestamp (número o ISO) -> number
-  const ts = (v: any): number => {
-    if (typeof v === 'number') return v;
-    const n = Date.parse(v ?? '');
-    return Number.isFinite(n) ? n : 0;
-  };
-
-  // Escucha en tiempo real
+  // Suscripción RTDB
   useEffect(() => {
     const ordersRef = ref(db, 'orders');
     const unsubscribe = onValue(ordersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data) {
-        setOrders([]);
-        return;
-      }
-      const ordersArray = Object.values(data) as any[];
-      ordersArray.sort((a, b) => ts(b.createdAt) - ts(a.createdAt));
-      setOrders(ordersArray);
+      const raw = snapshot.val() || {};
+      const list = Object.entries(raw).map(([k, v]) => normalizeOrder(k, v));
+      // más reciente primero
+      list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      setOrders(list);
     });
     return () => unsubscribe();
   }, []);
 
   // Urgencia
-  const calculateOrderUrgency = (order: any) => {
+  const calculateOrderUrgency = (order: TOrder) => {
     const now = Date.now();
-    let reference: number;
-    let timeLimitHrs: number;
+    let reference = order.createdAt ?? 0;
+    let timeLimitHrs = 24;
 
-    switch (order.status) {
-      case 'pendiente':
-        reference = ts(order.createdAt);
-        timeLimitHrs = 24;
-        break;
-      case 'en_preparacion':
-        reference = ts(order.acceptedAt) || ts(order.createdAt);
-        timeLimitHrs = 72;
-        break;
-      case 'listo':
-        reference = ts(order.readyAt) || ts(order.createdAt);
-        timeLimitHrs = 48;
-        break;
-      default:
-        return { isExpired: false, isUrgent: false, hoursLeft: 0 };
+    if (order.status === 'en_preparacion') {
+      reference = order.acceptedAt ?? order.createdAt ?? 0;
+      timeLimitHrs = 72;
+    } else if (order.status === 'listo') {
+      reference = order.readyAt ?? order.createdAt ?? 0;
+      timeLimitHrs = 48;
     }
 
     const limit = reference + timeLimitHrs * 60 * 60 * 1000;
@@ -98,78 +196,78 @@ const OrdersPanel = () => {
       isUrgent:
         (order.status === 'en_preparacion' && hoursLeft <= 36) ||
         (order.status === 'pendiente' && hoursLeft <= 6),
-      hoursLeft,
+      hoursLeft
     };
   };
 
   const ordersWithUrgency = useMemo(
-    () => orders.map(o => ({ ...o, urgency: calculateOrderUrgency(o) })),
+    () => orders.map((o) => ({ ...o, urgency: calculateOrderUrgency(o) })),
     [orders]
   );
 
-  const stats = useMemo(() => ({
-    total: orders.length,
-    pendientes: orders.filter(o => o.status === 'pendiente').length,
-    enPreparacion: orders.filter(o => o.status === 'en_preparacion').length,
-    listos: orders.filter(o => o.status === 'listo').length,
-    vencidos: ordersWithUrgency.filter(o => o.urgency.isExpired).length,
-    urgentes: ordersWithUrgency.filter(o => o.urgency.isUrgent && !o.urgency.isExpired).length,
-    alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length,
-  }), [orders, ordersWithUrgency]);
+  const stats = useMemo(
+    () => ({
+      total: orders.length,
+      pendientes: orders.filter((o) => o.status === 'pendiente').length,
+      enPreparacion: orders.filter((o) => o.status === 'en_preparacion').length,
+      listos: orders.filter((o) => o.status === 'listo').length,
+      vencidos: ordersWithUrgency.filter((o) => o.urgency?.isExpired).length,
+      urgentes: ordersWithUrgency.filter((o) => o.urgency?.isUrgent && !o.urgency?.isExpired).length,
+      alertas: ordersWithUrgency.filter((o) => o.urgency?.isExpired || o.urgency?.isUrgent).length
+    }),
+    [orders, ordersWithUrgency]
+  );
 
-  // QR/Acciones
+  // QR
   const handleQRRead = (code: string) => {
     const orderId = code.replace('PECADITOS-ORDER-', '');
-    const order = orders.find(o => o.id === orderId);
-    if (order) {
-      const orderWithUrgency = { ...order, urgency: calculateOrderUrgency(order) };
-      setQrScannedOrder(orderWithUrgency);
-    }
+    const order = orders.find((o) => o.id === orderId);
+    if (order) setQrScannedOrder({ ...order, urgency: calculateOrderUrgency(order) });
     setShowQRReader(false);
   };
 
-  // Actualiza estado (centralizado en contexto)
+  // Cambio de estado (usa contexto + timestamps RTDB)
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     await changeOrderStatus(orderId, newStatus);
-    // Además, marca timestamps en RTDB para consistencia con paneles
     const orderRef = ref(db, `orders/${orderId}`);
     const updates: Record<string, any> = { status: newStatus };
-    if (newStatus === 'en_preparacion') updates.acceptedAt = new Date().toISOString();
-    else if (newStatus === 'listo') updates.readyAt = new Date().toISOString();
-    else if (newStatus === 'entregado') updates.deliveredAt = new Date().toISOString();
+    const iso = new Date().toISOString();
+    if (newStatus === 'en_preparacion') updates.acceptedAt = iso;
+    else if (newStatus === 'listo') updates.readyAt = iso;
+    else if (newStatus === 'entregado') updates.deliveredAt = iso;
     await update(orderRef, updates);
   };
 
-  // Para QR
   const updateOrderStatusFromQR = async (orderId: string, newStatus: string) => {
     await updateOrderStatus(orderId, newStatus);
     setQrScannedOrder(null);
   };
 
-  // Crea pedido de reposición (usa RTDB directo)
+  // Nueva orden para faltantes
   const createNewOrderForMissingItems = (originalOrderId: string, incompleteItems: any[]) => {
-    const originalOrder = orders.find(o => o.id === originalOrderId);
-    if (!originalOrder) return;
+    const original = orders.find((o) => o.id === originalOrderId);
+    if (!original) return;
 
     const newKey = push(ref(db, 'orders')).key;
     if (!newKey) return;
 
     const newOrder = {
-      ...originalOrder,
+      ...original,
       id: newKey,
+      orderNumber: undefined,
       status: 'pendiente',
       createdAt: new Date().toISOString(),
-      items: incompleteItems.map(item => ({
-        product: item.product,
-        quantity: item.requestedQuantity - item.sentQuantity,
-        price: item.price,
+      items: incompleteItems.map((it: any) => ({
+        product: it.product,
+        quantity: it.requestedQuantity - it.sentQuantity,
+        price: it.price
       })),
       total: incompleteItems.reduce(
-        (sum, item) => sum + (item.requestedQuantity - item.sentQuantity) * item.price,
+        (sum: number, it: any) => sum + (it.requestedQuantity - it.sentQuantity) * it.price,
         0
       ),
       notes: `Orden de reposición del pedido ${originalOrderId}`,
-      orderType: 'reposicion',
+      orderType: 'reposicion'
     };
 
     update(ref(db, `orders/${newKey}`), newOrder);
@@ -182,12 +280,12 @@ const OrdersPanel = () => {
     } catch {}
   };
 
-  const handleEditOrder = (order: any) => {
+  const handleEditOrder = (order: TOrder) => {
     setSelectedOrder(order);
     setShowEditModal(true);
   };
 
-  const handleDeleteOrder = (order: any) => {
+  const handleDeleteOrder = (order: TOrder) => {
     setSelectedOrder(order);
     setShowDeleteModal(true);
   };
@@ -197,36 +295,80 @@ const OrdersPanel = () => {
     setShowHistoryModal(true);
   };
 
-  const matchesSearch = (o: any, q: string) => {
+  const matchesSearch = (o: TOrder, q: string) => {
     if (!q) return true;
     const t = q.toLowerCase();
     return (
+      o.tradeName?.toLowerCase().includes(t) ||
+      o.legalName?.toLowerCase().includes(t) ||
+      o.siteName?.toLowerCase().includes(t) ||
       o.customerName?.toLowerCase().includes(t) ||
+      o.orderNumber?.toLowerCase?.().includes(t) ||
       o.id?.toLowerCase().includes(t) ||
       String(o.customerPhone ?? '').includes(q)
     );
   };
 
-  // Renderiza la lista de pedidos
-  const renderOrderList = (list: any[]) => (
+  // Render de lista
+  const renderOrderList = (list: TOrder[]) => (
     <div className="space-y-4">
-      {list.map(order => (
+      {list.map((order) => (
         <Card key={order.id} className="hover:shadow-lg transition-all">
           <CardContent className="p-4">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="font-semibold text-lg">{order.id}</h3>
-                <p className="text-stone-600 font-medium">{order.customerName}</p>
-                <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
-                  <Phone className="h-4 w-4" />
-                  <span>{order.customerPhone}</span>
+                {/* NOMBRE COMERCIAL */}
+                <h3 className="text-xl md:text-2xl font-bold text-brown-900">
+                  {order.tradeName || '—'}
+                </h3>
+
+                {/* Razón social + Sede */}
+                <div className="flex flex-wrap gap-x-3 text-sm text-stone-600">
+                  {order.legalName && <span>R. Social: {order.legalName}</span>}
+                  {order.siteName && (
+                    <span className="inline-flex items-center gap-1">
+                      • <MapPin className="h-3 w-3" />
+                      {order.siteName}
+                    </span>
+                  )}
                 </div>
+
+                {/* Contacto y fecha */}
+                <div className="flex flex-wrap items-center gap-4 text-sm text-stone-500 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4" />
+                    <span>{order.customerPhone || '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    <span>
+                      Creado:{' '}
+                      {order.createdAt ? new Date(order.createdAt).toLocaleString() : '—'}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2 text-sm text-stone-500 mt-1">
                   <MapPin className="h-4 w-4" />
                   <span className="truncate">{order.customerAddress}</span>
                 </div>
               </div>
-              <div className="text-right">
+
+              <div className="text-right min-w-[200px]">
+                {/* Código / Número de orden */}
+                <div className="text-xs text-stone-500 mb-1">
+                  {order.orderNumber ? (
+                    <>
+                      <span className="font-semibold text-stone-700">Orden:</span>{' '}
+                      {order.orderNumber}
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-stone-700">ID:</span> {order.id}
+                    </>
+                  )}
+                </div>
+
                 <Badge
                   className={`mb-2 ${
                     order.status === 'pendiente'
@@ -251,9 +393,10 @@ const OrdersPanel = () => {
               </div>
             </div>
 
+            {/* Resumen de productos */}
             <div className="mb-4 p-3 bg-stone-50 rounded">
               <div className="space-y-1">
-                {order.items?.slice(0, 2).map((item: any, idx: number) => (
+                {order.items?.slice(0, 2).map((item, idx) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{item.product}</span>
                     <span>
@@ -269,6 +412,7 @@ const OrdersPanel = () => {
               </div>
             </div>
 
+            {/* Acciones */}
             <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-200">
               <OrderActionButtons
                 orderId={order.id}
@@ -326,7 +470,7 @@ const OrdersPanel = () => {
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim();
-    return ordersWithUrgency.filter(o => matchesSearch(o, q));
+    return ordersWithUrgency.filter((o) => matchesSearch(o, q));
   }, [ordersWithUrgency, searchTerm]);
 
   return (
@@ -383,13 +527,13 @@ const OrdersPanel = () => {
         <div className="flex gap-8">
           {/* CONTENIDO PRINCIPAL */}
           <div className="flex-1 min-w-0">
-            {/* Barra de búsqueda y tabs */}
+            {/* Búsqueda y tabs */}
             <div className="flex flex-col md:flex-row items-start gap-4 mb-6">
               <Input
                 className="md:w-72"
-                placeholder="Buscar por cliente, pedido o teléfono..."
+                placeholder="Buscar por cliente, empresa, sede, pedido o teléfono..."
                 value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
               <div className="flex flex-wrap gap-2 justify-start w-full md:w-auto">
                 <Button
@@ -447,7 +591,7 @@ const OrdersPanel = () => {
               </div>
             </div>
 
-            {/* Dashboard, listado o alertas según el tab */}
+            {/* Contenidos por tab */}
             {selectedTab === 'dashboard' && (
               <OrdersDashboard stats={stats} orders={ordersWithUrgency} />
             )}
@@ -455,29 +599,29 @@ const OrdersPanel = () => {
             {selectedTab === 'pendientes' &&
               renderOrderList(
                 ordersWithUrgency.filter(
-                  o => o.status === 'pendiente' && matchesSearch(o, searchTerm)
+                  (o) => o.status === 'pendiente' && matchesSearch(o, searchTerm)
                 )
               )}
 
             {selectedTab === 'en_preparacion' &&
               renderOrderList(
                 ordersWithUrgency.filter(
-                  o => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)
+                  (o) => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)
                 )
               )}
 
             {selectedTab === 'listos' &&
               renderOrderList(
                 ordersWithUrgency.filter(
-                  o => o.status === 'listo' && matchesSearch(o, searchTerm)
+                  (o) => o.status === 'listo' && matchesSearch(o, searchTerm)
                 )
               )}
 
             {selectedTab === 'alertas' &&
               renderOrderList(
                 ordersWithUrgency.filter(
-                  o =>
-                    (o.urgency.isUrgent || o.urgency.isExpired) &&
+                  (o) =>
+                    (o.urgency?.isUrgent || o.urgency?.isExpired) &&
                     matchesSearch(o, searchTerm)
                 )
               )}
@@ -489,7 +633,7 @@ const OrdersPanel = () => {
 
       {/* MODALES */}
       <OrderEditModal
-        order={selectedOrder}
+        order={selectedOrder as any}
         isOpen={showEditModal}
         onClose={() => {
           setShowEditModal(false);
@@ -505,7 +649,7 @@ const OrdersPanel = () => {
         }}
       />
       <OrderDeleteModal
-        order={selectedOrder}
+        order={selectedOrder as any}
         isOpen={showDeleteModal}
         onClose={() => {
           setShowDeleteModal(false);
