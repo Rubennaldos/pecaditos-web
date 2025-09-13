@@ -1,22 +1,21 @@
-
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  User, 
-  Phone, 
-  MapPin, 
-  Calendar, 
+import {
+  User,
+  Phone,
+  MapPin,
+  Calendar,
   Package,
   CreditCard,
   MessageSquare,
   Check,
   X,
   Clock,
-  AlertTriangle
+  AlertTriangle,
 } from 'lucide-react';
 
 interface OrderDetailModalProps {
@@ -27,12 +26,12 @@ interface OrderDetailModalProps {
   showActions?: boolean;
 }
 
-const OrderDetailModal = ({ 
-  order, 
-  isOpen, 
-  onClose, 
+const OrderDetailModal = ({
+  order,
+  isOpen,
+  onClose,
   onStatusUpdate,
-  showActions = false 
+  showActions = false,
 }: OrderDetailModalProps) => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectionForm, setShowRejectionForm] = useState(false);
@@ -47,15 +46,13 @@ const OrderDetailModal = ({
 
   const handleRejectOrder = () => {
     if (!rejectionReason.trim()) return;
-    console.log(`Rechazando pedido ${order.id}: ${rejectionReason}`);
     onStatusUpdate?.(order.id, 'rechazado');
     onClose();
   };
 
   const handlePostponeOrder = () => {
     if (!postponeDate || !postponeReason.trim()) return;
-    console.log(`Postergando pedido ${order.id} hasta ${postponeDate}: ${postponeReason}`);
-    // TODO: Implementar lógica de postergación
+    // TODO: lógica de postergación si aplica
     onClose();
   };
 
@@ -63,7 +60,7 @@ const OrderDetailModal = ({
     switch (status) {
       case 'pendiente':
         return { color: 'bg-yellow-100 text-yellow-800', text: 'Pendiente de Aceptación' };
-      case 'en_preparacion':
+    case 'en_preparacion':
         return { color: 'bg-blue-100 text-blue-800', text: 'En Preparación' };
       case 'listo':
         return { color: 'bg-green-100 text-green-800', text: 'Listo para Entrega' };
@@ -72,17 +69,32 @@ const OrderDetailModal = ({
     }
   };
 
-  const statusInfo = getStatusInfo(order.status);
+  const statusInfo = getStatusInfo(order?.status ?? 'pendiente');
+
+  // Fallbacks seguros
+  const customerName = order?.customerName ?? order?.customer ?? '-';
+  const customerPhone = order?.customerPhone ?? order?.phone ?? '';
+  const customerAddress = order?.customerAddress ?? order?.address ?? '-';
+  const paymentMethod = order?.paymentMethod ?? 'Por definir';
+  const orderType = order?.orderType ?? order?.channel ?? 'retail';
+
+  // createdAt puede venir como number (timestamp) o string ISO
+  const createdAtDate =
+    typeof order?.createdAt === 'number'
+      ? new Date(order.createdAt)
+      : order?.createdAt
+      ? new Date(order.createdAt)
+      : new Date();
+
+  const fmtMoney = (v: any) => Number(v ?? 0).toFixed(2);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Detalle del Pedido {order.id}</span>
-            <Badge className={statusInfo.color}>
-              {statusInfo.text}
-            </Badge>
+            <span>Detalle del Pedido {order?.id}</span>
+            <Badge className={statusInfo.color}>{statusInfo.text}</Badge>
           </DialogTitle>
         </DialogHeader>
 
@@ -94,15 +106,15 @@ const OrderDetailModal = ({
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-stone-500" />
-                  <span className="font-medium">{order.customerName}</span>
+                  <span className="font-medium">{customerName}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-stone-500" />
-                  <span>{order.customerPhone}</span>
+                  <span>{customerPhone}</span>
                 </div>
                 <div className="flex items-start gap-2">
                   <MapPin className="h-4 w-4 text-stone-500 mt-0.5" />
-                  <span className="text-sm">{order.customerAddress}</span>
+                  <span className="text-sm">{customerAddress}</span>
                 </div>
               </div>
             </div>
@@ -112,15 +124,15 @@ const OrderDetailModal = ({
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-stone-500" />
-                  <span>Creado: {new Date(order.createdAt).toLocaleString()}</span>
+                  <span>Creado: {createdAtDate.toLocaleString()}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CreditCard className="h-4 w-4 text-stone-500" />
-                  <span>Pago: {order.paymentMethod}</span>
+                  <span>Pago: {paymentMethod}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-stone-500" />
-                  <span>Tipo: {order.orderType}</span>
+                  <span>Tipo: {orderType}</span>
                 </div>
               </div>
             </div>
@@ -130,53 +142,63 @@ const OrderDetailModal = ({
           <div className="space-y-3">
             <h3 className="font-semibold text-brown-900 border-b pb-2">Productos</h3>
             <div className="space-y-2">
-              {order.items?.map((item: any, index: number) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-sand-50 rounded-md">
-                  <div>
-                    <span className="font-medium">{item.product}</span>
-                    <span className="text-stone-600 ml-2">x{item.quantity}</span>
+              {(order?.items ?? []).map((item: any, index: number) => {
+                const name = item?.name ?? item?.product ?? '-';
+                const qty = item?.quantity ?? item?.qty ?? 0;
+                const price = item?.price ?? item?.unit ?? 0;
+                const lineTotal = (Number(price) || 0) * (Number(qty) || 0);
+
+                return (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center p-3 bg-sand-50 rounded-md"
+                  >
+                    <div>
+                      <span className="font-medium">{name}</span>
+                      <span className="text-stone-600 ml-2">x{qty}</span>
+                    </div>
+                    <span className="font-semibold">S/ {fmtMoney(lineTotal)}</span>
                   </div>
-                  <span className="font-semibold">S/ {(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
+                );
+              })}
               <div className="flex justify-between items-center pt-2 border-t font-bold">
                 <span>Total:</span>
-                <span>S/ {order.total.toFixed(2)}</span>
+                <span>S/ {fmtMoney(order?.total ?? order?.totals?.total)}</span>
               </div>
             </div>
           </div>
 
           {/* Observaciones */}
-          {order.notes && (
+          {(order?.notes ?? order?.observations)?.length ? (
             <div className="space-y-2">
               <h3 className="font-semibold text-brown-900 border-b pb-2 flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
                 Observaciones
               </h3>
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-md">
-                <p className="text-amber-800">{order.notes}</p>
+                <p className="text-amber-800">{order?.notes ?? order?.observations}</p>
               </div>
             </div>
-          )}
+          ) : null}
 
           {/* Acciones para pedidos pendientes */}
-          {showActions && order.status === 'pendiente' && (
+          {showActions && order?.status === 'pendiente' && (
             <div className="space-y-4 pt-4 border-t">
               <h3 className="font-semibold text-brown-900 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-yellow-600" />
                 Acciones Requeridas
               </h3>
-              
+
               {!showRejectionForm && !showPostponeForm && (
                 <div className="flex gap-3">
-                  <Button 
+                  <Button
                     onClick={handleAcceptOrder}
                     className="bg-green-600 hover:bg-green-700 text-white flex-1"
                   >
                     <Check className="h-4 w-4 mr-2" />
                     Aceptar Pedido
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => setShowRejectionForm(true)}
                     variant="destructive"
                     className="flex-1"
@@ -184,7 +206,7 @@ const OrderDetailModal = ({
                     <X className="h-4 w-4 mr-2" />
                     Rechazar
                   </Button>
-                  <Button 
+                  <Button
                     onClick={() => setShowPostponeForm(true)}
                     variant="outline"
                     className="flex-1"
@@ -211,8 +233,8 @@ const OrderDetailModal = ({
                     </SelectContent>
                   </Select>
                   {rejectionReason === 'otro' && (
-                    <Textarea 
-                      placeholder="Especificar motivo..." 
+                    <Textarea
+                      placeholder="Especificar motivo..."
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
                     />
@@ -235,8 +257,8 @@ const OrderDetailModal = ({
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-sm font-medium">Nueva fecha:</label>
-                      <input 
-                        type="date" 
+                      <input
+                        type="date"
                         className="w-full p-2 border rounded-md"
                         value={postponeDate}
                         onChange={(e) => setPostponeDate(e.target.value)}
@@ -244,8 +266,8 @@ const OrderDetailModal = ({
                     </div>
                     <div>
                       <label className="text-sm font-medium">Motivo:</label>
-                      <Textarea 
-                        placeholder="Explicar motivo..." 
+                      <Textarea
+                        placeholder="Explicar motivo..."
                         value={postponeReason}
                         onChange={(e) => setPostponeReason(e.target.value)}
                         className="min-h-[40px]"

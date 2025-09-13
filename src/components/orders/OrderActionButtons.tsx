@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check, Package, AlertCircle } from 'lucide-react';
@@ -15,36 +14,70 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { OrderCompletionModal } from './OrderCompletionModal';
+import { useAdminOrders } from '@/contexts/AdminOrdersContext';
 
 interface OrderActionButtonsProps {
   orderId: string;
   currentStatus: string;
-  onStatusChange: (orderId: string, newStatus: string) => void;
+  /** callback opcional: se invoca además del contexto para no romper integraciones existentes */
+  onStatusChange?: (orderId: string, newStatus: string) => void;
   order?: any; // Datos completos del pedido para el modal
-  onCreateNewOrder?: (orderId: string, incompleteItems: any[]) => void; // Función para crear nueva orden
+  onCreateNewOrder?: (orderId: string, incompleteItems: any[]) => void; // Crear nueva orden con faltantes
 }
 
-export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, order, onCreateNewOrder }: OrderActionButtonsProps) => {
+export const OrderActionButtons = ({
+  orderId,
+  currentStatus,
+  onStatusChange,
+  order,
+  onCreateNewOrder,
+}: OrderActionButtonsProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+
+  // usar el contexto para cambiar estado en RTDB
+  const { changeOrderStatus } = useAdminOrders();
+
+  const notifyStatus = (newStatus: string, msg: { title: string; description: string }) => {
+    // llamar callback si fue provista (compatibilidad)
+    onStatusChange?.(orderId, newStatus);
+    toast({ title: msg.title, description: msg.description });
+  };
 
   const handleAcceptOrder = async () => {
     setIsLoading(true);
     try {
-      // Simular API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      onStatusChange(orderId, 'en_preparacion');
-      
-      toast({
-        title: "✅ Pedido Aceptado",
+      await changeOrderStatus(orderId, 'en_preparacion');
+      notifyStatus('en_preparacion', {
+        title: '✅ Pedido Aceptado',
         description: `El pedido ${orderId} ha sido aceptado y está en preparación.`,
       });
     } catch (error) {
+      console.error(error);
       toast({
-        title: "❌ Error",
-        description: "No se pudo aceptar el pedido. Intenta nuevamente.",
-        variant: "destructive"
+        title: '❌ Error',
+        description: 'No se pudo aceptar el pedido. Intenta nuevamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDirectMarkReady = async () => {
+    setIsLoading(true);
+    try {
+      await changeOrderStatus(orderId, 'listo');
+      notifyStatus('listo', {
+        title: '✅ Pedido Listo',
+        description: `El pedido ${orderId} está listo para entrega.`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: '❌ Error',
+        description: 'No se pudo marcar el pedido como listo. Intenta nuevamente.',
+        variant: 'destructive',
       });
     } finally {
       setIsLoading(false);
@@ -55,52 +88,41 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
     if (order) {
       setShowCompletionModal(true);
     } else {
-      // Fallback para cuando no hay datos del pedido
+      // Fallback cuando no tenemos los ítems del pedido
       handleDirectMarkReady();
     }
   };
 
-  const handleDirectMarkReady = async () => {
-    setIsLoading(true);
+  const handleOrderCompletion = async (
+    orderIdFromModal: string,
+    completedItems: any[],
+    incompleteItems?: any[]
+  ) => {
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      onStatusChange(orderId, 'listo');
+      if (incompleteItems && incompleteItems.length > 0 && onCreateNewOrder) {
+        onCreateNewOrder(orderIdFromModal, incompleteItems);
+        toast({
+          title: 'Nueva orden creada',
+          description: `Se creó una nueva orden para ${incompleteItems.length} producto(s) faltante(s).`,
+        });
+      }
+
+      await changeOrderStatus(orderIdFromModal, 'listo');
+      onStatusChange?.(orderIdFromModal, 'listo');
       toast({
-        title: "✅ Pedido Listo",
-        description: `El pedido ${orderId} está listo para entrega.`,
+        title: '✅ Pedido Listo',
+        description: `El pedido ${orderIdFromModal} está listo para entrega.`,
       });
     } catch (error) {
+      console.error(error);
       toast({
-        title: "❌ Error",
-        description: "No se pudo marcar el pedido como listo. Intenta nuevamente.",
-        variant: "destructive"
+        title: '❌ Error',
+        description: 'No se pudo completar el pedido. Intenta nuevamente.',
+        variant: 'destructive',
       });
     } finally {
-      setIsLoading(false);
+      setShowCompletionModal(false);
     }
-  };
-
-  const handleOrderCompletion = (orderId: string, completedItems: any[], incompleteItems?: any[]) => {
-    if (incompleteItems && incompleteItems.length > 0) {
-      // Crear nueva orden para productos faltantes usando la función pasada como prop
-      if (onCreateNewOrder) {
-        onCreateNewOrder(orderId, incompleteItems);
-      }
-      
-      console.log('🔄 Nueva orden creada para productos faltantes:', {
-        originalOrder: orderId,
-        incompleteItems: incompleteItems.length,
-        customerAlert: true
-      });
-      
-      toast({
-        title: "Nueva orden creada",
-        description: `Se creó una nueva orden para ${incompleteItems.length} productos faltantes`,
-      });
-    }
-    
-    onStatusChange(orderId, 'listo');
-    setShowCompletionModal(false);
   };
 
   // Botón para pedidos pendientes
@@ -108,8 +130,8 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
     return (
       <AlertDialog>
         <AlertDialogTrigger asChild>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             className="bg-green-600 hover:bg-green-700 text-white font-medium"
             disabled={isLoading}
           >
@@ -126,12 +148,12 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
             <AlertDialogDescription>
               ¿Estás seguro de que deseas aceptar el pedido <strong>{orderId}</strong>?
               <br />
-              El pedido pasará al estado "En Preparación".
+              El pedido pasará al estado <strong>"En Preparación"</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleAcceptOrder}
               className="bg-green-600 hover:bg-green-700"
               disabled={isLoading}
@@ -144,13 +166,13 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
     );
   }
 
-  // Botón para pedidos en preparación - Con modal avanzado
+  // Botón para pedidos en preparación - con modal avanzado
   if (currentStatus === 'en_preparacion') {
     return (
       <>
-        <Button 
+        <Button
           onClick={handleMarkReady}
-          size="sm" 
+          size="sm"
           className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
           disabled={isLoading}
         >
@@ -158,7 +180,6 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
           {isLoading ? 'Procesando...' : 'Marcar Listo'}
         </Button>
 
-        {/* Modal avanzado de completación */}
         <OrderCompletionModal
           isOpen={showCompletionModal}
           onClose={() => setShowCompletionModal(false)}
@@ -169,6 +190,6 @@ export const OrderActionButtons = ({ orderId, currentStatus, onStatusChange, ord
     );
   }
 
-  // No mostrar botones para otros estados
+  // Otros estados: no mostramos botones
   return null;
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,7 @@ import { useAdmin } from '@/contexts/AdminContext';
 import OrdersDashboard from '@/components/orders/OrdersDashboard';
 import QRReaderModal from '@/components/orders/QRReaderModal';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
-import { AdminOrdersProvider, useAdminOrders } from '@/contexts/AdminOrdersContext';
+import { useAdminOrders } from '@/contexts/AdminOrdersContext'; // ⬅️ usar provider global
 import { AdminModeToggle } from '@/components/orders/AdminModeToggle';
 import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
@@ -20,14 +20,15 @@ import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
 
 // FIREBASE
-import { db } from '../config/firebase';
+import { db } from '@/config/firebase';
 import { ref, onValue, update, push } from 'firebase/database';
 
-const OrdersPanelContent = () => {
+const OrdersPanel = () => {
   const navigate = useNavigate();
   const { logout } = useAdmin();
-  const { isAdminMode } = useAdminOrders();
-  const [selectedTab, setSelectedTab] = useState('dashboard');
+  const { isAdminMode, changeOrderStatus } = useAdminOrders();
+
+  const [selectedTab, setSelectedTab] = useState<'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'alertas' | 'todos'>('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
   const [qrScannedOrder, setQrScannedOrder] = useState<any>(null);
@@ -42,6 +43,13 @@ const OrdersPanelContent = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
 
+  // Normaliza timestamp (número o ISO) -> number
+  const ts = (v: any): number => {
+    if (typeof v === 'number') return v;
+    const n = Date.parse(v ?? '');
+    return Number.isFinite(n) ? n : 0;
+  };
+
   // Escucha en tiempo real
   useEffect(() => {
     const ordersRef = ref(db, 'orders');
@@ -51,68 +59,63 @@ const OrdersPanelContent = () => {
         setOrders([]);
         return;
       }
-      // Ordena por createdAt descendente (más reciente primero)
-      const ordersArray = Object.values(data);
-      setOrders(
-        ordersArray.sort(
-          (a: any, b: any) => (b.createdAt || 0).localeCompare(a.createdAt || 0)
-        )
-      );
+      const ordersArray = Object.values(data) as any[];
+      ordersArray.sort((a, b) => ts(b.createdAt) - ts(a.createdAt));
+      setOrders(ordersArray);
     });
     return () => unsubscribe();
   }, []);
 
   // Urgencia
   const calculateOrderUrgency = (order: any) => {
-    const now = new Date();
-    let referenceDate: Date;
-    let timeLimit: number;
+    const now = Date.now();
+    let reference: number;
+    let timeLimitHrs: number;
+
     switch (order.status) {
       case 'pendiente':
-        referenceDate = new Date(order.createdAt);
-        timeLimit = 24;
+        reference = ts(order.createdAt);
+        timeLimitHrs = 24;
         break;
       case 'en_preparacion':
-        referenceDate = order.acceptedAt ? new Date(order.acceptedAt) : new Date(order.createdAt);
-        timeLimit = 72;
+        reference = ts(order.acceptedAt) || ts(order.createdAt);
+        timeLimitHrs = 72;
         break;
       case 'listo':
-        referenceDate = order.readyAt ? new Date(order.readyAt) : new Date(order.createdAt);
-        timeLimit = 48;
+        reference = ts(order.readyAt) || ts(order.createdAt);
+        timeLimitHrs = 48;
         break;
       default:
         return { isExpired: false, isUrgent: false, hoursLeft: 0 };
     }
-    const limitDate = new Date(referenceDate.getTime() + timeLimit * 60 * 60 * 1000);
-    const difference = limitDate.getTime() - now.getTime();
-    const hoursLeft = Math.max(0, Math.floor(difference / (1000 * 60 * 60)));
+
+    const limit = reference + timeLimitHrs * 60 * 60 * 1000;
+    const diff = limit - now;
+    const hoursLeft = Math.max(0, Math.floor(diff / (1000 * 60 * 60)));
+
     return {
-      isExpired: difference <= 0,
+      isExpired: diff <= 0,
       isUrgent:
         (order.status === 'en_preparacion' && hoursLeft <= 36) ||
         (order.status === 'pendiente' && hoursLeft <= 6),
-      hoursLeft
+      hoursLeft,
     };
   };
 
-  const getOrdersWithUrgency = () => {
-    return orders.map(order => ({
-      ...order,
-      urgency: calculateOrderUrgency(order)
-    }));
-  };
+  const ordersWithUrgency = useMemo(
+    () => orders.map(o => ({ ...o, urgency: calculateOrderUrgency(o) })),
+    [orders]
+  );
 
-  const ordersWithUrgency = getOrdersWithUrgency();
-
-  const stats = {
+  const stats = useMemo(() => ({
     total: orders.length,
     pendientes: orders.filter(o => o.status === 'pendiente').length,
     enPreparacion: orders.filter(o => o.status === 'en_preparacion').length,
     listos: orders.filter(o => o.status === 'listo').length,
     vencidos: ordersWithUrgency.filter(o => o.urgency.isExpired).length,
     urgentes: ordersWithUrgency.filter(o => o.urgency.isUrgent && !o.urgency.isExpired).length,
-    alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length
-  };
+    alertas: ordersWithUrgency.filter(o => o.urgency.isExpired || o.urgency.isUrgent).length,
+  }), [orders, ordersWithUrgency]);
 
   // QR/Acciones
   const handleQRRead = (code: string) => {
@@ -121,59 +124,62 @@ const OrdersPanelContent = () => {
     if (order) {
       const orderWithUrgency = { ...order, urgency: calculateOrderUrgency(order) };
       setQrScannedOrder(orderWithUrgency);
-      setShowQRReader(false);
-    } else {
-      setShowQRReader(false);
     }
+    setShowQRReader(false);
   };
 
-  // Actualiza estado
-  const updateOrderStatus = (orderId: string, newStatus: string) => {
+  // Actualiza estado (centralizado en contexto)
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    await changeOrderStatus(orderId, newStatus);
+    // Además, marca timestamps en RTDB para consistencia con paneles
     const orderRef = ref(db, `orders/${orderId}`);
-    const updates: any = { status: newStatus };
+    const updates: Record<string, any> = { status: newStatus };
     if (newStatus === 'en_preparacion') updates.acceptedAt = new Date().toISOString();
     else if (newStatus === 'listo') updates.readyAt = new Date().toISOString();
     else if (newStatus === 'entregado') updates.deliveredAt = new Date().toISOString();
-    update(orderRef, updates);
+    await update(orderRef, updates);
   };
 
   // Para QR
-  const updateOrderStatusFromQR = (orderId: string, newStatus: string, reason?: string) => {
-    updateOrderStatus(orderId, newStatus);
+  const updateOrderStatusFromQR = async (orderId: string, newStatus: string) => {
+    await updateOrderStatus(orderId, newStatus);
     setQrScannedOrder(null);
   };
 
-  // Crea pedido de reposición (ejemplo)
+  // Crea pedido de reposición (usa RTDB directo)
   const createNewOrderForMissingItems = (originalOrderId: string, incompleteItems: any[]) => {
     const originalOrder = orders.find(o => o.id === originalOrderId);
     if (!originalOrder) return;
-    const newOrderId = push(ref(db, 'orders')).key;
-    if (!newOrderId) return;
+
+    const newKey = push(ref(db, 'orders')).key;
+    if (!newKey) return;
+
     const newOrder = {
       ...originalOrder,
-      id: newOrderId,
+      id: newKey,
       status: 'pendiente',
       createdAt: new Date().toISOString(),
       items: incompleteItems.map(item => ({
         product: item.product,
         quantity: item.requestedQuantity - item.sentQuantity,
-        price: item.price
+        price: item.price,
       })),
       total: incompleteItems.reduce(
         (sum, item) => sum + (item.requestedQuantity - item.sentQuantity) * item.price,
         0
       ),
       notes: `Orden de reposición del pedido ${originalOrderId}`,
-      orderType: 'reposicion'
+      orderType: 'reposicion',
     };
-    update(ref(db, `orders/${newOrderId}`), newOrder);
+
+    update(ref(db, `orders/${newKey}`), newOrder);
   };
 
   const handleLogout = async () => {
     try {
       await logout();
       navigate('/');
-    } catch (error) {}
+    } catch {}
   };
 
   const handleEditOrder = (order: any) => {
@@ -191,10 +197,20 @@ const OrdersPanelContent = () => {
     setShowHistoryModal(true);
   };
 
+  const matchesSearch = (o: any, q: string) => {
+    if (!q) return true;
+    const t = q.toLowerCase();
+    return (
+      o.customerName?.toLowerCase().includes(t) ||
+      o.id?.toLowerCase().includes(t) ||
+      String(o.customerPhone ?? '').includes(q)
+    );
+  };
+
   // Renderiza la lista de pedidos
-  const renderOrderList = (orders: any[], showTimer = true, timeLimit?: number) => (
+  const renderOrderList = (list: any[]) => (
     <div className="space-y-4">
-      {orders.map(order => (
+      {list.map(order => (
         <Card key={order.id} className="hover:shadow-lg transition-all">
           <CardContent className="p-4">
             <div className="flex justify-between items-start mb-4">
@@ -211,17 +227,26 @@ const OrdersPanelContent = () => {
                 </div>
               </div>
               <div className="text-right">
-                <Badge className={`mb-2 ${
-                  order.status === 'pendiente' ? 'bg-yellow-100 text-yellow-800' :
-                  order.status === 'en_preparacion' ? 'bg-blue-100 text-blue-800' :
-                  order.status === 'listo' ? 'bg-green-100 text-green-800' :
-                  'bg-stone-100 text-stone-800'
-                }`}>
-                  {order.status === 'pendiente' ? 'Pendiente' :
-                  order.status === 'en_preparacion' ? 'En Preparación' :
-                  order.status === 'listo' ? 'Listo' : order.status}
+                <Badge
+                  className={`mb-2 ${
+                    order.status === 'pendiente'
+                      ? 'bg-yellow-100 text-yellow-800'
+                      : order.status === 'en_preparacion'
+                      ? 'bg-blue-100 text-blue-800'
+                      : order.status === 'listo'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-stone-100 text-stone-800'
+                  }`}
+                >
+                  {order.status === 'pendiente'
+                    ? 'Pendiente'
+                    : order.status === 'en_preparacion'
+                    ? 'En Preparación'
+                    : order.status === 'listo'
+                    ? 'Listo'
+                    : order.status}
                 </Badge>
-                <p className="font-bold text-lg">S/ {order.total?.toFixed(2)}</p>
+                <p className="font-bold text-lg">S/ {Number(order.total ?? 0).toFixed(2)}</p>
                 <p className="text-sm text-stone-500">{order.items?.length} productos</p>
               </div>
             </div>
@@ -231,7 +256,9 @@ const OrdersPanelContent = () => {
                 {order.items?.slice(0, 2).map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between text-sm">
                     <span>{item.product}</span>
-                    <span>{item.quantity} x S/ {item.price}</span>
+                    <span>
+                      {item.quantity} x S/ {item.price}
+                    </span>
                   </div>
                 ))}
                 {order.items?.length > 2 && (
@@ -297,6 +324,11 @@ const OrdersPanelContent = () => {
     </div>
   );
 
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim();
+    return ordersWithUrgency.filter(o => matchesSearch(o, q));
+  }, [ordersWithUrgency, searchTerm]);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
       <AdminModeToggle />
@@ -311,9 +343,7 @@ const OrdersPanelContent = () => {
                 <h1 className="text-2xl font-bold text-brown-900">
                   Panel de Pedidos
                   {isAdminMode && (
-                    <Badge className="ml-2 bg-purple-600 text-white">
-                      MODO ADMIN
-                    </Badge>
+                    <Badge className="ml-2 bg-purple-600 text-white">MODO ADMIN</Badge>
                   )}
                 </h1>
                 <p className="text-brown-700">Gestión y preparación de pedidos</p>
@@ -348,6 +378,7 @@ const OrdersPanelContent = () => {
           </div>
         </div>
       </div>
+
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           {/* CONTENIDO PRINCIPAL */}
@@ -361,19 +392,18 @@ const OrdersPanelContent = () => {
                 onChange={e => setSearchTerm(e.target.value)}
               />
               <div className="flex flex-wrap gap-2 justify-start w-full md:w-auto">
-
                 <Button
                   size="sm"
-                  variant={selectedTab === "dashboard" ? "default" : "outline"}
-                  onClick={() => setSelectedTab("dashboard")}
+                  variant={selectedTab === 'dashboard' ? 'default' : 'outline'}
+                  onClick={() => setSelectedTab('dashboard')}
                 >
                   <BarChart3 className="h-4 w-4 mr-1" />
                   Dashboard
                 </Button>
                 <Button
                   size="sm"
-                  variant={selectedTab === "pendientes" ? "default" : "outline"}
-                  onClick={() => setSelectedTab("pendientes")}
+                  variant={selectedTab === 'pendientes' ? 'default' : 'outline'}
+                  onClick={() => setSelectedTab('pendientes')}
                 >
                   <Clock className="h-4 w-4 mr-1" />
                   Pendientes
@@ -381,8 +411,8 @@ const OrdersPanelContent = () => {
                 </Button>
                 <Button
                   size="sm"
-                  variant={selectedTab === "en_preparacion" ? "default" : "outline"}
-                  onClick={() => setSelectedTab("en_preparacion")}
+                  variant={selectedTab === 'en_preparacion' ? 'default' : 'outline'}
+                  onClick={() => setSelectedTab('en_preparacion')}
                 >
                   <Smile className="h-4 w-4 mr-1" />
                   En preparación
@@ -390,8 +420,8 @@ const OrdersPanelContent = () => {
                 </Button>
                 <Button
                   size="sm"
-                  variant={selectedTab === "listos" ? "default" : "outline"}
-                  onClick={() => setSelectedTab("listos")}
+                  variant={selectedTab === 'listos' ? 'default' : 'outline'}
+                  onClick={() => setSelectedTab('listos')}
                 >
                   <CheckCircle className="h-4 w-4 mr-1" />
                   Listos
@@ -399,8 +429,8 @@ const OrdersPanelContent = () => {
                 </Button>
                 <Button
                   size="sm"
-                  variant={selectedTab === "alertas" ? "default" : "outline"}
-                  onClick={() => setSelectedTab("alertas")}
+                  variant={selectedTab === 'alertas' ? 'default' : 'outline'}
+                  onClick={() => setSelectedTab('alertas')}
                 >
                   <AlertTriangle className="h-4 w-4 mr-1" />
                   Urgentes/Vencidos
@@ -408,8 +438,8 @@ const OrdersPanelContent = () => {
                 </Button>
                 <Button
                   size="sm"
-                  variant={selectedTab === "todos" ? "default" : "outline"}
-                  onClick={() => setSelectedTab("todos")}
+                  variant={selectedTab === 'todos' ? 'default' : 'outline'}
+                  onClick={() => setSelectedTab('todos')}
                 >
                   Todos
                   <Badge className="ml-1">{stats.total}</Badge>
@@ -418,56 +448,45 @@ const OrdersPanelContent = () => {
             </div>
 
             {/* Dashboard, listado o alertas según el tab */}
-            {selectedTab === "dashboard" && (
+            {selectedTab === 'dashboard' && (
               <OrdersDashboard stats={stats} orders={ordersWithUrgency} />
             )}
 
-            {selectedTab === "pendientes" && renderOrderList(
-              ordersWithUrgency.filter(o =>
-                o.status === "pendiente" &&
-                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.customerPhone?.includes(searchTerm))
-              )
-            )}
+            {selectedTab === 'pendientes' &&
+              renderOrderList(
+                ordersWithUrgency.filter(
+                  o => o.status === 'pendiente' && matchesSearch(o, searchTerm)
+                )
+              )}
 
-            {selectedTab === "en_preparacion" && renderOrderList(
-              ordersWithUrgency.filter(o =>
-                o.status === "en_preparacion" &&
-                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.customerPhone?.includes(searchTerm))
-              )
-            )}
+            {selectedTab === 'en_preparacion' &&
+              renderOrderList(
+                ordersWithUrgency.filter(
+                  o => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)
+                )
+              )}
 
-            {selectedTab === "listos" && renderOrderList(
-              ordersWithUrgency.filter(o =>
-                o.status === "listo" &&
-                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.customerPhone?.includes(searchTerm))
-              )
-            )}
+            {selectedTab === 'listos' &&
+              renderOrderList(
+                ordersWithUrgency.filter(
+                  o => o.status === 'listo' && matchesSearch(o, searchTerm)
+                )
+              )}
 
-            {selectedTab === "alertas" && renderOrderList(
-              ordersWithUrgency.filter(o =>
-                (o.urgency.isUrgent || o.urgency.isExpired) &&
-                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.customerPhone?.includes(searchTerm))
-              )
-            )}
+            {selectedTab === 'alertas' &&
+              renderOrderList(
+                ordersWithUrgency.filter(
+                  o =>
+                    (o.urgency.isUrgent || o.urgency.isExpired) &&
+                    matchesSearch(o, searchTerm)
+                )
+              )}
 
-            {selectedTab === "todos" && renderOrderList(
-              ordersWithUrgency.filter(o =>
-                (o.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  o.customerPhone?.includes(searchTerm))
-              )
-            )}
+            {selectedTab === 'todos' && renderOrderList(filtered)}
           </div>
         </div>
       </div>
+
       {/* MODALES */}
       <OrderEditModal
         order={selectedOrder}
@@ -509,11 +528,5 @@ const OrdersPanelContent = () => {
     </div>
   );
 };
-
-const OrdersPanel = () => (
-  <AdminOrdersProvider>
-    <OrdersPanelContent />
-  </AdminOrdersProvider>
-);
 
 export default OrdersPanel;

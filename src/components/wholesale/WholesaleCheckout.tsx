@@ -145,6 +145,25 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
       return;
     }
 
+    // --- Normalización para que el panel Admin muestre cantidad × precio y total ---
+    const currency = 'PEN';
+    const itemsNormalized = items.map((i) => {
+      const quantity = i.quantity;
+      const price =
+        i.unitPrice ?? Number((i.finalPrice / Math.max(1, quantity)).toFixed(2)); // unitario
+      const subtotal = Number(i.finalPrice.toFixed(2));
+      return {
+        id: i.product.id,
+        name: i.product.name,
+        quantity,
+        price,
+        subtotal,
+      };
+    });
+    const itemsCountNorm = itemsNormalized.reduce((a, it) => a + (Number(it.quantity) || 0), 0);
+    const subtotal = itemsNormalized.reduce((a, it) => a + (Number(it.subtotal) || 0), 0);
+    const total = Number(finalTotal.toFixed(2));
+
     // Generar ID de pedido mayorista
     const wholesaleOrdersRef = ref(db, 'wholesale/orders');
     const newRef = push(wholesaleOrdersRef);
@@ -160,7 +179,7 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
       message: 'Pedido registrado y en cola de revisión',
     };
 
-    // Payload mayorista
+    // Payload mayorista (mantiene compatibilidad con tu estructura)
     const wholesalePayload = {
       id: orderId,
       orderNumber: orderNum,
@@ -173,17 +192,27 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
         deliveryTime: selectedLocationData.deliveryTime || '',
         zone: selectedLocationData.zone || '',
       },
-      items: items.map((i) => ({
-        id: i.product.id,
-        name: i.product.name,
-        qty: i.quantity,
-        unit: i.unitPrice ?? Number((i.finalPrice / Math.max(1, i.quantity)).toFixed(2)),
-        total: Number(i.finalPrice.toFixed(2)),
+      // guardo claves antiguas y nuevas para no romper nada
+      items: itemsNormalized.map((it) => ({
+        id: it.id,
+        name: it.name,
+        qty: it.quantity,     // compat antigua
+        unit: it.price,       // compat antigua (precio unitario)
+        total: it.subtotal,   // compat antigua (total de línea)
+        // nuevas (las que lee la tarjeta típica)
+        quantity: it.quantity,
+        price: it.price,
+        subtotal: it.subtotal,
       })),
       totals: {
-        total: Number(finalTotal.toFixed(2)),
+        total,
         items: itemCount,
       },
+      // añadidos útiles a nivel raíz
+      currency,
+      itemsCount: itemsCountNorm,
+      subtotal,
+      total,
       observations: customerObservations || '',
       status: 'pendiente',
       createdAt: now,
@@ -193,7 +222,7 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
       } as Record<string, { at: number; status: string; message?: string }>,
     };
 
-    // Payload admin (cola de pedidos)
+    // Payload admin (cola de pedidos) — con campos que la UI espera
     const adminPayload = {
       id: orderId,
       number: orderNum,
@@ -209,7 +238,19 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
         eta: selectedLocationData.deliveryTime || '',
         zone: selectedLocationData.zone || '',
       },
-      items: wholesalePayload.items,
+      // 👇 Claves típicas del panel
+      items: itemsNormalized,       // { id, name, quantity, price, subtotal }
+      itemsCount: itemsCountNorm,   // total de unidades
+      subtotal,
+      total,                        // IMPRESCINDIBLE para evitar “S/” vacío
+      currency,
+      // cliente básico (ajusta si tienes datos del comprador)
+      customer: {
+        name: selectedLocationData.name ?? '',
+        phone: '',
+        address: selectedLocationData.address ?? '',
+      },
+      // compat con tu estructura actual
       totals: wholesalePayload.totals,
       notes: wholesalePayload.observations,
       statusTimeline: wholesalePayload.statusTimeline,

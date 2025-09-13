@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line
@@ -9,7 +8,6 @@ import {
 import { Calendar, Download, TrendingUp, Package, Clock, CheckCircle, FileSpreadsheet } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
-// --- TIPO DE PROPS ESPERADO
 export interface OrdersDashboardStats {
   total: number;
   pendientes: number;
@@ -19,34 +17,132 @@ export interface OrdersDashboardStats {
   urgentes: number;
   alertas: number;
 }
+
+type Order = {
+  id: string;
+  status: 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | string;
+  createdAt?: string | number;
+  acceptedAt?: string | number;
+  readyAt?: string | number;
+  deliveredAt?: string | number;
+  // otros campos no usados aquí…
+};
+
 interface OrdersDashboardProps {
   stats: OrdersDashboardStats;
-  orders: any[];
+  orders: Order[];
   onExportReport?: (reportType: string) => void;
 }
 
+const parseTs = (v?: string | number): number => {
+  if (typeof v === 'number') return v;
+  if (!v) return 0;
+  const n = Date.parse(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const startOfDay = (d = new Date()) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+const addDays = (t: number, days: number) => t + days * 24 * 60 * 60 * 1000;
+
+const weekdayLabels = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
 const OrdersDashboard = ({ stats, orders, onExportReport }: OrdersDashboardProps) => {
-  const [dateFilter, setDateFilter] = useState('semana');
+  const [dateFilter, setDateFilter] = useState<'hoy' | 'semana' | 'mes' | 'trimestre'>('semana');
   const [showExportDialog, setShowExportDialog] = useState(false);
 
+  // Ventana temporal según filtro
+  const { fromTs, toTs } = useMemo(() => {
+    const now = Date.now();
+    const today0 = startOfDay(new Date(now));
+    switch (dateFilter) {
+      case 'hoy':
+        return { fromTs: today0, toTs: addDays(today0, 1) };
+      case 'semana': {
+        // Lunes a Domingo de la semana actual
+        const day = new Date(today0).getDay() || 7; // 1..7 (Lun..Dom)
+        const monday0 = addDays(today0, -(day - 1));
+        return { fromTs: monday0, toTs: addDays(monday0, 7) };
+      }
+      case 'mes': {
+        const d = new Date(today0);
+        const first = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
+        const next = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime();
+        return { fromTs: first, toTs: next };
+      }
+      case 'trimestre': {
+        const d = new Date(today0);
+        const m = d.getMonth();
+        const qStartMonth = m - (m % 3);
+        const first = new Date(d.getFullYear(), qStartMonth, 1).getTime();
+        const next = new Date(d.getFullYear(), qStartMonth + 3, 1).getTime();
+        return { fromTs: first, toTs: next };
+      }
+      default:
+        return { fromTs: 0, toTs: now };
+    }
+  }, [dateFilter]);
+
+  // Filtrar pedidos por createdAt dentro de la ventana
+  const filteredOrders = useMemo(
+    () =>
+      orders.filter(o => {
+        const t = parseTs(o.createdAt);
+        return t >= fromTs && t < toTs;
+      }),
+    [orders, fromTs, toTs]
+  );
+
   // Pie Chart Dinámico
-  const pieData = useMemo(() => [
-    { name: 'Entregados', value: orders.filter(o => o.status === 'entregado').length, color: '#10B981' },
-    { name: 'Listos', value: orders.filter(o => o.status === 'listo').length, color: '#3B82F6' },
-    { name: 'En Preparación', value: orders.filter(o => o.status === 'en_preparacion').length, color: '#F59E0B' },
-    { name: 'Pendientes', value: orders.filter(o => o.status === 'pendiente').length, color: '#EF4444' }
-  ], [orders]);
+  const pieData = useMemo(
+    () => [
+      { name: 'Entregados', value: filteredOrders.filter(o => o.status === 'entregado').length, color: '#10B981' },
+      { name: 'Listos', value: filteredOrders.filter(o => o.status === 'listo').length, color: '#3B82F6' },
+      { name: 'En Preparación', value: filteredOrders.filter(o => o.status === 'en_preparacion').length, color: '#F59E0B' },
+      { name: 'Pendientes', value: filteredOrders.filter(o => o.status === 'pendiente').length, color: '#EF4444' }
+    ],
+    [filteredOrders]
+  );
 
-const weeklyData = useMemo(() => {
-  const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
-  return days.map(day => ({
-    day,
-    entregados: 0,
-    preparacion: 0,
-    pendientes: 0
-  }));
-}, []);
+  // Weekly data (Lun..Dom) dentro de la ventana
+  const weeklyData = useMemo(() => {
+    // base
+    const base = weekdayLabels.map(day => ({
+      day,
+      entregados: 0,
+      preparacion: 0,
+      pendientes: 0
+    }));
 
+    filteredOrders.forEach(o => {
+      const t = parseTs(o.createdAt);
+      if (!t) return;
+      const w = new Date(t).getDay(); // 0..6 (Dom..Sáb)
+      const idx = (w === 0 ? 6 : w - 1); // 0..6 (Lun..Dom)
+      if (o.status === 'entregado') base[idx].entregados += 1;
+      else if (o.status === 'en_preparacion') base[idx].preparacion += 1;
+      else if (o.status === 'pendiente') base[idx].pendientes += 1;
+    });
+
+    return base;
+  }, [filteredOrders]);
+
+  // Métricas adicionales
+  const eficiencia = stats.total === 0 ? 0 : Math.round((pieData[0].value / stats.total) * 100);
+
+  // Tiempo promedio en preparación (hrs) entre acceptedAt → readyAt
+  const avgPrepHours = useMemo(() => {
+    const pairs = filteredOrders
+      .map(o => {
+        const a = parseTs(o.acceptedAt);
+        const r = parseTs(o.readyAt);
+        return a && r ? (r - a) / (1000 * 60 * 60) : null;
+      })
+      .filter((v): v is number => typeof v === 'number' && isFinite(v) && v >= 0);
+
+    if (!pairs.length) return 0;
+    const avg = pairs.reduce((s, v) => s + v, 0) / pairs.length;
+    return Math.round(avg * 10) / 10; // 1 decimal
+  }, [filteredOrders]);
 
   const exportReports = [
     { id: 'pedidos_mes', name: 'Pedidos del Mes', description: 'Todos los pedidos del mes actual' },
@@ -61,9 +157,6 @@ const weeklyData = useMemo(() => {
     setShowExportDialog(false);
   };
 
-  // Métricas adicionales
-  const eficiencia = stats.total === 0 ? 0 : Math.round((pieData[0].value / stats.total) * 100);
-
   return (
     <div className="space-y-6">
       {/* Header con filtros y exportación */}
@@ -73,10 +166,10 @@ const weeklyData = useMemo(() => {
           <p className="text-brown-700">Análisis visual y estadísticas de rendimiento</p>
         </div>
         <div className="flex gap-3">
-          <Select value={dateFilter} onValueChange={setDateFilter}>
+          <Select value={dateFilter} onValueChange={(v: any) => setDateFilter(v)}>
             <SelectTrigger className="w-48">
               <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue />
+              <SelectValue placeholder="Rango de fechas" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="hoy">Hoy</SelectItem>
@@ -86,7 +179,6 @@ const weeklyData = useMemo(() => {
             </SelectContent>
           </Select>
 
-          {/* Botón de exportar reportes */}
           <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
             <DialogTrigger asChild>
               <Button className="bg-green-600 hover:bg-green-700">
@@ -135,9 +227,7 @@ const weeklyData = useMemo(() => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">
-              +0% desde la semana pasada
-            </p>
+            <p className="text-xs text-muted-foreground">+0% desde la semana pasada</p>
           </CardContent>
         </Card>
 
@@ -148,9 +238,7 @@ const weeklyData = useMemo(() => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">{pieData[0].value}</div>
-            <p className="text-xs text-muted-foreground">
-              {eficiencia}% tasa de entrega
-            </p>
+            <p className="text-xs text-muted-foreground">{eficiencia}% tasa de entrega</p>
           </CardContent>
         </Card>
 
@@ -160,9 +248,11 @@ const weeklyData = useMemo(() => {
             <Clock className="h-4 w-4 text-yellow-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{pieData[2].value + pieData[1].value}</div>
+            <div className="text-2xl font-bold text-yellow-600">
+              {pieData[2].value + pieData[1].value}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Tiempo promedio: 0 días
+              Tiempo promedio: {avgPrepHours} h
             </p>
           </CardContent>
         </Card>
@@ -174,20 +264,18 @@ const weeklyData = useMemo(() => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-600">{eficiencia}%</div>
-            <p className="text-xs text-muted-foreground">
-              +0% desde el mes pasado
-            </p>
+            <p className="text-xs text-muted-foreground">+0% desde el mes pasado</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Gráficos principales */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de torta - Estado de pedidos */}
+        {/* Gráfico de torta */}
         <Card>
           <CardHeader>
             <CardTitle>Distribución por Estado</CardTitle>
-            <CardDescription>Vista general del estado actual de todos los pedidos</CardDescription>
+            <CardDescription>Vista general del estado actual de los pedidos ({dateFilter})</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -199,7 +287,6 @@ const weeklyData = useMemo(() => {
                   labelLine={false}
                   label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                   outerRadius={80}
-                  fill="#8884d8"
                   dataKey="value"
                 >
                   {pieData.map((entry, index) => (
@@ -216,14 +303,14 @@ const weeklyData = useMemo(() => {
         <Card>
           <CardHeader>
             <CardTitle>Rendimiento Semanal</CardTitle>
-            <CardDescription>Pedidos procesados por día de la semana</CardDescription>
+            <CardDescription>Pedidos por día ({dateFilter})</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={weeklyData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="day" />
-                <YAxis />
+                <YAxis allowDecimals={false} />
                 <Tooltip />
                 <Bar dataKey="entregados" stackId="a" fill="#10B981" name="Entregados" />
                 <Bar dataKey="preparacion" stackId="a" fill="#F59E0B" name="En Preparación" />
@@ -234,18 +321,18 @@ const weeklyData = useMemo(() => {
         </Card>
       </div>
 
-      {/* Tendencias y análisis adicional */}
+      {/* Tendencias */}
       <Card>
         <CardHeader>
           <CardTitle>Tendencia de Entregas</CardTitle>
-          <CardDescription>Evolución de entregas completadas en los últimos 7 días</CardDescription>
+          <CardDescription>Últimos 7 días ({dateFilter})</CardDescription>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={weeklyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="day" />
-              <YAxis />
+              <YAxis allowDecimals={false} />
               <Tooltip />
               <Line
                 type="monotone"
