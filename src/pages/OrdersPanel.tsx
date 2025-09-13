@@ -51,12 +51,60 @@ const OrdersPanelContent = () => {
         setOrders([]);
         return;
       }
-      // Ordena por createdAt descendente (más reciente primero)
-      const ordersArray = Object.values(data);
+      // Normaliza y ordena por createdAt descendente (más reciente primero)
+      const ordersArray = Object.entries(data).map(([id, o]: any) => ({ id, ...o }));
+      const normalized = ordersArray.map((o: any) => {
+        const itemsSrc = o.items || o.detalle || o.productos || [];
+        const items = Array.isArray(itemsSrc)
+          ? itemsSrc.map((it: any) => ({
+              product: it.product || it.name || it.nombre || it.titulo || '',
+              quantity: it.quantity ?? it.qty ?? it.cantidad ?? 0,
+              price: it.price ?? it.unitPrice ?? it.precio ?? it.precioUnitario ?? 0
+            }))
+          : [];
+        const createdAt = o.createdAt || o.fechaCreacion || o.created_at || o.fecha || null;
+        const total =
+          o.total ??
+          o.montoTotal ??
+          o.totalPagar ??
+          (Array.isArray(items)
+            ? items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 0) * (Number(it.price) || 0), 0)
+            : 0);
+        return {
+          ...o,
+          id: o.id, // preservamos el id creado arriba
+          customerName:
+            o.customerName ||
+            o.customer?.name ||
+            o.clienteNombre ||
+            o.nombreCliente ||
+            o.cliente?.nombre ||
+            '',
+          customerPhone:
+            o.customerPhone ||
+            o.customer?.phone ||
+            o.telefono ||
+            o.celular ||
+            o.cliente?.telefono ||
+            '',
+          customerAddress:
+            o.customerAddress ||
+            o.customer?.address ||
+            o.direccion ||
+            o.direccionEntrega ||
+            o.cliente?.direccion ||
+            '',
+          items,
+          total,
+          createdAt,
+        };
+      });
       setOrders(
-        ordersArray.sort(
-          (a: any, b: any) => (b.createdAt || 0).localeCompare(a.createdAt || 0)
-        )
+        normalized.sort((a: any, b: any) => {
+          const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return tb - ta;
+        })
       );
     });
     return () => unsubscribe();

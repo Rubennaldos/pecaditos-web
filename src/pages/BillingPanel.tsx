@@ -13,11 +13,12 @@ import { BillingClients } from '@/components/billing/BillingClients';
 import { BillingHistory } from '@/components/billing/BillingHistory';
 import { BillingReports } from '@/components/billing/BillingReports';
 import { AdminBillingProvider } from '@/contexts/AdminBillingContext';
+import type { Section } from '@/components/billing/types';
 
 const BillingPanel = () => {
   const navigate = useNavigate();
   const { logout } = useAdmin();
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const [activeSection, setActiveSection] = useState<Section>('dashboard');
 
   const handleLogout = async () => {
     try {
