@@ -58,7 +58,7 @@ export const BillingOrders = () => {
     "Otro motivo (especificar en observaciones)"
   ];
 
-  // Lectura realtime
+  // Lectura realtime - Solo pedidos NO entregados para módulo de cobranzas
   useEffect(() => {
     const db = getDatabase(app);
     const ordersRef = ref(db, 'orders');
@@ -70,8 +70,14 @@ export const BillingOrders = () => {
           ? { id, ...val }
           : { id }
       ) as Order[];
-      array.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      setOrders(array);
+      
+      // Solo mostrar pedidos NO entregados en módulo de cobranzas
+      const pendingOrders = array.filter(order => 
+        order.status !== 'delivered' && order.status !== 'completed'
+      );
+      
+      pendingOrders.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      setOrders(pendingOrders);
     });
     return () => unsubscribe();
   }, []);

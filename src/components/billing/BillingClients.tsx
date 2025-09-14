@@ -57,37 +57,49 @@ export const BillingClients = () => {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [showMorosityWarning, setShowMorosityWarning] = useState(false);
 
-  // ---- Datos desde Firebase ----
+  // ---- Datos desde Firebase - Integrado con usuarios del sistema ----
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
-    const clientsRef = ref(db, 'clients');
-    const unsub = onValue(clientsRef, (snapshot) => {
-      const data = snapshot.val() || {};
-      // Conserva el id y normaliza algunos campos
-      const list: Client[] = Object.entries<any>(data).map(([id, v]) => ({
-        id,
-        name: v?.name ?? v?.razonSocial ?? '',
-        comercialName: v?.comercialName ?? v?.comercial ?? '',
-        ruc: v?.ruc ?? '',
-        phone: v?.phone ?? v?.telefono ?? '',
-        whatsapp: v?.whatsapp ?? '',
-        email: v?.email ?? '',
-        rating: Number(v?.rating ?? 0),
-        paymentTerms: v?.paymentTerms ?? 'contado',
-        creditLimit: Number(v?.creditLimit ?? 0),
-        currentDebt: Number(v?.currentDebt ?? 0),
-        lastPayment: v?.lastPayment ?? null,
-        avgPaymentDays: Number(v?.avgPaymentDays ?? 0),
-        paymentHistory: Array.isArray(v?.paymentHistory) ? v.paymentHistory : [],
-        promotionEligible: Boolean(v?.promotionEligible),
-        status: v?.status ?? '',
-      }));
-      setClients(list);
+    // Leer desde usuarios del sistema en lugar de clientes
+    const usersRef = ref(db, 'users');
+    const configRef = ref(db, 'configuration/system');
+    
+    const unsubUsers = onValue(usersRef, (snapshot) => {
+      const usersData = snapshot.val() || {};
+      
+      // Filtrar solo usuarios que sean clientes (no admin/staff)
+      const clientUsers = Object.entries<any>(usersData)
+        .filter(([_, user]) => user?.role === 'client' || user?.userType === 'client')
+        .map(([id, user]) => ({
+          id,
+          name: user?.razonSocial || user?.name || user?.companyName || '',
+          comercialName: user?.comercial || user?.comercialName || user?.businessName || '',
+          ruc: user?.ruc || user?.taxId || '',
+          phone: user?.telefono || user?.phone || user?.mobile || '',
+          whatsapp: user?.whatsapp || user?.phone || '',
+          email: user?.email || '',
+          rating: Number(user?.creditRating || user?.rating || 3),
+          paymentTerms: user?.paymentTerms || user?.creditTerms || 'contado',
+          creditLimit: Number(user?.creditLimit || 0),
+          currentDebt: Number(user?.currentDebt || 0),
+          lastPayment: user?.lastPayment || null,
+          avgPaymentDays: Number(user?.avgPaymentDays || 0),
+          paymentHistory: Array.isArray(user?.paymentHistory) ? user.paymentHistory : [],
+          promotionEligible: Boolean(user?.promotionEligible || user?.creditRating >= 4),
+          status: user?.status || 'active',
+          // Datos adicionales del sistema de configuración
+          sede: user?.sede || user?.location || '',
+          district: user?.district || '',
+          province: user?.province || '',
+          department: user?.department || ''
+        }));
+      
+      setClients(clientUsers);
     });
 
     return () => {
-      try { unsub(); } catch {}
+      try { unsubUsers(); } catch {}
     };
   }, []);
 
