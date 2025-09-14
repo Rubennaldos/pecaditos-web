@@ -41,7 +41,7 @@ type ViewOrder = {
   _raw: RawOrder;
 };
 
-const ORDERS_PATH = 'pedidos';            // <-- AJUSTA si usas 'orders'
+const ORDERS_PATH = 'orders';            // <-- AJUSTA si usas 'orders'
 const BILLING_MOVEMENTS = 'billingMovements';
 
 // --------- Helpers ----------
