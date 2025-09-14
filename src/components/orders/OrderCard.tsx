@@ -64,12 +64,47 @@ export const OrderCard = ({
   // Verificar si es admin general para mostrar controles especiales
   const isAdminGeneral = user?.profile === 'admin';
   const showAdminControls = isAdminGeneral && isAdminMode;
+  
+  // Lógica para indicadores visuales
+  const now = Date.now();
+  const createdAt = (order as any).createdAt || now;
+  const orderAge = now - createdAt;
+  const hoursSinceCreated = orderAge / (1000 * 60 * 60);
+  
+  // Luz verde parpadeante para pedidos nuevos (menos de 30 minutos)
+  const isNewOrder = hoursSinceCreated < 0.5;
+  // Color rojo para pedidos después de 24 horas
+  const isExpired = hoursSinceCreated > 24;
+  
+  // Clases de animación
+  const getOrderIndicatorClasses = () => {
+    if (isExpired) {
+      return "border-red-500 bg-red-50 shadow-lg shadow-red-200";
+    }
+    if (isNewOrder && order.status === 'pendiente') {
+      return "border-green-500 bg-green-50 shadow-lg shadow-green-200 animate-pulse";
+    }
+    return "";
+  };
 
   return (
-    <Card className={`relative ${order.priority === 'urgent' ? 'border-red-300 bg-red-50/30' : ''}`}>
+    <Card className={`relative ${order.priority === 'urgent' ? 'border-red-300 bg-red-50/30' : ''} ${getOrderIndicatorClasses()}`}>
+      {/* Indicadores de estado */}
       {order.priority === 'urgent' && (
         <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
           URGENTE
+        </div>
+      )}
+      
+      {isNewOrder && order.status === 'pendiente' && (
+        <div className="absolute -top-2 -left-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+          ● NUEVO
+        </div>
+      )}
+      
+      {isExpired && (
+        <div className="absolute -top-2 -left-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full animate-bounce">
+          ⚠ +24H
         </div>
       )}
       

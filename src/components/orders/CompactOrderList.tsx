@@ -68,8 +68,17 @@ const CompactOrderList = ({
   const getCardClasses = (order: any, timeLeft: any) => {
     let baseClasses = "hover:shadow-md transition-all cursor-pointer border-l-4";
     
+    // Lógica para indicadores visuales adicionales
+    const now = Date.now();
+    const createdAt = order.createdAt || now;
+    const orderAge = now - createdAt;
+    const hoursSinceCreated = orderAge / (1000 * 60 * 60);
+    const isNewOrder = hoursSinceCreated < 0.5;
+    
     if (timeLeft?.isExpired) {
-      baseClasses += " border-l-red-500 bg-red-50 animate-pulse";
+      baseClasses += " border-l-red-500 bg-red-50 animate-pulse shadow-lg shadow-red-200";
+    } else if (isNewOrder && order.status === 'pendiente') {
+      baseClasses += " border-l-green-500 bg-green-50 animate-pulse shadow-lg shadow-green-200";
     } else if (timeLeft?.hours !== undefined) {
       if (order.status === 'en_preparacion') {
         if (timeLeft.hours <= 12) {
@@ -168,6 +177,19 @@ const CompactOrderList = ({
                             VENCIDO
                           </Badge>
                         )}
+                        {(() => {
+                          const now = Date.now();
+                          const createdAt = order.createdAt || now;
+                          const orderAge = now - createdAt;
+                          const hoursSinceCreated = orderAge / (1000 * 60 * 60);
+                          const isNewOrder = hoursSinceCreated < 0.5;
+                          
+                          return isNewOrder && order.status === 'pendiente' && (
+                            <Badge className="bg-green-500 text-white animate-pulse">
+                              ● NUEVO
+                            </Badge>
+                          );
+                        })()}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button

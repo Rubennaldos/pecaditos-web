@@ -121,7 +121,10 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     const r = ref(db, "orders");
     const unsubscribe = onValue(r, (snap) => {
       const next: UIOrder[] = [];
-      snap.forEach((c) => next.push(mapOrder(c.key!, c.val())));
+      snap.forEach((c) => {
+        const mappedOrder = mapOrder(c.key!, c.val());
+        next.push(mappedOrder);
+      });
       // sort debe devolver number (no boolean)
       next.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
       setOrders(next);
@@ -131,7 +134,9 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       try {
         // en SDKs antiguos onValue no devuelve nada; esto lo hace seguro
-        typeof unsubscribe === "function" && unsubscribe();
+        if (typeof unsubscribe === "function") {
+          unsubscribe();
+        }
       } catch {
         /* noop */
       }
