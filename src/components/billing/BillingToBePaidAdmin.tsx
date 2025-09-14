@@ -35,8 +35,8 @@ export const BillingToBePaidAdmin = () => {
     
     const term = searchTerm.toLowerCase();
     return Object.values(byClient).filter(client =>
-      client.client.name?.toLowerCase().includes(term) ||
-      client.client.comercialName?.toLowerCase().includes(term) ||
+      client.client.nombre?.toLowerCase().includes(term) ||
+      client.client.comercial?.toLowerCase().includes(term) ||
       client.client.ruc?.includes(term)
     );
   }, [byClient, searchTerm]);
@@ -173,7 +173,7 @@ export const BillingToBePaidAdmin = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <CardTitle className="flex items-center gap-2">
-                      {clientData.client.name || clientData.client.comercialName}
+                      {clientData.client.nombre || clientData.client.comercial}
                       {clientData.invoices.some(inv => {
                         const now = new Date();
                         const dueDate = new Date(inv.dueDate);
