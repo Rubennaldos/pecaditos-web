@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Check, Package, AlertCircle } from 'lucide-react';
+import { Check, Package, AlertCircle, X } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { OrderCompletionModal } from './OrderCompletionModal';
+import { OrderRejectModal } from './OrderRejectModal';
 import { useAdminOrders } from '@/contexts/AdminOrdersContext';
 
 interface OrderActionButtonsProps {
@@ -34,9 +35,10 @@ export const OrderActionButtons = ({
 }: OrderActionButtonsProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
 
   // usar el contexto para cambiar estado en RTDB
-  const { changeOrderStatus } = useAdminOrders();
+  const { changeOrderStatus, rejectOrder } = useAdminOrders();
 
   const notifyStatus = (newStatus: string, msg: { title: string; description: string }) => {
     // llamar callback si fue provista (compatibilidad)
@@ -125,44 +127,83 @@ export const OrderActionButtons = ({
     }
   };
 
-  // Botón para pedidos pendientes
+  const handleRejectOrder = async (orderId: string, reason: string) => {
+    setIsLoading(true);
+    try {
+      await rejectOrder(orderId, reason);
+      notifyStatus('rechazado', {
+        title: '❌ Pedido Rechazado',
+        description: `El pedido ${orderId} ha sido rechazado. El cliente será notificado.`,
+      });
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: '❌ Error',
+        description: 'No se pudo rechazar el pedido. Intenta nuevamente.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Botones para pedidos pendientes
   if (currentStatus === 'pendiente') {
     return (
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button
-            size="sm"
-            className="bg-green-600 hover:bg-green-700 text-white font-medium"
-            disabled={isLoading}
-          >
-            <Check className="h-4 w-4 mr-1" />
-            Aceptar Pedido
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-              Confirmar Aceptación
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Estás seguro de que deseas aceptar el pedido <strong>{orderId}</strong>?
-              <br />
-              El pedido pasará al estado <strong>"En Preparación"</strong>.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleAcceptOrder}
-              className="bg-green-600 hover:bg-green-700"
+      <div className="flex gap-2">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white font-medium"
               disabled={isLoading}
             >
-              {isLoading ? 'Procesando...' : 'Aceptar Pedido'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              <Check className="h-4 w-4 mr-1" />
+              Aceptar
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+                Confirmar Aceptación
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Estás seguro de que deseas aceptar el pedido <strong>{orderId}</strong>?
+                <br />
+                El pedido pasará al estado <strong>"En Preparación"</strong>.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleAcceptOrder}
+                className="bg-green-600 hover:bg-green-700"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Procesando...' : 'Aceptar Pedido'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <Button
+          size="sm"
+          variant="destructive"
+          onClick={() => setShowRejectModal(true)}
+          disabled={isLoading}
+        >
+          <X className="h-4 w-4 mr-1" />
+          Rechazar
+        </Button>
+
+        <OrderRejectModal
+          isOpen={showRejectModal}
+          onClose={() => setShowRejectModal(false)}
+          orderId={orderId}
+          onReject={handleRejectOrder}
+        />
+      </div>
     );
   }
 

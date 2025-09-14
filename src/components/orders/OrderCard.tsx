@@ -20,6 +20,9 @@ interface OrderCardProps {
     estimatedTime: string;
     paymentMethod: string;
     notes?: string;
+    createdAt?: number;
+    readyAt?: number;
+    acceptedAt?: number;
   };
   onView: (order: any) => void;
   onEdit?: (order: any) => void;
@@ -67,13 +70,13 @@ export const OrderCard = ({
   
   // Lógica para indicadores visuales
   const now = Date.now();
-  const createdAt = (order as any).createdAt || now;
+  const createdAt = order.createdAt || now;
   const orderAge = now - createdAt;
   const hoursSinceCreated = orderAge / (1000 * 60 * 60);
   
   // Luz verde parpadeante para pedidos nuevos (menos de 30 minutos)
-  const isNewOrder = hoursSinceCreated < 0.5;
-  // Color rojo para pedidos después de 24 horas
+  const isNewOrder = hoursSinceCreated < 0.5 && order.status === 'pendiente';
+  // Color rojo para pedidos después de 24 horas  
   const isExpired = hoursSinceCreated > 24;
   
   // Clases de animación
