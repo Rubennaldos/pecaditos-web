@@ -38,7 +38,7 @@ import { ref, onValue, update, push, runTransaction } from 'firebase/database';
 // --------- Tipos locales súper permisivos (coinciden con tu RTDB) ----------
 type OrderRT = {
   id: string;
-  status?: string;
+  status?: 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | 'rechazado' | string;
   createdAt?: string | number;
   acceptedAt?: string | number;
   readyAt?: string | number;
@@ -75,10 +75,10 @@ type Urgency = { isExpired: boolean; isUrgent: boolean; hoursLeft: number };
 type OrderWithUrgency = OrderRT & { urgency: Urgency };
 
 // -------------------------------------------------------------------------
-
 const pad3 = (n: number) => String(n).padStart(3, '0');
 
 const ensureOrderNumber = async (orderId: string) => {
+  // contador global en RTDB
   const seqRef = ref(db, 'meta/orderSeq');
   const res = await runTransaction(seqRef, (curr) => (typeof curr !== 'number' ? 1 : curr + 1));
   const seq = res.snapshot?.val() ?? 1;
@@ -93,7 +93,7 @@ const OrdersPanel = () => {
   const { isAdminMode, changeOrderStatus } = useAdminOrders();
 
   const [selectedTab, setSelectedTab] = useState<
-    'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'alertas' | 'rechazados' | 'todos'
+    'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'entregados' | 'alertas' | 'rechazados' | 'todos'
   >('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
@@ -187,6 +187,7 @@ const OrdersPanel = () => {
       pendientes: orders.filter((o) => o.status === 'pendiente').length,
       enPreparacion: orders.filter((o) => o.status === 'en_preparacion').length,
       listos: orders.filter((o) => o.status === 'listo').length,
+      entregados: orders.filter((o) => o.status === 'entregado').length,
       rechazados: orders.filter((o) => o.status === 'rechazado').length,
       vencidos: ordersWithUrgency.filter((o) => o.urgency.isExpired).length,
       urgentes: ordersWithUrgency.filter((o) => o.urgency.isUrgent && !o.urgency.isExpired).length,
@@ -351,6 +352,8 @@ const OrdersPanel = () => {
                         ? 'bg-green-100 text-green-800'
                         : order.status === 'rechazado'
                         ? 'bg-red-100 text-red-700'
+                        : order.status === 'entregado'
+                        ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-stone-100 text-stone-800'
                     }`}
                   >
@@ -360,6 +363,8 @@ const OrdersPanel = () => {
                       ? 'En Preparación'
                       : order.status === 'listo'
                       ? 'Listo'
+                      : order.status === 'entregado'
+                      ? 'Entregado'
                       : order.status === 'rechazado'
                       ? 'Rechazado'
                       : order.status}
@@ -492,6 +497,7 @@ const OrdersPanel = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
+      {/* Estilos locales para parpadeo */}
       <style>{`
         @keyframes pulseYellow { 0%,100% { opacity:.25 } 50% { opacity:1 } }
         @keyframes pulseRed { 0%,100% { opacity:.25 } 50% { opacity:1 } }
@@ -500,45 +506,123 @@ const OrdersPanel = () => {
       `}</style>
 
       <AdminModeToggle />
-      {/* header … (igual que antes) */}
-      {/* ...omito header por brevedad, deja el tuyo existente ... */}
 
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-sand-200">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center">
+                <Package className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-brown-900">
+                  Panel de Pedidos
+                  {isAdminMode && <Badge className="ml-2 bg-purple-600 text-white">MODO ADMIN</Badge>}
+                </h1>
+                <p className="text-brown-700">Gestión y preparación de pedidos</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              {isAdminMode && (
+                <Button onClick={() => handleViewHistory()} className="bg-amber-600 hover:bg-amber-700 text-white">
+                  <History className="h-4 w-4 mr-2" />
+                  Historial Global
+                </Button>
+              )}
+              <Button onClick={() => setShowQRReader(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
+                <QrCode className="h-4 w-4 mr-2" />
+                Leer QR
+              </Button>
+              <Button variant="outline" onClick={handleLogout} className="text-brown-700 border-sand-300 hover:bg-sand-50">
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Body */}
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="flex gap-8">
           <div className="flex-1 min-w-0">
-            {/* filtros/tabs … (igual que antes) */}
+            {/* Filtros + Tabs */}
+            <div className="flex flex-col md:flex-row items-start gap-4 mb-6">
+              <Input
+                className="md:w-72"
+                placeholder="Buscar por cliente, sede, orden o teléfono..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <div className="flex flex-wrap gap-2 justify-start w-full md:w-auto">
+                <Button size="sm" variant={selectedTab === 'dashboard' ? 'default' : 'outline'} onClick={() => setSelectedTab('dashboard')}>
+                  <BarChart3 className="h-4 w-4 mr-1" />
+                  Dashboard
+                </Button>
+                <Button size="sm" variant={selectedTab === 'pendientes' ? 'default' : 'outline'} onClick={() => setSelectedTab('pendientes')}>
+                  <Clock className="h-4 w-4 mr-1" />
+                  Pendientes
+                  <Badge className="ml-1">{stats.pendientes}</Badge>
+                </Button>
+                <Button size="sm" variant={selectedTab === 'en_preparacion' ? 'default' : 'outline'} onClick={() => setSelectedTab('en_preparacion')}>
+                  <Smile className="h-4 w-4 mr-1" />
+                  En preparación
+                  <Badge className="ml-1">{stats.enPreparacion}</Badge>
+                </Button>
+                <Button size="sm" variant={selectedTab === 'listos' ? 'default' : 'outline'} onClick={() => setSelectedTab('listos')}>
+                  <CheckCircle className="h-4 w-4 mr-1" />
+                  Listos
+                  <Badge className="ml-1">{stats.listos}</Badge>
+                </Button>
+                <Button size="sm" variant={selectedTab === 'entregados' ? 'default' : 'outline'} onClick={() => setSelectedTab('entregados')}>
+                  Entregados
+                  <Badge className="ml-1">{stats.entregados}</Badge>
+                </Button>
+                <Button size="sm" variant={selectedTab === 'alertas' ? 'default' : 'outline'} onClick={() => setSelectedTab('alertas')}>
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  Urgentes/Vencidos
+                  <Badge className="ml-1">{stats.alertas}</Badge>
+                </Button>
+                <Button size="sm" variant={selectedTab === 'rechazados' ? 'default' : 'outline'} onClick={() => setSelectedTab('rechazados')}>
+                  Rechazados
+                  <Badge className="ml-1">{stats.rechazados}</Badge>
+                </Button>
+                <Button size="sm" variant={selectedTab === 'todos' ? 'default' : 'outline'} onClick={() => setSelectedTab('todos')}>
+                  Todos
+                  <Badge className="ml-1">{stats.total}</Badge>
+                </Button>
+              </div>
+            </div>
 
-            {selectedTab === 'dashboard' && (
-              <OrdersDashboard stats={stats} orders={ordersWithUrgency} />
-            )}
+            {selectedTab === 'dashboard' && <OrdersDashboard stats={stats} orders={ordersWithUrgency} />}
 
             {selectedTab === 'pendientes' &&
-              renderOrderList(
-                ordersWithUrgency.filter((o) => o.status === 'pendiente' && matchesSearch(o, searchTerm))
-              )}
+              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'pendiente' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'en_preparacion' &&
-              renderOrderList(
-                ordersWithUrgency.filter((o) => o.status === 'en_preparacion' && matchesSearch(o, searchTerm))
-              )}
+              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'listos' &&
-              renderOrderList(
-                ordersWithUrgency.filter((o) => o.status === 'listo' && matchesSearch(o, searchTerm))
-              )}
+              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'listo' && matchesSearch(o, searchTerm)))}
+
+            {selectedTab === 'entregados' &&
+              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'entregado' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'rechazados' &&
-              renderOrderList(
-                ordersWithUrgency.filter((o) => o.status === 'rechazado' && matchesSearch(o, searchTerm))
-              )}
+              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'rechazado' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'alertas' &&
               renderOrderList(
-                ordersWithUrgency.filter(
-                  (o) => (o.urgency.isUrgent || o.urgency.isExpired) && matchesSearch(o, searchTerm)
-                )
+                ordersWithUrgency.filter((o) => (o.urgency.isUrgent || o.urgency.isExpired) && matchesSearch(o, searchTerm))
               )}
+
             {selectedTab === 'todos' && renderOrderList(filtered)}
           </div>
         </div>
       </div>
 
+      {/* Modales */}
       <OrderEditModal
         order={selectedOrder}
         isOpen={showEditModal}
