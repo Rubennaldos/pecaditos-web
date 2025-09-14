@@ -41,7 +41,7 @@ const OrdersPanel = () => {
   const { isAdminMode, changeOrderStatus } = useAdminOrders();
 
   const [selectedTab, setSelectedTab] = useState<
-    'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'alertas' | 'todos'
+    'dashboard' | 'pendientes' | 'en_preparacion' | 'listos' | 'alertas' | 'rechazados' | 'todos'
   >('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQRReader, setShowQRReader] = useState(false);
@@ -121,6 +121,7 @@ const OrdersPanel = () => {
       pendientes: orders.filter((o) => o.status === 'pendiente').length,
       enPreparacion: orders.filter((o) => o.status === 'en_preparacion').length,
       listos: orders.filter((o) => o.status === 'listo').length,
+      rechazados: orders.filter((o) => o.status === 'rechazado').length,
       vencidos: ordersWithUrgency.filter((o) => o.urgency.isExpired).length,
       urgentes: ordersWithUrgency.filter((o) => o.urgency.isUrgent && !o.urgency.isExpired).length,
       alertas: ordersWithUrgency.filter((o) => o.urgency.isExpired || o.urgency.isUrgent).length,
@@ -144,6 +145,15 @@ const OrdersPanel = () => {
     getSiteName(o) ||
     '—';
 
+  // Punto parpadeante (amarillo si pendiente, rojo si pendiente>24h)
+  const getBlinkClass = (o: any) => {
+    if (o.status !== 'pendiente') return '';
+    const createdMs = ts(o.createdAt);
+    const ageMs = Date.now() - createdMs;
+    const isOver24h = ageMs >= 24 * 60 * 60 * 1000;
+    return isOver24h ? 'blink-red' : 'blink-yellow';
+  };
+
   const handleQRRead = (code: string) => {
     const orderId = code.replace('PECADITOS-ORDER-', '');
     const order = orders.find((o) => o.id === orderId);
@@ -154,13 +164,22 @@ const OrdersPanel = () => {
     setShowQRReader(false);
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+  // <- ahora admite motivo opcional { reason }
+  const updateOrderStatus = async (
+    orderId: string,
+    newStatus: string,
+    extra?: { reason?: string }
+  ) => {
     await changeOrderStatus(orderId, newStatus);
     const orderRef = ref(db, `orders/${orderId}`);
     const updates: Record<string, any> = { status: newStatus };
     if (newStatus === 'en_preparacion') updates.acceptedAt = new Date().toISOString();
     else if (newStatus === 'listo') updates.readyAt = new Date().toISOString();
     else if (newStatus === 'entregado') updates.deliveredAt = new Date().toISOString();
+    else if (newStatus === 'rechazado') {
+      updates.rejectedAt = new Date().toISOString();
+      if (extra?.reason) updates.rejectedReason = extra.reason;
+    }
     await update(orderRef, updates);
   };
 
@@ -209,6 +228,8 @@ const OrdersPanel = () => {
   const handleDeleteOrder = (order: any) => {
     setSelectedOrder(order);
     setShowDeleteModal(true);
+    // Nota: cuando confirmes el rechazo en tu modal,
+    // llama a updateOrderStatus(order.id, 'rechazado', { reason: 'motivo' })
   };
 
   const handleViewHistory = (orderId?: string) => {
@@ -236,9 +257,8 @@ const OrdersPanel = () => {
         const ruc = getRuc(order);
         const addr = getAddress(order);
         const oc = getOrderCode(order);
-
-        // Si el título ya es la sede, no mostramos la sede a la derecha.
         const showSiteChip = site && site !== title;
+        const blinkClass = getBlinkClass(order);
 
         return (
           <Card key={order.id} className="hover:shadow-lg transition-all">
@@ -246,6 +266,8 @@ const OrdersPanel = () => {
               {/* Header */}
               <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between mb-2">
                 <div className="flex items-center gap-2">
+                  {/* Punto parpadeante */}
+                  {blinkClass && <span className={`inline-block h-2.5 w-2.5 rounded-full ${blinkClass}`} />}
                   <h3 className="text-lg md:text-xl font-semibold text-brown-900">{title}</h3>
                   {showSiteChip && (
                     <div className="hidden md:flex items-center gap-1 text-stone-600">
@@ -268,6 +290,8 @@ const OrdersPanel = () => {
                         ? 'bg-blue-100 text-blue-800'
                         : order.status === 'listo'
                         ? 'bg-green-100 text-green-800'
+                        : order.status === 'rechazado'
+                        ? 'bg-red-100 text-red-700'
                         : 'bg-stone-100 text-stone-800'
                     }`}
                   >
@@ -277,6 +301,8 @@ const OrdersPanel = () => {
                       ? 'En Preparación'
                       : order.status === 'listo'
                       ? 'Listo'
+                      : order.status === 'rechazado'
+                      ? 'Rechazado'
                       : order.status}
                   </Badge>
                   <div className="mt-1 font-bold text-lg">S/ {Number(order.total ?? 0).toFixed(2)}</div>
@@ -315,6 +341,11 @@ const OrdersPanel = () => {
                         <span className="font-medium">{ruc}</span>
                       </div>
                     ) : null}
+                  </div>
+                )}
+                {order.status === 'rechazado' && order.rejectedReason && (
+                  <div className="text-xs text-red-700 bg-red-50 p-2 rounded">
+                    <strong>Motivo rechazo:</strong> {order.rejectedReason}
                   </div>
                 )}
               </div>
@@ -368,6 +399,8 @@ const OrdersPanel = () => {
                       <History className="h-3 w-3 mr-1" />
                       Historial
                     </Button>
+                    {/* Ajusta tu modal para que en Confirmar llame:
+                        updateOrderStatus(order.id, 'rechazado', { reason }) */}
                     <Button
                       size="sm"
                       variant="outline"
@@ -375,7 +408,7 @@ const OrdersPanel = () => {
                       className="text-red-600 border-red-300 hover:bg-red-50"
                     >
                       <Trash2 className="h-3 w-3 mr-1" />
-                      Eliminar
+                      Rechazar
                     </Button>
                   </div>
                 )}
@@ -402,6 +435,14 @@ const OrdersPanel = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
+      {/* Estilos locales para parpadeo */}
+      <style>{`
+        @keyframes pulseYellow { 0%,100% { opacity:.25 } 50% { opacity:1 } }
+        @keyframes pulseRed { 0%,100% { opacity:.25 } 50% { opacity:1 } }
+        .blink-yellow { background:#f59e0b; animation:pulseYellow 1s infinite; }
+        .blink-red { background:#ef4444; animation:pulseRed .7s infinite; }
+      `}</style>
+
       <AdminModeToggle />
       <div className="bg-white shadow-sm border-b border-sand-200">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -473,6 +514,11 @@ const OrdersPanel = () => {
                   Urgentes/Vencidos
                   <Badge className="ml-1">{stats.alertas}</Badge>
                 </Button>
+                {/* Nueva pestaña: Rechazados */}
+                <Button size="sm" variant={selectedTab === 'rechazados' ? 'default' : 'outline'} onClick={() => setSelectedTab('rechazados')}>
+                  Rechazados
+                  <Badge className="ml-1">{stats.rechazados}</Badge>
+                </Button>
                 <Button size="sm" variant={selectedTab === 'todos' ? 'default' : 'outline'} onClick={() => setSelectedTab('todos')}>
                   Todos
                   <Badge className="ml-1">{stats.total}</Badge>
@@ -481,16 +527,24 @@ const OrdersPanel = () => {
             </div>
 
             {selectedTab === 'dashboard' && <OrdersDashboard stats={stats} orders={ordersWithUrgency} />}
+
             {selectedTab === 'pendientes' &&
               renderOrderList(ordersWithUrgency.filter((o) => o.status === 'pendiente' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'en_preparacion' &&
               renderOrderList(ordersWithUrgency.filter((o) => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'listos' &&
               renderOrderList(ordersWithUrgency.filter((o) => o.status === 'listo' && matchesSearch(o, searchTerm)))}
+
+            {selectedTab === 'rechazados' &&
+              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'rechazado' && matchesSearch(o, searchTerm)))}
+
             {selectedTab === 'alertas' &&
               renderOrderList(
                 ordersWithUrgency.filter((o) => (o.urgency.isUrgent || o.urgency.isExpired) && matchesSearch(o, searchTerm))
               )}
+
             {selectedTab === 'todos' && renderOrderList(filtered)}
           </div>
         </div>
@@ -519,6 +573,10 @@ const OrdersPanel = () => {
           setShowDeleteModal(false);
           setSelectedOrder(null);
         }}
+        /* IMPORTANTE:
+           Al confirmar rechazo, llama:
+           updateOrderStatus(selectedOrder.id, 'rechazado', { reason: motivoIngresado })
+        */
       />
       <QRReaderModal isOpen={showQRReader} onClose={() => setShowQRReader(false)} onQRRead={handleQRRead} />
       {qrScannedOrder && (

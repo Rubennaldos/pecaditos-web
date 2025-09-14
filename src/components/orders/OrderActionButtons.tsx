@@ -20,8 +20,8 @@ import { useAdminOrders } from '@/contexts/AdminOrdersContext';
 interface OrderActionButtonsProps {
   orderId: string;
   currentStatus: string;
-  /** callback opcional: se invoca además del contexto para no romper integraciones existentes */
-  onStatusChange?: (orderId: string, newStatus: string) => void;
+  /** callback opcional para integraciones externas */
+  onStatusChange?: (orderId: string, newStatus: string, extra?: { reason?: string }) => void | Promise<void>;
   order?: any; // Datos completos del pedido para el modal
   onCreateNewOrder?: (orderId: string, incompleteItems: any[]) => void; // Crear nueva orden con faltantes
 }
@@ -37,12 +37,16 @@ export const OrderActionButtons = ({
   const [showCompletionModal, setShowCompletionModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
 
-  // usar el contexto para cambiar estado en RTDB
-  const { changeOrderStatus, rejectOrder } = useAdminOrders();
+  // usamos solo changeOrderStatus del contexto
+  const { changeOrderStatus } = useAdminOrders();
 
-  const notifyStatus = (newStatus: string, msg: { title: string; description: string }) => {
-    // llamar callback si fue provista (compatibilidad)
-    onStatusChange?.(orderId, newStatus);
+  const notifyStatus = async (
+    newStatus: string,
+    msg: { title: string; description: string },
+    extra?: { reason?: string }
+  ) => {
+    // callback opcional (compatibilidad)
+    await onStatusChange?.(orderId, newStatus, extra);
     toast({ title: msg.title, description: msg.description });
   };
 
@@ -50,7 +54,7 @@ export const OrderActionButtons = ({
     setIsLoading(true);
     try {
       await changeOrderStatus(orderId, 'en_preparacion');
-      notifyStatus('en_preparacion', {
+      await notifyStatus('en_preparacion', {
         title: '✅ Pedido Aceptado',
         description: `El pedido ${orderId} ha sido aceptado y está en preparación.`,
       });
@@ -70,7 +74,7 @@ export const OrderActionButtons = ({
     setIsLoading(true);
     try {
       await changeOrderStatus(orderId, 'listo');
-      notifyStatus('listo', {
+      await notifyStatus('listo', {
         title: '✅ Pedido Listo',
         description: `El pedido ${orderId} está listo para entrega.`,
       });
@@ -110,7 +114,7 @@ export const OrderActionButtons = ({
       }
 
       await changeOrderStatus(orderIdFromModal, 'listo');
-      onStatusChange?.(orderIdFromModal, 'listo');
+      await onStatusChange?.(orderIdFromModal, 'listo');
       toast({
         title: '✅ Pedido Listo',
         description: `El pedido ${orderIdFromModal} está listo para entrega.`,
@@ -127,14 +131,19 @@ export const OrderActionButtons = ({
     }
   };
 
-  const handleRejectOrder = async (orderId: string, reason: string) => {
+  const handleRejectOrder = async (orderIdParam: string, reason: string) => {
     setIsLoading(true);
     try {
-      await rejectOrder(orderId, reason);
-      notifyStatus('rechazado', {
-        title: '❌ Pedido Rechazado',
-        description: `El pedido ${orderId} ha sido rechazado. El cliente será notificado.`,
-      });
+      // actualiza RTDB al estado 'rechazado'
+      await changeOrderStatus(orderIdParam, 'rechazado');
+      await notifyStatus(
+        'rechazado',
+        {
+          title: '❌ Pedido Rechazado',
+          description: `El pedido ${orderIdParam} ha sido rechazado.`,
+        },
+        reason ? { reason } : undefined
+      );
     } catch (error) {
       console.error(error);
       toast({
