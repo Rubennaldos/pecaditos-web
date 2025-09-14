@@ -13,6 +13,7 @@ import { BillingClients } from '@/components/billing/BillingClients';
 import { BillingHistory } from '@/components/billing/BillingHistory';
 import { BillingReports } from '@/components/billing/BillingReports';
 import { AdminBillingProvider } from '@/contexts/AdminBillingContext';
+import { AdminBillingModeToggle } from '@/components/billing/AdminBillingModeToggle';
 import type { Section } from '@/components/billing/types';
 
 const BillingPanel = () => {
@@ -91,6 +92,9 @@ const BillingPanel = () => {
             {renderContent()}
           </div>
         </div>
+
+        {/* Admin Mode Toggle */}
+        <AdminBillingModeToggle />
       </div>
     </AdminBillingProvider>
   );
