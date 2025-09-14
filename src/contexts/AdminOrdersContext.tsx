@@ -45,10 +45,13 @@ interface AdminOrdersContextType {
   orders: UIOrder[];
   isAdminMode: boolean;
   setIsAdminMode: (mode: boolean) => void;
+
   deleteOrder: (orderId: string, reason: string) => Promise<void>;
   editOrder: (orderId: string, changes: any) => Promise<void>;
   changeOrderStatus: (orderId: string, newStatus: string) => Promise<void>;
+  /** ⬇️ NUEVO: Rechazar pedido con motivo */
   rejectOrder: (orderId: string, reason: string) => Promise<void>;
+
   getOrderHistory: (orderId: string) => OrderHistoryEntry[];
   getAllOrderHistory: () => OrderHistoryEntry[];
   deletedOrders: any[];
@@ -76,19 +79,6 @@ const mapOrder = (id: string, o: any): UIOrder => {
   const name = o?.customer?.name ?? o?.shipping?.siteName ?? o?.site?.name ?? "";
   const eta = o?.shipping?.eta ?? o?.site?.deliveryTime ?? o?.estimatedTime ?? "";
   const notes = o?.notes ?? o?.observations ?? "";
-  
-  // Asegurar que createdAt siempre tenga un valor
-  let createdAtValue = o?.createdAt;
-  if (!createdAtValue) {
-    // Si no existe, usar timestamp actual como fallback
-    createdAtValue = Date.now();
-  } else if (typeof createdAtValue === 'string') {
-    // Si es string, convertir a timestamp
-    createdAtValue = new Date(createdAtValue).getTime();
-  } else {
-    // Si es number, usar directamente
-    createdAtValue = Number(createdAtValue);
-  }
 
   return {
     id,
@@ -104,7 +94,7 @@ const mapOrder = (id: string, o: any): UIOrder => {
     notes,
     customerName: name,
     customerAddress: address,
-    createdAt: createdAtValue,
+    createdAt: o?.createdAt ? Number(o.createdAt) : undefined,
     readyAt: o?.readyAt ? Number(o.readyAt) : undefined,
     acceptedAt: o?.acceptedAt ? Number(o.acceptedAt) : undefined,
     orderType: o?.channel ?? o?.orderType ?? "retail",
@@ -136,24 +126,15 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onValue(r, (snap) => {
       const next: UIOrder[] = [];
       snap.forEach((c) => {
-        const mappedOrder = mapOrder(c.key!, c.val());
-        next.push(mappedOrder);
+        next.push(mapOrder(c.key!, c.val()));
+        return false;
       });
-      // sort debe devolver number (no boolean)
       next.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
       setOrders(next);
     });
 
-    // Siempre devolver una función (no un número)
     return () => {
-      try {
-        // en SDKs antiguos onValue no devuelve nada; esto lo hace seguro
-        if (typeof unsubscribe === "function") {
-          unsubscribe();
-        }
-      } catch {
-        /* noop */
-      }
+      if (typeof unsubscribe === "function") unsubscribe();
     };
   }, []);
 
@@ -193,44 +174,30 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  /** ⬇️ NUEVO: Rechazo con motivo + reindexación */
   const rejectOrder = async (orderId: string, reason: string) => {
-    const updates: any = { 
-      status: 'rechazado',
-      rejectedAt: Date.now(),
-      rejectionReason: reason 
-    };
+    const prev = orders.find((o) => o.id === orderId)?.status;
+    const now = Date.now();
 
-    await update(ref(db, `orders/${orderId}`), updates);
-    await set(ref(db, `ordersByStatus/rechazado/${orderId}`), true);
-    await remove(ref(db, `ordersByStatus/pendiente/${orderId}`));
+    await update(ref(db, `orders/${orderId}`), {
+      status: "rechazado",
+      rejectReason: reason,
+      rejectedAt: now,
+    });
 
-    // Guardar notificación para el cliente
-    const customerNotification = {
-      orderId,
-      type: 'order_rejected',
-      title: 'Pedido Rechazado',
-      message: reason,
-      timestamp: Date.now(),
-      read: false
-    };
-
-    // Guardamos en notifications del cliente (asumiendo que tenemos customerPhone o customerId)
-    const orderSnap = await get(ref(db, `orders/${orderId}`));
-    if (orderSnap.exists()) {
-      const orderData = orderSnap.val();
-      const customerPhone = orderData?.customer?.phone || orderData?.phone;
-      if (customerPhone) {
-        await set(ref(db, `customerNotifications/${customerPhone}/${Date.now()}`), customerNotification);
-      }
+    if (prev && prev !== "rechazado") {
+      await set(ref(db, `ordersByStatus/rechazado/${orderId}`), true);
+      await remove(ref(db, `ordersByStatus/${prev}/${orderId}`));
     }
 
     addHistoryEntry({
       orderId,
       user: "Usuario Pedidos",
-      profile: "pedidos", 
-      action: "rechazar_pedido",
+      profile: "pedidos",
+      action: "rechazar",
       details: `Pedido rechazado. Motivo: ${reason}`,
-      newValue: { status: 'rechazado', reason }
+      previousValue: prev,
+      newValue: "rechazado",
     });
   };
 
@@ -254,6 +221,7 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     await remove(ref(db, `ordersByStatus/pendiente/${orderId}`));
     await remove(ref(db, `ordersByStatus/en_preparacion/${orderId}`));
     await remove(ref(db, `ordersByStatus/listo/${orderId}`));
+    await remove(ref(db, `ordersByStatus/rechazado/${orderId}`));
 
     setDeletedOrders((prev) => [...prev, { id: orderId, reason, deletedAt: new Date().toISOString(), copy }]);
 

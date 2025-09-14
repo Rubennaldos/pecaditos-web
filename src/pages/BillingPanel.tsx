@@ -1,55 +1,66 @@
-// src/pages/BillingPanel.tsx
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAdmin } from '@/contexts/AdminContext';
-import { LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { BillingSidebar } from '@/components/billing/BillingSidebar';
-import { BillingDashboard } from '@/components/billing/BillingDashboard';
-import { BillingOrdersAdmin } from '@/components/billing/BillingOrdersAdmin';
-import { BillingToBePaidAdmin } from '@/components/billing/BillingToBePaidAdmin';
-import { BillingPaid } from '@/components/billing/BillingPaid';
-import { BillingClients } from '@/components/billing/BillingClients';
-import { BillingHistory } from '@/components/billing/BillingHistory';
-import { BillingReports } from '@/components/billing/BillingReports';
-import { AdminBillingProvider } from '@/contexts/AdminBillingContext';
-import { AdminBillingModeToggle } from '@/components/billing/AdminBillingModeToggle';
-import type { Section } from '@/components/billing/types';
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAdmin } from "@/contexts/AdminContext";
+import { LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
+import { BillingSidebar } from "@/components/billing/BillingSidebar";
+import { BillingDashboard } from "@/components/billing/BillingDashboard";
+import { BillingOrdersAdmin } from "@/components/billing/BillingOrdersAdmin";
+import { BillingToBePaidAdmin } from "@/components/billing/BillingToBePaidAdmin";
+import { BillingPaid } from "@/components/billing/BillingPaid";
+import { BillingClients } from "@/components/billing/BillingClients";
+import { BillingHistory } from "@/components/billing/BillingHistory";
+import { BillingReports } from "@/components/billing/BillingReports";
+
+import { AdminBillingProvider } from "@/contexts/AdminBillingContext";
+import type { Section } from "@/components/billing/types";
+
+/**
+ * Panel principal de Cobranzas:
+ * - Sidebar con secciones
+ * - Contenido por sección (dashboard, orders, to-be-paid, paid, clients, history, reports)
+ * - Cierre de sesión seguro
+ */
 const BillingPanel = () => {
   const navigate = useNavigate();
   const { logout } = useAdmin();
-  const [activeSection, setActiveSection] = useState<Section>('dashboard');
+
+  // Sección activa del módulo
+  const [activeSection, setActiveSection] = useState<Section>("dashboard");
 
   const handleLogout = async () => {
     try {
       await logout();
-      navigate('/');
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      // No bloqueamos la navegación si logout falla
+      console.error("Error al cerrar sesión:", error);
+    } finally {
+      navigate("/");
     }
   };
 
-  const renderContent = () => {
+  // Mapeo de vistas por sección. Memo para no recrear el objeto en cada render.
+  const content = useMemo<JSX.Element>(() => {
     switch (activeSection) {
-      case 'dashboard':
+      case "dashboard":
         return <BillingDashboard />;
-      case 'orders':
+      case "orders":
         return <BillingOrdersAdmin />;
-      case 'to-be-paid':
+      case "to-be-paid":
         return <BillingToBePaidAdmin />;
-      case 'paid':
+      case "paid":
         return <BillingPaid />;
-      case 'clients':
+      case "clients":
         return <BillingClients />;
-      case 'history':
+      case "history":
         return <BillingHistory />;
-      case 'reports':
+      case "reports":
         return <BillingReports />;
       default:
         return <BillingDashboard />;
     }
-  };
+  }, [activeSection]);
 
   return (
     <AdminBillingProvider>
@@ -67,6 +78,7 @@ const BillingPanel = () => {
                   <p className="text-stone-600">Gestión financiera integral</p>
                 </div>
               </div>
+
               <Button
                 variant="outline"
                 onClick={handleLogout}
@@ -79,22 +91,17 @@ const BillingPanel = () => {
           </div>
         </div>
 
-        {/* Main Content */}
+        {/* Main */}
         <div className="flex">
           {/* Sidebar */}
           <BillingSidebar
             activeSection={activeSection}
-            setActiveSection={setActiveSection}
+            setActiveSection={setActiveSection} // BillingSidebar debe tipar este prop como Dispatch<SetStateAction<Section>>
           />
 
           {/* Content */}
-          <div className="flex-1 p-6">
-            {renderContent()}
-          </div>
+          <div className="flex-1 p-6">{content}</div>
         </div>
-
-        {/* Admin Mode Toggle */}
-        <AdminBillingModeToggle />
       </div>
     </AdminBillingProvider>
   );

@@ -1,107 +1,242 @@
+import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { db } from "@/config/firebase";
+import { onValue, ref, update, set, push, remove, get } from "firebase/database";
 
-import React, { createContext, useContext, useState } from 'react';
+/* ================== Tipos mínimos ================== */
+export type RdbOrder = {
+  id: string;
+  number?: string;
+  status: string; // pendiente | en_preparacion | listo | entregado | sin_entrega | rechazado | cobrado ...
+  total?: number;
+  createdAt?: number;
+  acceptedAt?: number;
+  readyAt?: number;
+  deliveredAt?: number;
+  customerName?: string;
+  site?: { name?: string; address?: string };
+  client?: { commercialName?: string; legalName?: string; ruc?: string };
+  shipping?: { siteName?: string; address?: string; eta?: string };
+};
 
+export type RdbPayment = {
+  id: string;
+  orderId: string;
+  amount: number;
+  bank: string;
+  depositDate: number; // timestamp
+  voucherUrl?: string;
+  partial?: boolean;
+  createdAt: number; // timestamp
+};
+
+type RecordPaymentArgs = {
+  orderId: string;
+  bank: string;
+  amount: number;
+  depositDate: number;
+  voucherUrl?: string;
+  partial?: boolean;
+};
+
+type ReminderArgs = {
+  orderId: string;
+  dueAt: number; // timestamp
+  notes?: string;
+};
+
+/* ============ Interfaz del contexto de Cobranzas ============ */
 interface AdminBillingContextType {
   isAdminMode: boolean;
   setIsAdminMode: (value: boolean) => void;
-  editOrder: (orderId: string, changes: any) => void;
-  deleteOrder: (orderId: string, reason: string) => void;
-  viewHistory: (clientId: string) => any[];
-  editMovement: (movementId: string, changes: any) => void;
-  deleteMovement: (movementId: string, reason: string) => void;
-  sendWarningMessage: (clientId: string, message: string) => void;
-  generateAdvancedReport: (filters: any) => any;
+
+  orders: RdbOrder[];
+  payments: RdbPayment[];
+
+  acceptOrder: (orderId: string) => Promise<void>;
+  rejectOrder: (orderId: string, reason: string) => Promise<void>;
+  recycleOrderToPending: (orderId: string) => Promise<void>;
+
+  recordPayment: (args: RecordPaymentArgs) => Promise<void>;
+  createReminder: (args: ReminderArgs) => Promise<void>;
+
+  /** ⬅️ Nuevo: para tu componente BillingToBePaidAdmin */
+  sendWarningMessage: (orderId: string, message: string) => Promise<void>;
 }
 
+/* ================== Contexto ================== */
 const AdminBillingContext = createContext<AdminBillingContextType | undefined>(undefined);
 
 export const AdminBillingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [orders, setOrders] = useState<RdbOrder[]>([]);
+  const [payments, setPayments] = useState<RdbPayment[]>([]);
 
-  const editOrder = (orderId: string, changes: any) => {
-    console.log(`Admin editando pedido ${orderId}:`, changes);
-    // TODO: Implement order editing with audit trail
-    const auditEntry = {
-      id: `AUDIT-${Date.now()}`,
-      action: 'order_edit',
+  /* --------- Suscripción a /orders --------- */
+  useEffect(() => {
+    const r = ref(db, "orders");
+    const unsub = onValue(r, (snap) => {
+      const next: RdbOrder[] = [];
+      snap.forEach((c) => {
+        const v = c.val() || {};
+        next.push({
+          id: c.key!,
+          number: v.number || v.orderNumber || v.id,
+          status: v.status || "pendiente",
+          total: Number(v.total ?? v?.totals?.total ?? 0),
+          createdAt: typeof v.createdAt === "number" ? v.createdAt : Date.parse(v.createdAt || "") || undefined,
+          acceptedAt: typeof v.acceptedAt === "number" ? v.acceptedAt : Date.parse(v.acceptedAt || "") || undefined,
+          readyAt: typeof v.readyAt === "number" ? v.readyAt : Date.parse(v.readyAt || "") || undefined,
+          deliveredAt: typeof v.deliveredAt === "number" ? v.deliveredAt : Date.parse(v.deliveredAt || "") || undefined,
+          customerName: v.customerName,
+          site: v.site,
+          client: v.client,
+          shipping: v.shipping,
+        });
+        return false;
+      });
+      next.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      setOrders(next);
+    });
+    return () => typeof unsub === "function" && unsub();
+  }, []);
+
+  /* --------- Suscripción a /payments --------- */
+  useEffect(() => {
+    const r = ref(db, "payments");
+    const unsub = onValue(r, (snap) => {
+      const list: RdbPayment[] = [];
+      snap.forEach((c) => {
+        const v = c.val() || {};
+        list.push({
+          id: c.key!,
+          orderId: String(v.orderId),
+          amount: Number(v.amount || 0),
+          bank: String(v.bank || "bcp"),
+          depositDate: Number(v.depositDate || 0),
+          voucherUrl: v.voucherUrl || undefined,
+          partial: Boolean(v.partial),
+          createdAt: Number(v.createdAt || 0),
+        });
+        return false;
+      });
+      list.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      setPayments(list);
+    });
+    return () => typeof unsub === "function" && unsub();
+  }, []);
+
+  /* --------- Helpers: mantener ordersByStatus --------- */
+  const syncOrderByStatus = async (orderId: string, prevStatus?: string, nextStatus?: string) => {
+    if (prevStatus && prevStatus !== nextStatus) {
+      await remove(ref(db, `ordersByStatus/${prevStatus}/${orderId}`));
+    }
+    if (nextStatus) {
+      await set(ref(db, `ordersByStatus/${nextStatus}/${orderId}`), true);
+    }
+  };
+
+  const getOrderCurrentStatus = async (orderId: string): Promise<string | undefined> => {
+    const s = await get(ref(db, `orders/${orderId}/status`));
+    return s.exists() ? String(s.val()) : undefined;
+  };
+
+  /* ================== Acciones de bandeja ================== */
+  const acceptOrder = async (orderId: string) => {
+    const prev = await getOrderCurrentStatus(orderId);
+    const now = Date.now();
+    await update(ref(db, `orders/${orderId}`), { status: "en_preparacion", acceptedAt: now });
+    await syncOrderByStatus(orderId, prev, "en_preparacion");
+  };
+
+  const rejectOrder = async (orderId: string, reason: string) => {
+    const prev = await getOrderCurrentStatus(orderId);
+    const now = Date.now();
+    await update(ref(db, `orders/${orderId}`), {
+      status: "rechazado",
+      rejectedAt: now,
+      rejectionReason: reason || "Sin motivo",
+    });
+    await syncOrderByStatus(orderId, prev, "rechazado");
+  };
+
+  const recycleOrderToPending = async (orderId: string) => {
+    const prev = await getOrderCurrentStatus(orderId);
+    await update(ref(db, `orders/${orderId}`), { status: "pendiente" });
+    await syncOrderByStatus(orderId, prev, "pendiente");
+  };
+
+  /* ================== Pagos y recordatorios ================== */
+  const recordPayment = async (args: RecordPaymentArgs) => {
+    const { orderId, bank, amount, depositDate, voucherUrl, partial } = args;
+    const pRef = push(ref(db, "payments"));
+    const payload: Omit<RdbPayment, "id"> = {
       orderId,
-      changes,
-      user: 'admin@pecaditos.com',
-      timestamp: new Date().toISOString()
+      amount,
+      bank,
+      depositDate,
+      voucherUrl,
+      partial: Boolean(partial),
+      createdAt: Date.now(),
     };
-    console.log('Audit entry:', auditEntry);
+    await set(pRef, payload);
+
+    // Si el pago NO es parcial, marcamos la orden como cobrada
+    if (!partial) {
+      const prev = await getOrderCurrentStatus(orderId);
+      await update(ref(db, `orders/${orderId}`), { status: "cobrado", paidAt: Date.now() });
+      await syncOrderByStatus(orderId, prev, "cobrado");
+    }
   };
 
-  const deleteOrder = (orderId: string, reason: string) => {
-    console.log(`Admin eliminando pedido ${orderId}. Motivo: ${reason}`);
-    // TODO: Implement order deletion with audit trail
-    const auditEntry = {
-      id: `AUDIT-${Date.now()}`,
-      action: 'order_delete',
+  const createReminder = async (args: ReminderArgs) => {
+    const { orderId, dueAt, notes } = args;
+    const rRef = push(ref(db, `billingReminders/${orderId}`));
+    await set(rRef, {
+      id: rRef.key!,
       orderId,
-      reason,
-      user: 'admin@pecaditos.com',
-      timestamp: new Date().toISOString()
-    };
-    console.log('Audit entry:', auditEntry);
+      dueAt,
+      notes: notes || "",
+      createdAt: Date.now(),
+      done: false,
+    });
   };
 
-  const viewHistory = (clientId: string) => {
-    console.log(`Consultando historial del cliente ${clientId}`);
-    // TODO: Return actual client history
-    return [
-      {
-        id: 'MOV-001',
-        action: 'payment_received',
-        amount: 450.00,
-        date: '2024-01-15',
-        user: 'cobranzas@pecaditos.com'
-      }
-    ];
+  /* ================== Nuevo: advertencia/recordatorio corto ================== */
+  const sendWarningMessage = async (orderId: string, message: string) => {
+    const wRef = push(ref(db, `billingWarnings/${orderId}`));
+    await set(wRef, {
+      id: wRef.key!,
+      orderId,
+      message,
+      channel: "internal", // cambia a 'whatsapp' cuando integres envío real
+      createdAt: Date.now(),
+    });
+    // (Opcional) también podrías disparar un reminder corto a 24h:
+    // await createReminder({ orderId, dueAt: Date.now() + 24*60*60*1000, notes: `Aviso: ${message}` });
   };
 
-  const editMovement = (movementId: string, changes: any) => {
-    console.log(`Admin editando movimiento ${movementId}:`, changes);
-    // TODO: Implement movement editing with audit trail
-  };
-
-  const deleteMovement = (movementId: string, reason: string) => {
-    console.log(`Admin eliminando movimiento ${movementId}. Motivo: ${reason}`);
-    // TODO: Implement movement deletion with audit trail
-  };
-
-  const sendWarningMessage = (clientId: string, message: string) => {
-    console.log(`Enviando advertencia a cliente ${clientId}: ${message}`);
-    // TODO: Implement WhatsApp message sending
-  };
-
-  const generateAdvancedReport = (filters: any) => {
-    console.log('Generando reporte avanzado con filtros:', filters);
-    // TODO: Implement advanced reporting
-    return {};
-  };
-
-  return (
-    <AdminBillingContext.Provider value={{
+  /* ================== Valor del contexto ================== */
+  const value = useMemo<AdminBillingContextType>(
+    () => ({
       isAdminMode,
       setIsAdminMode,
-      editOrder,
-      deleteOrder,
-      viewHistory,
-      editMovement,
-      deleteMovement,
-      sendWarningMessage,
-      generateAdvancedReport
-    }}>
-      {children}
-    </AdminBillingContext.Provider>
+      orders,
+      payments,
+      acceptOrder,
+      rejectOrder,
+      recycleOrderToPending,
+      recordPayment,
+      createReminder,
+      sendWarningMessage, // ⬅️ añadido al value
+    }),
+    [isAdminMode, orders, payments]
   );
+
+  return <AdminBillingContext.Provider value={value}>{children}</AdminBillingContext.Provider>;
 };
 
 export const useAdminBilling = () => {
-  const context = useContext(AdminBillingContext);
-  if (context === undefined) {
-    throw new Error('useAdminBilling must be used within an AdminBillingProvider');
-  }
-  return context;
+  const ctx = useContext(AdminBillingContext);
+  if (!ctx) throw new Error("useAdminBilling must be used within an AdminBillingProvider");
+  return ctx;
 };

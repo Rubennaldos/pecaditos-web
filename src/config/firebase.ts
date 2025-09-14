@@ -12,14 +12,14 @@ const firebaseConfig = {
   storageBucket: "crm-pecaditos-integrales.appspot.com",
   messagingSenderId: "524481504623",
   appId: "1:524481504623:web:46b76ad2288346435c349a",
-  measurementId: "G-3PV0358P6Y"
+  measurementId: "G-3PV0358P6Y",
 };
 
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-const db = getDatabase(app);
+const db = getDatabase(app);        // RTDB
 const auth = getAuth(app);
-// importante: misma región donde desplegaste la Function (us-central1)
+// Importante: misma región donde desplegaste la Function (us-central1 por defecto)
 const functions = getFunctions(app, "us-central1");
 
 export { app, db, auth, functions };
