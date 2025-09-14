@@ -1,22 +1,13 @@
+// src/components/billing/BillingOrdersAdmin.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import {
-  Phone,
-  MessageSquare,
-  CheckCircle,
-  X,
-  Edit,
-  Trash2,
-  History,
-  Search,
-  Filter
-} from 'lucide-react';
+import { Phone, MessageSquare, CheckCircle, X, Edit, Trash2, History, Search, Filter } from 'lucide-react';
 import { ref, onValue, off, update, push } from 'firebase/database';
-import { db } from '../../config/firebase'         // ✅
+import { db } from '@/config/firebase';
 import { toast } from '@/hooks/use-toast';
 import { useAdminBilling } from '@/contexts/AdminBillingContext';
 import { BillingOrderEditModal } from './BillingOrderEditModal';
@@ -35,20 +26,26 @@ type ViewOrder = {
   dueDate?: number | string;
   phone?: string;
   whatsapp?: string;
-  // estado visual de cobranzas
   status: 'pending_payment' | 'payment_overdue' | 'paid' | 'rejected';
-  // crudo completo por si lo necesitan los modales
   _raw: RawOrder;
 };
 
-const ORDERS_PATH = 'orders';            // <-- AJUSTA si usas 'orders'
+// ===== RUTAS EN RTDB =====
+const ORDERS_PATH = 'orders';
+const INVOICES_PATH = 'invoices';            // <— para "Por Cobrar"
 const BILLING_MOVEMENTS = 'billingMovements';
 
-// --------- Helpers ----------
+// ===== Helpers =====
 const toDate = (v?: number | string) => {
   if (!v) return undefined;
   const d = typeof v === 'number' ? new Date(v) : new Date(String(v));
   return isNaN(d.getTime()) ? undefined : d;
+};
+
+const addDays = (base: Date, days: number) => {
+  const d = new Date(base);
+  d.setDate(d.getDate() + days);
+  return d;
 };
 
 const sanitizePhone = (p?: string) => (p ? p.replace(/\D/g, '') : '');
@@ -68,32 +65,62 @@ const getStatusInfo = (status: ViewOrder['status']) => {
   }
 };
 
-// Mapea el pedido de tu BD a lo que muestra la UI.
-// Ajusta aquí si tus campos reales tienen otros nombres.
+// Construye el "invoice" que usa la pestaña Por Cobrar a partir del pedido
+const buildInvoiceFromOrder = (order: ViewOrder) => {
+  const now = new Date();
+  const raw = order._raw || {};
+  const due = order.dueDate ? toDate(order.dueDate)! : addDays(now, 30);
+
+  const clientId =
+    raw?.client?.id ||
+    raw?.clientId ||
+    raw?.customerId ||
+    raw?.client?.ruc ||
+    order.ruc ||
+    (order.client || 'SIN_ID');
+
+  return {
+    id: order.id, // usamos el mismo id para poder cruzar fácil
+    orderId: order.id,
+    orderNumber: order.code,
+    clientId,
+    amount: Number(order.amount || 0),
+    createdAt: new Date().toISOString(),
+    dueDate: due.toISOString(),
+    status: 'pending' as const,
+    clientName: order.client,
+    ruc: order.ruc || null,
+    phone: order.phone || null,
+  };
+};
+
+// ===== Mapeo de pedido (orders -> ViewOrder para UI) =====
 const mapToView = (id: string, o: RawOrder): ViewOrder | null => {
   const estado = String(o?.estado || o?.status || '').toLowerCase();
 
-  // Consideramos estos como "entregados / listos para cobrar"
-  const deliveredLike = ['entregado', 'delivered', 'por_cobrar', 'ready_for_billing'];
-  if (!deliveredLike.includes(estado)) return null;
+  // Si ya está entregado, no se muestra aquí
+  if (estado === 'entregado' || estado === 'delivered') return null;
 
   const amount = Number(o?.total ?? o?.amount ?? 0);
+
   const client =
-    o?.cliente?.nombre ||
-    o?.customer?.name ||
-    o?.clienteNombre ||
+    o?.client?.commercialName ||
+    o?.customerName ||
+    o?.client?.name ||
+    o?.client?.legalName ||
+    o?.site?.name ||
     '—';
-  const comercialName = o?.cliente?.comercial || o?.customer?.tradeName || o?.comercialName;
-  const ruc = o?.cliente?.ruc || o?.customer?.taxId || o?.ruc;
-  const phone = o?.cliente?.telefono || o?.customer?.phone || o?.phone;
-  const code = o?.codigo || id;
+
+  const comercialName = o?.client?.commercialName || o?.comercialName;
+  const ruc = o?.client?.ruc || o?.ruc;
+  const phone = o?.customer?.phone || o?.phone;
+
+  const code = o?.orderNumber || o?.number || id;
   const date = o?.createdAt || o?.fecha;
   const dueDate = o?.billing?.dueDate || o?.dueDate;
 
-  // estado de cobranzas en base al billing/status y vencimiento
   const billingStatus = String(o?.billing?.status || '').toLowerCase();
   let status: ViewOrder['status'] = 'pending_payment';
-
   if (billingStatus === 'pagado' || billingStatus === 'paid') status = 'paid';
   else if (billingStatus === 'rechazado' || billingStatus === 'rejected') status = 'rejected';
   else {
@@ -117,7 +144,7 @@ const mapToView = (id: string, o: RawOrder): ViewOrder | null => {
   };
 };
 
-// ------------------------------------------------------
+// =======================================================
 
 export const BillingOrdersAdmin = () => {
   const { isAdminMode } = useAdminBilling();
@@ -129,7 +156,7 @@ export const BillingOrdersAdmin = () => {
 
   const [orders, setOrders] = useState<ViewOrder[]>([]);
 
-  // Suscripción a pedidos reales
+  // Suscripción a /orders
   useEffect(() => {
     const r = ref(db, ORDERS_PATH);
     const cb = (snap: any) => {
@@ -137,9 +164,8 @@ export const BillingOrdersAdmin = () => {
       const arr: ViewOrder[] = [];
       for (const [id, value] of Object.entries<any>(data)) {
         const mapped = mapToView(id, value);
-        if (mapped && mapped.status !== 'paid') arr.push(mapped);
+        if (mapped) arr.push(mapped);
       }
-      // ordena desc por fecha de creación
       arr.sort((a, b) => {
         const A = toDate(a.date)?.getTime() || 0;
         const B = toDate(b.date)?.getTime() || 0;
@@ -151,38 +177,55 @@ export const BillingOrdersAdmin = () => {
     return () => off(r, 'value', cb);
   }, []);
 
-  // Acciones
+  // ===== Acciones =====
+
+  // Enviar a "Por Cobrar": marca el pedido y crea/actualiza el invoice
   const handleAcceptOrder = async (order: ViewOrder) => {
     try {
+      // 1) Marca de cobranzas en el pedido
       await update(ref(db, `${ORDERS_PATH}/${order.id}`), {
         billing: {
           ...(order._raw?.billing || {}),
-          status: 'pagado',
-          paidAt: new Date().toISOString(),
+          status: 'por_cobrar',
+          sentToCollectionAt: new Date().toISOString(),
         },
       });
 
+      // 2) Crear/actualizar el invoice consumido por la pestaña "Por Cobrar"
+      const invoice = buildInvoiceFromOrder(order);
+      await update(ref(db, `${INVOICES_PATH}/${invoice.id}`), invoice);
+
+      // 3) Movimiento/auditoría
       await push(ref(db, BILLING_MOVEMENTS), {
-        type: 'payment_received',
+        type: 'sent_to_collection',
         orderId: order.id,
         client: order.client,
         amount: order.amount || 0,
         timestamp: Date.now(),
-        details: `Pago de ${order.code}`,
+        details: `Orden ${order.code} enviada a POR COBRAR`,
         user: 'cobranzas',
       });
 
-      toast({ title: 'Pago registrado', description: `Se marcó como pagado ${order.code}` });
+      toast({
+        title: 'Enviado a Por Cobrar',
+        description: `La orden ${order.code} ahora está pendiente de cobro.`,
+      });
     } catch (e) {
       console.error(e);
-      toast({ title: 'Error', description: 'No se pudo registrar el pago', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'No se pudo mover el pedido a Por Cobrar',
+        variant: 'destructive',
+      });
     }
   };
 
+  // Rechazar desde cobranzas
   const handleRejectOrder = async (order: ViewOrder) => {
     const reason = prompt('Motivo del rechazo / observación:');
     if (!reason) return;
     try {
+      // 1) Pedido
       await update(ref(db, `${ORDERS_PATH}/${order.id}`), {
         billing: {
           ...(order._raw?.billing || {}),
@@ -192,6 +235,14 @@ export const BillingOrdersAdmin = () => {
         },
       });
 
+      // 2) Si existiera invoice, también queda rechazado (no es obligatorio)
+      await update(ref(db, `${INVOICES_PATH}/${order.id}`), {
+        status: 'rejected',
+        rejectedAt: new Date().toISOString(),
+        reason,
+      });
+
+      // 3) Movimiento
       await push(ref(db, BILLING_MOVEMENTS), {
         type: 'invoice_rejected',
         orderId: order.id,
@@ -219,10 +270,10 @@ export const BillingOrdersAdmin = () => {
     window.open(`https://wa.me/${sanitizePhone(phone)}`, '_blank');
   };
 
-  // Filtros
+  // ===== Filtros =====
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return orders.filter(o => {
+    return orders.filter((o) => {
       const byStatus = filterStatus === 'todos' || o.status === filterStatus;
       const bySearch =
         !q ||
@@ -233,6 +284,7 @@ export const BillingOrdersAdmin = () => {
     });
   }, [orders, filterStatus, searchTerm]);
 
+  // ===== UI =====
   return (
     <div className="space-y-6">
       <div>
@@ -311,6 +363,7 @@ export const BillingOrdersAdmin = () => {
                   </div>
                 </div>
               </CardHeader>
+
               <CardContent>
                 <div className="flex justify-between items-center">
                   <div className="space-y-1">
@@ -350,7 +403,6 @@ export const BillingOrdersAdmin = () => {
                       WhatsApp
                     </Button>
 
-                    {/* Acciones */}
                     {order.status !== 'paid' && order.status !== 'rejected' && (
                       <>
                         <Button
@@ -361,6 +413,7 @@ export const BillingOrdersAdmin = () => {
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Aceptar
                         </Button>
+
                         <Button
                           size="sm"
                           onClick={() => handleRejectOrder(order)}
@@ -373,7 +426,6 @@ export const BillingOrdersAdmin = () => {
                       </>
                     )}
 
-                    {/* Admin Controls */}
                     {isAdminMode && (
                       <>
                         <Button
@@ -388,6 +440,7 @@ export const BillingOrdersAdmin = () => {
                           <Edit className="h-4 w-4 mr-2" />
                           Editar
                         </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
@@ -400,13 +453,13 @@ export const BillingOrdersAdmin = () => {
                           <Trash2 className="h-4 w-4 mr-2" />
                           Eliminar
                         </Button>
+
                         <Button
                           size="sm"
                           variant="outline"
                           className="text-purple-600 border-purple-300 hover:bg-purple-50"
                           onClick={() => {
-                            // Aquí puedes abrir tu historial por orderId
-                            // o navegar a /cobranzas/historial?orderId=...
+                            /* abrir historial si lo necesitas */
                           }}
                         >
                           <History className="h-4 w-4 mr-2" />

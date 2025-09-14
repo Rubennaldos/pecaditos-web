@@ -1,7 +1,20 @@
+// src/contexts/LogisticsContext.tsx
 import { createContext, useContext, useReducer, ReactNode, useEffect } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { db } from '@/config/firebase';
+import {
+  ref,
+  onValue,
+  runTransaction,
+  push,
+  set,
+  update as rtdbUpdate,
+  remove,
+} from 'firebase/database';
 
-// Types for Logistics System
+// =====================
+// Tipos del sistema
+// =====================
 export interface LogisticsUser {
   id: string;
   email: string;
@@ -46,9 +59,17 @@ export interface MovementRecord {
   notes?: string;
 }
 
+export interface PurchaseOrderItem {
+  itemId: string;
+  itemName: string;
+  quantity: number;
+  unitCost: number;
+  totalCost: number;
+}
+
 export interface PurchaseOrder {
   id: string;
-  orderNumber: string;
+  orderNumber: string; // -> ORD-001, ORD-002, ...
   supplier: string;
   status: 'draft' | 'sent' | 'confirmed' | 'received' | 'cancelled';
   items: PurchaseOrderItem[];
@@ -57,14 +78,6 @@ export interface PurchaseOrder {
   createdAt: string;
   updatedAt: string;
   notes?: string;
-}
-
-export interface PurchaseOrderItem {
-  itemId: string;
-  itemName: string;
-  quantity: number;
-  unitCost: number;
-  totalCost: number;
 }
 
 export interface Category {
@@ -84,6 +97,17 @@ export interface Supplier {
   categories: string[];
 }
 
+export interface Alert {
+  id: string;
+  type: 'low_stock' | 'expiring' | 'expired' | 'out_of_stock';
+  itemId: string;
+  itemName: string;
+  message: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  createdAt: string;
+  acknowledged: boolean;
+}
+
 export interface LogisticsState {
   user: LogisticsUser | null;
   isAdminMode: boolean;
@@ -97,49 +121,70 @@ export interface LogisticsState {
   error: string | null;
 }
 
-export interface Alert {
-  id: string;
-  type: 'low_stock' | 'expiring' | 'expired' | 'out_of_stock';
-  itemId: string;
-  itemName: string;
-  message: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  createdAt: string;
-  acknowledged: boolean;
-}
-
-type LogisticsAction = 
+type LogisticsAction =
   | { type: 'LOGIN'; payload: LogisticsUser }
   | { type: 'LOGOUT' }
   | { type: 'TOGGLE_ADMIN_MODE' }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'ADD_INVENTORY_ITEM'; payload: InventoryItem }
-  | { type: 'UPDATE_INVENTORY_ITEM'; payload: InventoryItem }
-  | { type: 'DELETE_INVENTORY_ITEM'; payload: string }
-  | { type: 'ADD_MOVEMENT'; payload: MovementRecord }
-  | { type: 'ADD_PURCHASE_ORDER'; payload: PurchaseOrder }
-  | { type: 'UPDATE_PURCHASE_ORDER'; payload: PurchaseOrder }
-  | { type: 'DELETE_PURCHASE_ORDER'; payload: string }
-  | { type: 'ADD_CATEGORY'; payload: Category }
-  | { type: 'UPDATE_CATEGORY'; payload: Category }
-  | { type: 'DELETE_CATEGORY'; payload: string }
-  | { type: 'ADD_SUPPLIER'; payload: Supplier }
-  | { type: 'UPDATE_SUPPLIER'; payload: Supplier }
-  | { type: 'DELETE_SUPPLIER'; payload: string }
+  | { type: 'SET_INVENTORY'; payload: InventoryItem[] }
+  | { type: 'SET_SUPPLIERS'; payload: Supplier[] }
+  | { type: 'SET_PURCHASE_ORDERS'; payload: PurchaseOrder[] }
+  | { type: 'ADD_MOVEMENT_LOCAL'; payload: MovementRecord }
   | { type: 'ACKNOWLEDGE_ALERT'; payload: string }
   | { type: 'INITIALIZE_DATA'; payload: Partial<LogisticsState> };
 
-// SISTEMA LIMPIO - Sin datos de ejemplo
-const mockInventory: InventoryItem[] = [];
+// =====================
+// Paths en RTDB
+// =====================
+const PATH = {
+  COUNTER_ORD: 'counters/purchaseOrders', // nodo del contador
+  PURCHASE_ORDERS: 'purchaseOrders',      // colección de órdenes
+  INVENTORY: 'inventory',
+  SUPPLIERS: 'suppliers',
+};
 
-const mockCategories: Category[] = [];
+// =====================
+// Utils
+// =====================
+const pad = (n: number, len = 3) => String(n).padStart(len, '0');
 
-const mockSuppliers: Supplier[] = [];
+const logisticsReducer = (state: LogisticsState, action: LogisticsAction): LogisticsState => {
+  switch (action.type) {
+    case 'LOGIN':
+      return { ...state, user: action.payload, error: null };
+    case 'LOGOUT':
+      return { ...state, user: null, isAdminMode: false };
+    case 'TOGGLE_ADMIN_MODE':
+      return { ...state, isAdminMode: !state.isAdminMode };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    case 'SET_ERROR':
+      return { ...state, error: action.payload };
 
-const mockMovements: MovementRecord[] = [];
+    case 'SET_INVENTORY':
+      return { ...state, inventory: action.payload };
+    case 'SET_SUPPLIERS':
+      return { ...state, suppliers: action.payload };
+    case 'SET_PURCHASE_ORDERS':
+      return { ...state, purchaseOrders: action.payload };
 
-const mockPurchaseOrders: PurchaseOrder[] = [];
+    case 'ADD_MOVEMENT_LOCAL':
+      return { ...state, movements: [action.payload, ...state.movements] };
+
+    case 'ACKNOWLEDGE_ALERT':
+      return {
+        ...state,
+        alerts: state.alerts.map((a) => (a.id === action.payload ? { ...a, acknowledged: true } : a)),
+      };
+
+    case 'INITIALIZE_DATA':
+      return { ...state, ...action.payload };
+
+    default:
+      return state;
+  }
+};
 
 const initialState: LogisticsState = {
   user: null,
@@ -151,148 +196,31 @@ const initialState: LogisticsState = {
   suppliers: [],
   alerts: [],
   loading: false,
-  error: null
-};
-
-const logisticsReducer = (state: LogisticsState, action: LogisticsAction): LogisticsState => {
-  switch (action.type) {
-    case 'LOGIN':
-      return { ...state, user: action.payload, error: null };
-    
-    case 'LOGOUT':
-      return { ...state, user: null, isAdminMode: false };
-    
-    case 'TOGGLE_ADMIN_MODE':
-      return { ...state, isAdminMode: !state.isAdminMode };
-    
-    case 'SET_LOADING':
-      return { ...state, loading: action.payload };
-    
-    case 'SET_ERROR':
-      return { ...state, error: action.payload };
-    
-    case 'ADD_INVENTORY_ITEM':
-      return { 
-        ...state, 
-        inventory: [...state.inventory, action.payload]
-      };
-    
-    case 'UPDATE_INVENTORY_ITEM':
-      return {
-        ...state,
-        inventory: state.inventory.map(item => 
-          item.id === action.payload.id ? action.payload : item
-        )
-      };
-    
-    case 'DELETE_INVENTORY_ITEM':
-      return {
-        ...state,
-        inventory: state.inventory.filter(item => item.id !== action.payload)
-      };
-    
-    case 'ADD_MOVEMENT':
-      return {
-        ...state,
-        movements: [action.payload, ...state.movements]
-      };
-    
-    case 'ADD_PURCHASE_ORDER':
-      return {
-        ...state,
-        purchaseOrders: [...state.purchaseOrders, action.payload]
-      };
-    
-    case 'UPDATE_PURCHASE_ORDER':
-      return {
-        ...state,
-        purchaseOrders: state.purchaseOrders.map(order => 
-          order.id === action.payload.id ? action.payload : order
-        )
-      };
-    
-    case 'DELETE_PURCHASE_ORDER':
-      return {
-        ...state,
-        purchaseOrders: state.purchaseOrders.filter(order => order.id !== action.payload)
-      };
-    
-    case 'ADD_CATEGORY':
-      return {
-        ...state,
-        categories: [...state.categories, action.payload]
-      };
-    
-    case 'UPDATE_CATEGORY':
-      return {
-        ...state,
-        categories: state.categories.map(cat => 
-          cat.id === action.payload.id ? action.payload : cat
-        )
-      };
-    
-    case 'DELETE_CATEGORY':
-      return {
-        ...state,
-        categories: state.categories.filter(cat => cat.id !== action.payload)
-      };
-    
-    case 'ADD_SUPPLIER':
-      return {
-        ...state,
-        suppliers: [...state.suppliers, action.payload]
-      };
-    
-    case 'UPDATE_SUPPLIER':
-      return {
-        ...state,
-        suppliers: state.suppliers.map(sup => 
-          sup.id === action.payload.id ? action.payload : sup
-        )
-      };
-    
-    case 'DELETE_SUPPLIER':
-      return {
-        ...state,
-        suppliers: state.suppliers.filter(sup => sup.id !== action.payload)
-      };
-    
-    case 'ACKNOWLEDGE_ALERT':
-      return {
-        ...state,
-        alerts: state.alerts.map(alert => 
-          alert.id === action.payload ? { ...alert, acknowledged: true } : alert
-        )
-      };
-    
-    case 'INITIALIZE_DATA':
-      return { ...state, ...action.payload };
-    
-    default:
-      return state;
-  }
+  error: null,
 };
 
 const LogisticsContext = createContext<{
   state: LogisticsState;
+
+  // auth/ui
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   toggleAdminMode: () => void;
-  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateInventoryItem: (item: InventoryItem) => void;
-  deleteInventoryItem: (id: string) => void;
+
+  // inventory (local UI only; persistencia la puedes añadir luego)
   addMovement: (movement: Omit<MovementRecord, 'id' | 'timestamp'>) => void;
-  addPurchaseOrder: (order: Omit<PurchaseOrder, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => void;
-  updatePurchaseOrder: (order: PurchaseOrder) => void;
-  deletePurchaseOrder: (id: string) => void;
-  addCategory: (category: Omit<Category, 'id'>) => void;
-  updateCategory: (category: Category) => void;
-  deleteCategory: (id: string) => void;
-  addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
-  updateSupplier: (supplier: Supplier) => void;
-  deleteSupplier: (id: string) => void;
-  generateAlerts: () => void;
+
+  // purchase orders (RTDB)
+  addPurchaseOrder: (
+    order: Omit<PurchaseOrder, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>
+  ) => Promise<void>;
+  updatePurchaseOrder: (order: PurchaseOrder) => Promise<void>;
+  deletePurchaseOrder: (id: string) => Promise<void>;
+
+  // categories/suppliers opcional (local)
   acknowledgeAlert: (alertId: string) => void;
+
+  // estado expuesto
   user: LogisticsUser | null;
   isAdminMode: boolean;
   inventory: InventoryItem[];
@@ -305,38 +233,100 @@ const LogisticsContext = createContext<{
   error: string | null;
 } | null>(null);
 
+// =====================
+// Helper: correlativo RTDB
+// =====================
+async function getNextOrdNumberRTDB(): Promise<string> {
+  const counterRef = ref(db, PATH.COUNTER_ORD);
+
+  const result = await runTransaction(counterRef, (current) => {
+    // si no existe, arranca en 0 y luego suma a 1
+    if (current === null || current === undefined) return 1;
+    if (typeof current !== 'number') return 1;
+    return current + 1;
+  });
+
+  const nextNum = result.snapshot.val() as number;
+  return `ORD-${pad(nextNum, 3)}`;
+}
+
+// =====================
+// Provider
+// =====================
 export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(logisticsReducer, initialState);
 
-  // Generate alerts based on inventory status
-  const generateAlerts = () => {
-    const newAlerts: Alert[] = [];
-    const now = new Date();
+  // Suscriptores RTDB
+  useEffect(() => {
+    // inventario
+    const invRef = ref(db, PATH.INVENTORY);
+    const unsubInv = onValue(invRef, (snap) => {
+      const val = snap.val() || {};
+      const list: InventoryItem[] = Object.entries(val).map(([id, v]: any) => ({
+        ...v,
+        id,
+      }));
+      dispatch({ type: 'SET_INVENTORY', payload: list });
+    });
 
-    state.inventory.forEach(item => {
-      // Low stock alert
+    // proveedores
+    const supRef = ref(db, PATH.SUPPLIERS);
+    const unsubSup = onValue(supRef, (snap) => {
+      const val = snap.val() || {};
+      const list: Supplier[] = Object.entries(val).map(([id, v]: any) => ({
+        ...v,
+        id,
+      }));
+      dispatch({ type: 'SET_SUPPLIERS', payload: list });
+    });
+
+    // órdenes de compra
+    const poRef = ref(db, PATH.PURCHASE_ORDERS);
+    const unsubPO = onValue(poRef, (snap) => {
+      const val = snap.val() || {};
+      const list: PurchaseOrder[] = Object.entries(val).map(([id, v]: any) => ({
+        ...v,
+        id,
+      }));
+      // opcional: ordenar por fecha desc
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      dispatch({ type: 'SET_PURCHASE_ORDERS', payload: list });
+    });
+
+    return () => {
+      unsubInv();
+      unsubSup();
+      unsubPO();
+    };
+  }, []);
+
+  // Alerts (local) derivadas del inventario
+  useEffect(() => {
+    const now = new Date();
+    const alerts: Alert[] = [];
+
+    state.inventory.forEach((item) => {
       if (item.currentQuantity <= item.minQuantity) {
-        newAlerts.push({
+        alerts.push({
           id: `alert_${item.id}_${Date.now()}`,
           type: item.currentQuantity === 0 ? 'out_of_stock' : 'low_stock',
           itemId: item.id,
           itemName: item.name,
-          message: item.currentQuantity === 0 
-            ? `${item.name} está agotado`
-            : `${item.name} tiene stock bajo (${item.currentQuantity}/${item.minQuantity})`,
+          message:
+            item.currentQuantity === 0
+              ? `${item.name} está agotado`
+              : `${item.name} tiene stock bajo (${item.currentQuantity}/${item.minQuantity})`,
           severity: item.currentQuantity === 0 ? 'critical' : 'high',
           createdAt: now.toISOString(),
-          acknowledged: false
+          acknowledged: false,
         });
       }
 
-      // Expiration alerts
       if (item.expirationDate) {
-        const expirationDate = new Date(item.expirationDate);
-        const daysUntilExpiration = Math.ceil((expirationDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-
-        if (daysUntilExpiration < 0) {
-          newAlerts.push({
+        const exp = new Date(item.expirationDate);
+        const d = Math.ceil((exp.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        if (d < 0) {
+          alerts.push({
             id: `alert_exp_${item.id}_${Date.now()}`,
             type: 'expired',
             itemId: item.id,
@@ -344,55 +334,45 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
             message: `${item.name} ha vencido`,
             severity: 'critical',
             createdAt: now.toISOString(),
-            acknowledged: false
+            acknowledged: false,
           });
-        } else if (daysUntilExpiration <= 7) {
-          newAlerts.push({
+        } else if (d <= 7) {
+          alerts.push({
             id: `alert_exp_${item.id}_${Date.now()}`,
             type: 'expiring',
             itemId: item.id,
             itemName: item.name,
-            message: `${item.name} vence en ${daysUntilExpiration} días`,
-            severity: daysUntilExpiration <= 3 ? 'high' : 'medium',
+            message: `${item.name} vence en ${d} días`,
+            severity: d <= 3 ? 'high' : 'medium',
             createdAt: now.toISOString(),
-            acknowledged: false
+            acknowledged: false,
           });
         }
       }
     });
 
-    dispatch({ type: 'INITIALIZE_DATA', payload: { alerts: newAlerts } });
-  };
-
-  // Check alerts when inventory changes
-  useEffect(() => {
-    generateAlerts();
+    dispatch({ type: 'INITIALIZE_DATA', payload: { alerts } });
   }, [state.inventory]);
 
+  // =====================
+  // Auth "fake" local
+  // =====================
   const login = async (email: string, password: string): Promise<boolean> => {
     dispatch({ type: 'SET_LOADING', payload: true });
-    
     try {
-      // Simulación de autenticación local (sin Firebase por ahora)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((r) => setTimeout(r, 600));
       if (email === 'albertonaldos@gmail.com' && password === 'mirojito123') {
         const user: LogisticsUser = {
           id: 'admin_main',
-          email: 'albertonaldos@gmail.com',
+          email,
           name: 'Alberto Naldos - Admin Principal',
           role: 'admin',
-          permissions: ['all']
+          permissions: ['all'],
         };
         dispatch({ type: 'LOGIN', payload: user });
         return true;
       }
-      
       dispatch({ type: 'SET_ERROR', payload: 'Credenciales incorrectas' });
-      return false;
-    } catch (error) {
-      console.error('Error en login:', error);
-      dispatch({ type: 'SET_ERROR', payload: 'Error de conexión' });
       return false;
     } finally {
       dispatch({ type: 'SET_LOADING', payload: false });
@@ -407,90 +387,66 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
     if (state.user?.role === 'admin') {
       dispatch({ type: 'TOGGLE_ADMIN_MODE' });
       toast({
-        title: state.isAdminMode ? "Modo admin desactivado" : "Modo admin activado",
-        description: state.isAdminMode ? "Ahora en modo usuario normal" : "Acceso completo habilitado",
+        title: state.isAdminMode ? 'Modo admin desactivado' : 'Modo admin activado',
+        description: state.isAdminMode ? 'Ahora en modo usuario normal' : 'Acceso completo habilitado',
       });
     }
   };
 
-  const addInventoryItem = (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newItem: InventoryItem = {
-      ...item,
-      id: `inv_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
-    dispatch({ type: 'ADD_INVENTORY_ITEM', payload: newItem });
-  };
-
-  const updateInventoryItem = (item: InventoryItem) => {
-    const updatedItem = { ...item, updatedAt: new Date().toISOString() };
-    dispatch({ type: 'UPDATE_INVENTORY_ITEM', payload: updatedItem });
-  };
-
-  const deleteInventoryItem = (id: string) => {
-    dispatch({ type: 'DELETE_INVENTORY_ITEM', payload: id });
-  };
-
+  // =====================
+  // Movimientos (local)
+  // =====================
   const addMovement = (movement: Omit<MovementRecord, 'id' | 'timestamp'>) => {
     const newMovement: MovementRecord = {
       ...movement,
       id: `mov_${Date.now()}`,
-      timestamp: new Date().toLocaleString()
+      timestamp: new Date().toISOString(),
     };
-    dispatch({ type: 'ADD_MOVEMENT', payload: newMovement });
+    dispatch({ type: 'ADD_MOVEMENT_LOCAL', payload: newMovement });
   };
 
-  const addPurchaseOrder = (order: Omit<PurchaseOrder, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => {
-    const newOrder: PurchaseOrder = {
+  // =====================
+  // Órdenes de Compra (RTDB con correlativo ORD-###)
+  // =====================
+  const addPurchaseOrder = async (
+    order: Omit<PurchaseOrder, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>
+  ): Promise<void> => {
+    // 1) obtener siguiente correlativo atómico en RTDB
+    const orderNumber = await getNextOrdNumberRTDB(); // -> "ORD-001"
+
+    // 2) crear ID y guardar en /purchaseOrders/{id}
+    const poListRef = ref(db, PATH.PURCHASE_ORDERS);
+    const newRef = push(poListRef); // genera key única
+    const id = newRef.key as string;
+
+    const payload: PurchaseOrder = {
       ...order,
-      id: `po_${Date.now()}`,
-      orderNumber: `ORD-${new Date().getFullYear()}-${String(state.purchaseOrders.length + 1).padStart(3, '0')}`,
+      id,
+      orderNumber,
       createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
-    dispatch({ type: 'ADD_PURCHASE_ORDER', payload: newOrder });
+
+    await set(newRef, payload);
+
+    toast({
+      title: 'Orden creada',
+      description: `Se creó la orden ${orderNumber}`,
+    });
   };
 
-  const updatePurchaseOrder = (order: PurchaseOrder) => {
-    const updatedOrder = { ...order, updatedAt: new Date().toISOString() };
-    dispatch({ type: 'UPDATE_PURCHASE_ORDER', payload: updatedOrder });
+  const updatePurchaseOrder = async (order: PurchaseOrder): Promise<void> => {
+    if (!order.id) return;
+    const refOrder = ref(db, `${PATH.PURCHASE_ORDERS}/${order.id}`);
+    const payload = { ...order, updatedAt: new Date().toISOString() };
+    await rtdbUpdate(refOrder, payload);
+    toast({ title: 'Orden actualizada', description: order.orderNumber });
   };
 
-  const deletePurchaseOrder = (id: string) => {
-    dispatch({ type: 'DELETE_PURCHASE_ORDER', payload: id });
-  };
-
-  const addCategory = (category: Omit<Category, 'id'>) => {
-    const newCategory: Category = {
-      ...category,
-      id: category.name.toLowerCase().replace(/\s+/g, '-')
-    };
-    dispatch({ type: 'ADD_CATEGORY', payload: newCategory });
-  };
-
-  const updateCategory = (category: Category) => {
-    dispatch({ type: 'UPDATE_CATEGORY', payload: category });
-  };
-
-  const deleteCategory = (id: string) => {
-    dispatch({ type: 'DELETE_CATEGORY', payload: id });
-  };
-
-  const addSupplier = (supplier: Omit<Supplier, 'id'>) => {
-    const newSupplier: Supplier = {
-      ...supplier,
-      id: supplier.name.toLowerCase().replace(/\s+/g, '-')
-    };
-    dispatch({ type: 'ADD_SUPPLIER', payload: newSupplier });
-  };
-
-  const updateSupplier = (supplier: Supplier) => {
-    dispatch({ type: 'UPDATE_SUPPLIER', payload: supplier });
-  };
-
-  const deleteSupplier = (id: string) => {
-    dispatch({ type: 'DELETE_SUPPLIER', payload: id });
+  const deletePurchaseOrder = async (id: string): Promise<void> => {
+    const refOrder = ref(db, `${PATH.PURCHASE_ORDERS}/${id}`);
+    await remove(refOrder);
+    toast({ title: 'Orden eliminada', description: `ID: ${id}` });
   };
 
   const acknowledgeAlert = (alertId: string) => {
@@ -498,46 +454,41 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <LogisticsContext.Provider value={{
-      state,
-      login,
-      logout,
-      toggleAdminMode,
-      addInventoryItem,
-      updateInventoryItem,
-      deleteInventoryItem,
-      addMovement,
-      addPurchaseOrder,
-      updatePurchaseOrder,
-      deletePurchaseOrder,
-      addCategory,
-      updateCategory,
-      deleteCategory,
-      addSupplier,
-      updateSupplier,
-      deleteSupplier,
-      generateAlerts,
-      acknowledgeAlert,
-      user: state.user,
-      isAdminMode: state.isAdminMode,
-      inventory: state.inventory,
-      movements: state.movements,
-      purchaseOrders: state.purchaseOrders,
-      categories: state.categories,
-      suppliers: state.suppliers,
-      alerts: state.alerts,
-      loading: state.loading,
-      error: state.error
-    }}>
+    <LogisticsContext.Provider
+      value={{
+        state,
+        login,
+        logout,
+        toggleAdminMode,
+        addMovement,
+
+        addPurchaseOrder,
+        updatePurchaseOrder,
+        deletePurchaseOrder,
+
+        acknowledgeAlert,
+
+        user: state.user,
+        isAdminMode: state.isAdminMode,
+        inventory: state.inventory,
+        movements: state.movements,
+        purchaseOrders: state.purchaseOrders,
+        categories: state.categories,
+        suppliers: state.suppliers,
+        alerts: state.alerts,
+        loading: state.loading,
+        error: state.error,
+      }}
+    >
       {children}
     </LogisticsContext.Provider>
   );
 };
 
 export const useLogistics = () => {
-  const context = useContext(LogisticsContext);
-  if (!context) {
+  const ctx = useContext(LogisticsContext);
+  if (!ctx) {
     throw new Error('useLogistics must be used within a LogisticsProvider');
   }
-  return context;
+  return ctx;
 };

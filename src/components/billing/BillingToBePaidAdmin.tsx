@@ -34,7 +34,7 @@ import { useToast } from '../../hooks/use-toast';
 import {
   useBilling,
   type Invoice as HookInvoice,
-  type Client as HookClient
+  type Client as HookClient,
 } from '../../hooks/useBilling';
 
 type SortKey = 'amount_desc' | 'amount_asc' | 'overdue_desc' | 'overdue_asc';
@@ -43,8 +43,8 @@ type UIInvoice = {
   id: string;
   orderNumber?: string;
   amount: number;
-  issueDate?: string;
-  dueDate: string;
+  issueDate?: string | number;
+  dueDate?: string | number;
   status: 'pending' | 'overdue' | 'paid' | 'rejected';
   daysOverdue: number;
   paymentMethod?: string;
@@ -61,8 +61,16 @@ type UIClient = {
   invoices: UIInvoice[];
 };
 
+const toDate = (v?: string | number) => {
+  if (v === undefined || v === null || v === '') return undefined;
+  const d = typeof v === 'number' ? new Date(v) : new Date(String(v));
+  return Number.isNaN(d.getTime()) ? undefined : d;
+};
+
+const todayYMD = () => new Date().toISOString().slice(0, 10);
+
 export const BillingToBePaidAdmin = () => {
-  // ⬇️ usar sendReminder (no sendWarningMessage)
+  // ⬇️ usar sendReminder (Asegúrate que exista en AdminBillingContext)
   const { sendReminder } = useAdminBilling();
   const { toast } = useToast();
   const { invoices: rawInvoices, clients: rawClients } = useBilling();
@@ -80,7 +88,7 @@ export const BillingToBePaidAdmin = () => {
   // Forms
   const [collectData, setCollectData] = useState({
     amount: '',
-    date: '',
+    date: todayYMD(),
     operationNumber: '',
     bank: '',
     responsible: '',
@@ -95,7 +103,7 @@ export const BillingToBePaidAdmin = () => {
   const [creditNoteData, setCreditNoteData] = useState({
     number: '',
     reason: '',
-    date: '',
+    date: todayYMD(),
     amount: '',
     authCode: '',
   });
@@ -103,7 +111,7 @@ export const BillingToBePaidAdmin = () => {
   // --------- Transformación desde el hook (sin mocks) ----------
   const clientsData: UIClient[] = useMemo(() => {
     const byClient: Record<string, UIClient> = {};
-    const now = new Date();
+    const now = Date.now();
 
     const getClient = (id: string): HookClient | undefined => rawClients[id];
 
@@ -125,11 +133,9 @@ export const BillingToBePaidAdmin = () => {
         };
       }
 
-      const due = new Date(inv.dueDate);
+      const due = toDate(inv.dueDate);
       const daysOver =
-        due.getTime() < now.getTime()
-          ? Math.ceil((now.getTime() - due.getTime()) / (1000 * 60 * 60 * 24))
-          : 0;
+        due && due.getTime() < now ? Math.ceil((now - due.getTime()) / 86400000) : 0;
 
       const uiInv: UIInvoice = {
         id: inv.id,
@@ -148,7 +154,9 @@ export const BillingToBePaidAdmin = () => {
     });
 
     Object.values(byClient).forEach((c) =>
-      c.invoices.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+      c.invoices.sort(
+        (a, b) => (toDate(a.dueDate)?.getTime() || 0) - (toDate(b.dueDate)?.getTime() || 0),
+      ),
     );
 
     return Object.values(byClient);
@@ -160,13 +168,11 @@ export const BillingToBePaidAdmin = () => {
 
   const handleCollect = (invoice: UIInvoice) => {
     setSelectedInvoice(invoice);
-    setCollectData({
+    setCollectData((prev) => ({
+      ...prev,
       amount: invoice.amount.toString(),
-      date: new Date().toISOString().split('T')[0],
-      operationNumber: '',
-      bank: '',
-      responsible: '',
-    });
+      date: todayYMD(),
+    }));
     setShowCollectModal(true);
   };
 
@@ -181,7 +187,7 @@ export const BillingToBePaidAdmin = () => {
     setCreditNoteData({
       number: '',
       reason: '',
-      date: new Date().toISOString().split('T')[0],
+      date: todayYMD(),
       amount: invoice.amount.toString(),
       authCode: '',
     });
@@ -192,10 +198,12 @@ export const BillingToBePaidAdmin = () => {
     const client = findClientByInvoice(invoice);
     if (!client || !client.phone) return;
     const message = `Hola ${client.comercialName ?? client.client}, le recordamos que tiene una factura pendiente (${invoice.id}) por S/ ${invoice.amount.toFixed(
-      2
-    )} con vencimiento el ${new Date(invoice.dueDate).toLocaleDateString()}. Gracias.`;
-    const digits = client.phone.replace(/\D/g, '');
-    window.open(`https://wa.me/${digits}?text=${encodeURIComponent(message)}`, '_blank');
+      2,
+    )} con vencimiento el ${
+      toDate(invoice.dueDate)?.toLocaleDateString('es-PE') ?? '-'
+    }. Gracias.`;
+    const num = client.phone.replace(/\D/g, '');
+    window.open(`https://wa.me/${num}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
   const handleWarning = (invoice: UIInvoice) => {
@@ -204,67 +212,61 @@ export const BillingToBePaidAdmin = () => {
   };
 
   const handleDownloadPDF = (invoice: UIInvoice) => {
-    console.log(`Descargando PDF de ${invoice.id}`);
-    const id = invoice.id;
-    toast({ title: 'Descarga iniciada', description: `Descargando PDF de ${id}` });
+    toast({ title: 'Descarga iniciada', description: `Descargando PDF de ${invoice.id}` });
   };
 
   const handleCall = (phone?: string) => {
     if (!phone) return;
-    const digits = phone.replace(/\D/g, '');
-    window.open(`tel:${digits}`, '_self');
+    const num = phone.replace(/\D/g, '');
+    if (!num) return;
+    window.open(`tel:${num}`, '_self');
   };
 
   // --------- Confirmaciones ----------
   const confirmCollect = () => {
     if (!collectData.amount || !collectData.date || !collectData.responsible) {
-      toast({ title: 'Error', description: 'Complete los campos obligatorios', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Complete los campos obligatorios',
+        variant: 'destructive',
+      });
       return;
     }
     // TODO: persistir en DB
     toast({ title: 'Pago registrado', description: `Pago de S/ ${collectData.amount}` });
     setShowCollectModal(false);
     setSelectedInvoice(null);
-    setCollectData({ amount: '', date: '', operationNumber: '', bank: '', responsible: '' });
+    setCollectData({ amount: '', date: todayYMD(), operationNumber: '', bank: '', responsible: '' });
   };
 
   const confirmCommitment = () => {
     if (!commitmentData.date) {
-      toast({ title: 'Error', description: 'Seleccione la fecha de compromiso', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'Seleccione la fecha de compromiso',
+        variant: 'destructive',
+      });
       return;
     }
     // TODO: persistir en DB
     if (commitmentData.sendWhatsApp && selectedInvoice) handleWhatsApp(selectedInvoice);
     toast({
       title: 'Compromiso registrado',
-      description: `Para el ${new Date(commitmentData.date).toLocaleDateString()}`,
+      description: `Para el ${toDate(commitmentData.date)?.toLocaleDateString('es-PE') ?? '-'}`,
     });
     setShowCommitmentModal(false);
     setSelectedInvoice(null);
     setCommitmentData({ date: '', observation: '', sendWhatsApp: false });
   };
 
-  const confirmCreditNote = () => {
-    if (!creditNoteData.number || !creditNoteData.reason || !creditNoteData.amount) {
-      toast({ title: 'Error', description: 'Complete los campos obligatorios', variant: 'destructive' });
-      return;
-    }
-    // TODO: persistir en DB
-    toast({
-      title: 'Nota de crédito generada',
-      description: `Nota ${creditNoteData.number} por S/ ${creditNoteData.amount}`,
-    });
-    setShowCreditNoteModal(false);
-    setSelectedInvoice(null);
-    setCreditNoteData({ number: '', reason: '', date: '', amount: '', authCode: '' });
-  };
-
   const getWarningMessage = (invoice: UIInvoice) => {
     const c = findClientByInvoice(invoice);
     if (!c) return '';
     return `Estimado cliente ${c.client}, tiene una factura pendiente (${invoice.id}) por S/ ${invoice.amount.toFixed(
-      2
-    )} con vencimiento el ${new Date(invoice.dueDate).toLocaleDateString()}. Por favor, regularice su pago.`;
+      2,
+    )} con vencimiento el ${
+      toDate(invoice.dueDate)?.toLocaleDateString('es-PE') ?? '-'
+    }. Por favor, regularice su pago.`;
   };
 
   const copyWarningMessage = () => {
@@ -295,9 +297,9 @@ export const BillingToBePaidAdmin = () => {
     if (!term) return clientsData;
     return clientsData.filter(
       (client) =>
-        (client.ruc ?? '').includes(term) ||
+        (client.ruc ?? '').toLowerCase().includes(term) ||
         client.client.toLowerCase().includes(term) ||
-        (client.comercialName ?? '').toLowerCase().includes(term)
+        (client.comercialName ?? '').toLowerCase().includes(term),
     );
   }, [clientsData, searchTerm]);
 
@@ -324,7 +326,9 @@ export const BillingToBePaidAdmin = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-stone-800 mb-2">Cuentas por Cobrar - Vista por Cliente</h2>
+        <h2 className="text-2xl font-bold text-stone-800 mb-2">
+          Cuentas por Cobrar - Vista por Cliente
+        </h2>
         <p className="text-stone-600">Gestión completa de facturas pendientes agrupadas por cliente</p>
       </div>
 
@@ -421,14 +425,22 @@ export const BillingToBePaidAdmin = () => {
         {sortedClients.map((client) => (
           <Card
             key={client.clientId}
-            className={`hover:shadow-lg transition-all ${client.overdueDays > 0 ? 'border-red-300 bg-red-50' : ''}`}
+            className={`hover:shadow-lg transition-all ${
+              client.overdueDays > 0 ? 'border-red-300 bg-red-50' : ''
+            }`}
           >
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="flex items-center gap-2">
                     {client.client}
-                    <Badge className={client.overdueDays > 0 ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}>
+                    <Badge
+                      className={
+                        client.overdueDays > 0
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }
+                    >
                       {client.overdueDays > 0 ? `${client.overdueDays} días vencido` : 'Al día'}
                     </Badge>
                   </CardTitle>
@@ -440,7 +452,9 @@ export const BillingToBePaidAdmin = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-xl font-bold text-red-600">S/ {client.totalDebt.toFixed(2)}</div>
-                  <div className="text-sm text-stone-500">{client.invoices.length} facturas pendientes</div>
+                  <div className="text-sm text-stone-500">
+                    {client.invoices.length} facturas pendientes
+                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -452,14 +466,21 @@ export const BillingToBePaidAdmin = () => {
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <p className="font-medium text-stone-800">{invoice.id}</p>
-                        {invoice.orderNumber && <p className="text-sm text-stone-600">Orden: {invoice.orderNumber}</p>}
+                        {invoice.orderNumber && (
+                          <p className="text-sm text-stone-600">Orden: {invoice.orderNumber}</p>
+                        )}
                         <p className="text-xs text-stone-500">
-                          Vence: {new Date(invoice.dueDate).toLocaleDateString()} ({invoice.daysOverdue} días vencida)
+                          Vence:{' '}
+                          {toDate(invoice.dueDate)
+                            ?.toLocaleDateString('es-PE') ?? '—'}{' '}
+                          ({invoice.daysOverdue} días vencida)
                         </p>
                       </div>
                       <div className="text-right">
                         <p className="font-bold text-stone-800">S/ {invoice.amount.toFixed(2)}</p>
-                        <Badge className="bg-red-100 text-red-800 text-xs">{invoice.paymentMethod ?? 'crédito'}</Badge>
+                        <Badge className="bg-red-100 text-red-800 text-xs">
+                          {invoice.paymentMethod ?? 'crédito'}
+                        </Badge>
                       </div>
                     </div>
 
@@ -517,6 +538,7 @@ export const BillingToBePaidAdmin = () => {
                         onClick={() => handleCall(client.phone)}
                         variant="outline"
                         className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                        disabled={!client.phone}
                       >
                         <Phone className="h-4 w-4 mr-1" />
                         Llamar
@@ -548,12 +570,19 @@ export const BillingToBePaidAdmin = () => {
                     <Copy className="h-4 w-4 mr-2" />
                     Copiar Mensaje
                   </Button>
-                  <Button onClick={confirmWarning} className="bg-red-600 hover:bg-red-700 text-white flex-1">
+                  <Button
+                    onClick={confirmWarning}
+                    className="bg-red-600 hover:bg-red-700 text-white flex-1"
+                  >
                     <MessageSquare className="h-4 w-4 mr-2" />
                     Enviar WhatsApp
                   </Button>
                 </div>
-                <Button variant="outline" onClick={() => setShowWarningDialog(false)} className="w-full">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowWarningDialog(false)}
+                  className="w-full"
+                >
                   <X className="h-4 w-4 mr-2" />
                   Cancelar
                 </Button>
@@ -569,12 +598,13 @@ export const BillingToBePaidAdmin = () => {
           <DialogHeader>
             <DialogTitle>Registrar Pago</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+        <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-stone-700">Monto *</label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   value={collectData.amount}
                   onChange={(e) => setCollectData({ ...collectData, amount: e.target.value })}
                 />
@@ -582,9 +612,9 @@ export const BillingToBePaidAdmin = () => {
               <div>
                 <label className="block text-sm font-medium text-stone-700">Fecha *</label>
                 <Input
-                  type="date"
-                  value={collectData.date}
-                  onChange={(e) => setCollectData({ ...collectData, date: e.target.value })}
+                    type="date"
+                    value={collectData.date}
+                    onChange={(e) => setCollectData({ ...collectData, date: e.target.value })}
                 />
               </div>
             </div>
@@ -593,7 +623,9 @@ export const BillingToBePaidAdmin = () => {
               <Input
                 type="text"
                 value={collectData.operationNumber}
-                onChange={(e) => setCollectData({ ...collectData, operationNumber: e.target.value })}
+                onChange={(e) =>
+                  setCollectData({ ...collectData, operationNumber: e.target.value })
+                }
               />
             </div>
             <div>
@@ -613,7 +645,10 @@ export const BillingToBePaidAdmin = () => {
               />
             </div>
             <div className="flex gap-2">
-              <Button onClick={confirmCollect} className="bg-green-600 hover:bg-green-700 text-white">
+              <Button
+                onClick={confirmCollect}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
                 Registrar Pago
               </Button>
               <Button variant="outline" onClick={() => setShowCollectModal(false)}>
@@ -644,7 +679,9 @@ export const BillingToBePaidAdmin = () => {
               <Textarea
                 placeholder="Ingrese observaciones adicionales"
                 value={commitmentData.observation}
-                onChange={(e) => setCommitmentData({ ...commitmentData, observation: e.target.value })}
+                onChange={(e) =>
+                  setCommitmentData({ ...commitmentData, observation: e.target.value })
+                }
               />
             </div>
             <div className="flex items-center gap-2">
@@ -652,7 +689,9 @@ export const BillingToBePaidAdmin = () => {
                 type="checkbox"
                 id="sendWhatsApp"
                 checked={commitmentData.sendWhatsApp}
-                onChange={(e) => setCommitmentData({ ...commitmentData, sendWhatsApp: e.target.checked })}
+                onChange={(e) =>
+                  setCommitmentData({ ...commitmentData, sendWhatsApp: e.target.checked })
+                }
                 className="rounded"
               />
               <label htmlFor="sendWhatsApp" className="text-sm font-medium text-stone-700">
@@ -660,7 +699,10 @@ export const BillingToBePaidAdmin = () => {
               </label>
             </div>
             <div className="flex gap-2">
-              <Button onClick={confirmCommitment} className="bg-orange-600 hover:bg-orange-700 text-white">
+              <Button
+                onClick={confirmCommitment}
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
                 Registrar Compromiso
               </Button>
               <Button variant="outline" onClick={() => setShowCommitmentModal(false)}>
@@ -684,7 +726,9 @@ export const BillingToBePaidAdmin = () => {
                 <Input
                   type="text"
                   value={creditNoteData.number}
-                  onChange={(e) => setCreditNoteData({ ...creditNoteData, number: e.target.value })}
+                  onChange={(e) =>
+                    setCreditNoteData({ ...creditNoteData, number: e.target.value })
+                  }
                 />
               </div>
               <div>
@@ -692,7 +736,9 @@ export const BillingToBePaidAdmin = () => {
                 <Input
                   type="date"
                   value={creditNoteData.date}
-                  onChange={(e) => setCreditNoteData({ ...creditNoteData, date: e.target.value })}
+                  onChange={(e) =>
+                    setCreditNoteData({ ...creditNoteData, date: e.target.value })
+                  }
                 />
               </div>
             </div>
@@ -701,7 +747,9 @@ export const BillingToBePaidAdmin = () => {
               <Input
                 type="text"
                 value={creditNoteData.reason}
-                onChange={(e) => setCreditNoteData({ ...creditNoteData, reason: e.target.value })}
+                onChange={(e) =>
+                  setCreditNoteData({ ...creditNoteData, reason: e.target.value })
+                }
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -709,21 +757,28 @@ export const BillingToBePaidAdmin = () => {
                 <label className="block text-sm font-medium text-stone-700">Monto *</label>
                 <Input
                   type="number"
+                  inputMode="decimal"
                   value={creditNoteData.amount}
-                  onChange={(e) => setCreditNoteData({ ...creditNoteData, amount: e.target.value })}
+                  onChange={(e) =>
+                    setCreditNoteData({ ...creditNoteData, amount: e.target.value })
+                  }
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-stone-700">Código de Autorización</label>
+                <label className="block text-sm font-medium text-stone-700">
+                  Código de Autorización
+                </label>
                 <Input
                   type="text"
                   value={creditNoteData.authCode}
-                  onChange={(e) => setCreditNoteData({ ...creditNoteData, authCode: e.target.value })}
+                  onChange={(e) =>
+                    setCreditNoteData({ ...creditNoteData, authCode: e.target.value })
+                  }
                 />
               </div>
             </div>
             <div className="flex gap-2">
-              <Button onClick={confirmCreditNote} className="bg-purple-600 hover:bg-purple-700 text-white">
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
                 Generar Nota de Crédito
               </Button>
               <Button variant="outline" onClick={() => setShowCreditNoteModal(false)}>
