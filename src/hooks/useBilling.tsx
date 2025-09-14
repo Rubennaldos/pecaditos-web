@@ -39,19 +39,35 @@ const toDate = (v?: string | number | null) => {
 };
 
 const normalizeStatus = (inv: Invoice): InvoiceStatus => {
-  if (inv.status === 'pending') {
+  let s: InvoiceStatus = inv.status;
+  if (s === 'pending') {
     const due = toDate(inv.dueDate);
     if (due && due.getTime() < Date.now()) return 'overdue';
   }
-  return inv.status;
+  return s;
 };
+
+// Mapea estados “crudos” a los de cobranza
+const coerceStatus = (raw?: string): InvoiceStatus => {
+  const s = String(raw || '').toLowerCase();
+  if (s === 'pagado' || s === 'paid') return 'paid';
+  if (s === 'rechazado' || s === 'rejected') return 'rejected';
+  if (s === 'pending' || s === 'overdue') return s as InvoiceStatus;
+  // 'por_cobrar' u otros => pendiente
+  return 'pending';
+};
+
+// Quita acentos (fallback si \p{Diacritic} no está)
+const stripAccents = (txt: string) =>
+  txt
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\p{Diacritic}/gu, ''); // no hace daño si el engine lo soporta
 
 // Si el pedido no trae un clientId confiable, generamos uno estable a partir de la razón social
 const deriveClientId = (legalOrTradeName?: string) => {
-  const base = (legalOrTradeName || 'SIN_ID').toLowerCase().trim();
+  const base = stripAccents((legalOrTradeName || 'SIN_ID').toLowerCase().trim());
   return base
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '')
     .replace(/[^a-z0-9]+/g, '_')
     .replace(/^_+|_+$/g, '');
 };
@@ -195,7 +211,7 @@ export const useBilling = () => {
         amount,
         createdAt: base.toISOString(),
         dueDate: (due || base).toISOString(),
-        status: billingStatus === 'rechazado' ? 'rejected' : 'pending',
+        status: 'pending',
         orderNumber: o?.orderNumber || o?.number || id,
         clientName: displayName || legal || clientId,
         ruc: o?.client?.ruc ?? null,
@@ -210,7 +226,7 @@ export const useBilling = () => {
     return out;
   }, [orders]);
 
-  // Si hay facturas reales en RTDB, las usamos; si no, usamos derivadas
+  // Unión: facturas reales + derivadas (sin duplicar por orderId)
   const invoices: Invoice[] = useMemo(() => {
     const real: Invoice[] = Object.entries(invoicesRaw).map(([id, v]) => {
       const inv: Invoice = {
@@ -220,7 +236,7 @@ export const useBilling = () => {
         amount: Number(v?.amount || 0),
         createdAt: v?.createdAt || new Date().toISOString(),
         dueDate: v?.dueDate || new Date().toISOString(),
-        status: (v?.status as InvoiceStatus) || 'pending',
+        status: coerceStatus(v?.status), // <-- mapeo
         orderNumber: v?.orderNumber,
         clientName: v?.clientName,
         ruc: v?.ruc ?? null,
@@ -230,14 +246,16 @@ export const useBilling = () => {
       return inv;
     });
 
-    if (real.length) {
-      real.sort((a, b) => (toDate(a.dueDate)?.getTime() || 0) - (toDate(b.dueDate)?.getTime() || 0));
-      return real;
-    }
-    return derivedInvoices;
+    // fusionar con derivadas si no hay factura real para ese orderId
+    const realByOrderId = new Set(real.map(r => r.orderId));
+    const extras = derivedInvoices.filter(d => !realByOrderId.has(d.orderId));
+    const merged = [...real, ...extras];
+
+    merged.sort((a, b) => (toDate(a.dueDate)?.getTime() || 0) - (toDate(b.dueDate)?.getTime() || 0));
+    return merged;
   }, [invoicesRaw, derivedInvoices]);
 
-  // Mezclamos clientes de DB + los derivados de los pedidos
+  // Mezclamos clientes de DB + los derivados de los pedidos (DB sobrescribe)
   const clientsMerged: Record<string, Client> = useMemo(() => {
     return { ...clientsFromOrders, ...clientsDb };
   }, [clientsFromOrders, clientsDb]);
@@ -297,7 +315,7 @@ export const useBilling = () => {
     stats,
     invoices,
     byClient,
-    clients: clientsMerged, // <- ahora ya trae nombre comercial + sede
+    clients: clientsMerged,
   };
 };
 

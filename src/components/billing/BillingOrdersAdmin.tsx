@@ -32,7 +32,7 @@ type ViewOrder = {
 
 // ===== RUTAS EN RTDB =====
 const ORDERS_PATH = 'orders';
-const INVOICES_PATH = 'invoices';            // <— para "Por Cobrar"
+const INVOICES_PATH = 'billing/invoices';            // <— para "Por Cobrar"
 const BILLING_MOVEMENTS = 'billingMovements';
 
 // ===== Helpers =====
@@ -97,9 +97,13 @@ const buildInvoiceFromOrder = (order: ViewOrder) => {
 // ===== Mapeo de pedido (orders -> ViewOrder para UI) =====
 const mapToView = (id: string, o: RawOrder): ViewOrder | null => {
   const estado = String(o?.estado || o?.status || '').toLowerCase();
+  const billingStatus = String(o?.billing?.status || '').toLowerCase();
 
-  // Si ya está entregado, no se muestra aquí
+  // Ya entregado → no se muestra aquí
   if (estado === 'entregado' || estado === 'delivered') return null;
+
+  // Ya enviado a Por Cobrar → tampoco se muestra aquí
+  if (billingStatus === 'por_cobrar') return null;
 
   const amount = Number(o?.total ?? o?.amount ?? 0);
 
@@ -119,7 +123,7 @@ const mapToView = (id: string, o: RawOrder): ViewOrder | null => {
   const date = o?.createdAt || o?.fecha;
   const dueDate = o?.billing?.dueDate || o?.dueDate;
 
-  const billingStatus = String(o?.billing?.status || '').toLowerCase();
+  // Estado visual de cobranzas
   let status: ViewOrder['status'] = 'pending_payment';
   if (billingStatus === 'pagado' || billingStatus === 'paid') status = 'paid';
   else if (billingStatus === 'rechazado' || billingStatus === 'rejected') status = 'rejected';

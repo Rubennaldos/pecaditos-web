@@ -1,7 +1,7 @@
 // src/components/billing/BillingToBePaidAdmin.tsx
 import { useMemo, useState } from 'react';
 
-// UI (estás dentro de src/components/billing, por eso subimos 1 carpeta)
+// UI
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -10,7 +10,7 @@ import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 
-// Iconos
+// Icons
 import {
   Phone,
   MessageSquare,
@@ -28,7 +28,7 @@ import {
   X,
 } from 'lucide-react';
 
-// Contextos/Hooks (subimos 2 carpetas para salir de components/billing → src)
+// Hooks/contexts
 import { useAdminBilling } from '../../contexts/AdminBillingContext';
 import { useToast } from '../../hooks/use-toast';
 import {
@@ -70,7 +70,6 @@ const toDate = (v?: string | number) => {
 const todayYMD = () => new Date().toISOString().slice(0, 10);
 
 export const BillingToBePaidAdmin = () => {
-  // ⬇️ usar sendReminder (Asegúrate que exista en AdminBillingContext)
   const { sendReminder } = useAdminBilling();
   const { toast } = useToast();
   const { invoices: rawInvoices, clients: rawClients } = useBilling();
@@ -108,7 +107,7 @@ export const BillingToBePaidAdmin = () => {
     authCode: '',
   });
 
-  // --------- Transformación desde el hook (sin mocks) ----------
+  // ---------- Transformación ----------
   const clientsData: UIClient[] = useMemo(() => {
     const byClient: Record<string, UIClient> = {};
     const now = Date.now();
@@ -139,13 +138,14 @@ export const BillingToBePaidAdmin = () => {
 
       const uiInv: UIInvoice = {
         id: inv.id,
-        orderNumber: inv.orderId,
+        // ⬇️ FIX: aquí debe ir el CÓDIGO VISIBLE de la orden, no el ID
+        orderNumber: inv.orderNumber, // <- antes estaba inv.orderId
         amount: Number(inv.amount || 0),
         issueDate: inv.createdAt,
         dueDate: inv.dueDate,
         status: inv.status,
         daysOverdue: daysOver,
-        paymentMethod: undefined, // asigna si lo guardas en DB
+        paymentMethod: undefined,
       };
 
       byClient[inv.clientId].invoices.push(uiInv);
@@ -162,7 +162,7 @@ export const BillingToBePaidAdmin = () => {
     return Object.values(byClient);
   }, [rawInvoices, rawClients]);
 
-  // --------- Helpers / Actions ----------
+  // ---------- Helpers / Actions ----------
   const findClientByInvoice = (invoice: UIInvoice) =>
     clientsData.find((c) => c.invoices.some((inv) => inv.id === invoice.id));
 
@@ -203,6 +203,7 @@ export const BillingToBePaidAdmin = () => {
       toDate(invoice.dueDate)?.toLocaleDateString('es-PE') ?? '-'
     }. Gracias.`;
     const num = client.phone.replace(/\D/g, '');
+    if (!num) return;
     window.open(`https://wa.me/${num}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -222,7 +223,7 @@ export const BillingToBePaidAdmin = () => {
     window.open(`tel:${num}`, '_self');
   };
 
-  // --------- Confirmaciones ----------
+  // ---------- Confirmaciones ----------
   const confirmCollect = () => {
     if (!collectData.amount || !collectData.date || !collectData.responsible) {
       toast({
@@ -232,7 +233,7 @@ export const BillingToBePaidAdmin = () => {
       });
       return;
     }
-    // TODO: persistir en DB
+    // TODO: persistir en DB (marcar invoice paid + movimiento)
     toast({ title: 'Pago registrado', description: `Pago de S/ ${collectData.amount}` });
     setShowCollectModal(false);
     setSelectedInvoice(null);
@@ -280,7 +281,6 @@ export const BillingToBePaidAdmin = () => {
     const c = findClientByInvoice(selectedInvoice);
     if (!c) return;
 
-    // Usa el contexto: sendReminder({clientId, message})
     sendReminder({
       clientId: c.clientId,
       message: getWarningMessage(selectedInvoice),
@@ -291,7 +291,7 @@ export const BillingToBePaidAdmin = () => {
     setSelectedInvoice(null);
   };
 
-  // --------- Filtros & orden ----------
+  // ---------- Filtros & orden ----------
   const filteredClients = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return clientsData;
@@ -322,7 +322,7 @@ export const BillingToBePaidAdmin = () => {
     return arr;
   }, [filteredClients, sortBy]);
 
-  // --------- UI ----------
+  // ---------- UI ----------
   return (
     <div className="space-y-6">
       <div>
@@ -471,8 +471,7 @@ export const BillingToBePaidAdmin = () => {
                         )}
                         <p className="text-xs text-stone-500">
                           Vence:{' '}
-                          {toDate(invoice.dueDate)
-                            ?.toLocaleDateString('es-PE') ?? '—'}{' '}
+                          {toDate(invoice.dueDate)?.toLocaleDateString('es-PE') ?? '—'}{' '}
                           ({invoice.daysOverdue} días vencida)
                         </p>
                       </div>
@@ -598,7 +597,7 @@ export const BillingToBePaidAdmin = () => {
           <DialogHeader>
             <DialogTitle>Registrar Pago</DialogTitle>
           </DialogHeader>
-        <div className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-stone-700">Monto *</label>
@@ -612,9 +611,9 @@ export const BillingToBePaidAdmin = () => {
               <div>
                 <label className="block text-sm font-medium text-stone-700">Fecha *</label>
                 <Input
-                    type="date"
-                    value={collectData.date}
-                    onChange={(e) => setCollectData({ ...collectData, date: e.target.value })}
+                  type="date"
+                  value={collectData.date}
+                  onChange={(e) => setCollectData({ ...collectData, date: e.target.value })}
                 />
               </div>
             </div>
