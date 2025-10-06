@@ -20,7 +20,7 @@ export interface OrdersDashboardStats {
 
 type Order = {
   id: string;
-  status: 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | string;
+  status?: 'pendiente' | 'en_preparacion' | 'listo' | 'entregado' | string;
   createdAt?: string | number;
   acceptedAt?: string | number;
   readyAt?: string | number;

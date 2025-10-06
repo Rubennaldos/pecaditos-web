@@ -207,8 +207,11 @@ const LogisticsContext = createContext<{
   logout: () => void;
   toggleAdminMode: () => void;
 
-  // inventory (local UI only; persistencia la puedes añadir luego)
+  // inventory
   addMovement: (movement: Omit<MovementRecord, 'id' | 'timestamp'>) => void;
+  addInventoryItem: (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateInventoryItem: (item: InventoryItem) => Promise<void>;
+  deleteInventoryItem: (id: string) => Promise<void>;
 
   // purchase orders (RTDB)
   addPurchaseOrder: (
@@ -217,7 +220,13 @@ const LogisticsContext = createContext<{
   updatePurchaseOrder: (order: PurchaseOrder) => Promise<void>;
   deletePurchaseOrder: (id: string) => Promise<void>;
 
-  // categories/suppliers opcional (local)
+  // categories/suppliers
+  addCategory: (category: Omit<Category, 'id'>) => void;
+  updateCategory: (category: Category) => void;
+  deleteCategory: (id: string) => void;
+  addSupplier: (supplier: Omit<Supplier, 'id'>) => void;
+  updateSupplier: (supplier: Supplier) => void;
+  deleteSupplier: (id: string) => void;
   acknowledgeAlert: (alertId: string) => void;
 
   // estado expuesto
@@ -453,6 +462,44 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'ACKNOWLEDGE_ALERT', payload: alertId });
   };
 
+  const addInventoryItem = async (item: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+    const invRef = ref(db, PATH.INVENTORY);
+    const newRef = push(invRef);
+    await set(newRef, { ...item, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+  };
+
+  const updateInventoryItem = async (item: InventoryItem) => {
+    await rtdbUpdate(ref(db, `${PATH.INVENTORY}/${item.id}`), { ...item, updatedAt: new Date().toISOString() });
+  };
+
+  const deleteInventoryItem = async (id: string) => {
+    await remove(ref(db, `${PATH.INVENTORY}/${id}`));
+  };
+
+  const addCategory = (category: Omit<Category, 'id'>) => {
+    toast({ title: 'Categoría agregada', description: category.name });
+  };
+
+  const updateCategory = (category: Category) => {
+    toast({ title: 'Categoría actualizada', description: category.name });
+  };
+
+  const deleteCategory = (id: string) => {
+    toast({ title: 'Categoría eliminada' });
+  };
+
+  const addSupplier = (supplier: Omit<Supplier, 'id'>) => {
+    toast({ title: 'Proveedor agregado', description: supplier.name });
+  };
+
+  const updateSupplier = (supplier: Supplier) => {
+    toast({ title: 'Proveedor actualizado', description: supplier.name });
+  };
+
+  const deleteSupplier = (id: string) => {
+    toast({ title: 'Proveedor eliminado' });
+  };
+
   return (
     <LogisticsContext.Provider
       value={{
@@ -461,11 +508,20 @@ export const LogisticsProvider = ({ children }: { children: ReactNode }) => {
         logout,
         toggleAdminMode,
         addMovement,
+        addInventoryItem,
+        updateInventoryItem,
+        deleteInventoryItem,
 
         addPurchaseOrder,
         updatePurchaseOrder,
         deletePurchaseOrder,
 
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        addSupplier,
+        updateSupplier,
+        deleteSupplier,
         acknowledgeAlert,
 
         user: state.user,

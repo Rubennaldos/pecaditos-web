@@ -6,8 +6,10 @@ import MessagesModule from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
 import ConsolidatedAdminModule from '@/components/admin/ConsolidatedAdminModule';
 import { LocationsManagement } from "@/components/admin/LocationsManagement";
+import { AccessManagement } from '@/components/admin/AccessManagement';
+import { ModuleCard } from '@/components/admin/ModuleCard';
 import { Button } from '@/components/ui/button';
-import LogisticsModule from './LogisticsModule'; // Si está en la misma carpeta "pages"
+import LogisticsModule from './LogisticsModule';
 import {
   LogOut,
   BarChart3,
@@ -17,12 +19,11 @@ import {
   Users,
   DollarSign,
   Settings,
-  Menu,
-  X,
   Shield,
   Building,
   MapPin,
-  MessageSquare
+  MessageSquare,
+  UserCog,
 } from 'lucide-react';
 
 import OrdersPanel from './OrdersPanel';
@@ -31,114 +32,138 @@ import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
 import { ClientsManagement } from '@/components/clients/ClientsManagement';
 
-// Cambia aquí si tienes otro perfil admin que quieres que tenga el panel
 const ADMIN_PROFILES = ['admin', 'adminGeneral'];
 
 const AdminPanelContent = () => {
-  const { user, logout, canAccessSection } = useAdmin();
-  const [activeSection, setActiveSection] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { user, logout } = useAdmin();
+  const [activeSection, setActiveSection] = useState('modules');
 
   if (!user || !ADMIN_PROFILES.includes(user.profile)) {
-    // Si no es admin, simplemente no muestra el panel (puedes poner un loader o redirect)
     return null;
   }
 
-  const navigationItems = [
+  const modules = [
     {
       id: 'dashboard',
       name: 'Dashboard Global',
       icon: BarChart3,
-      section: 'dashboard',
-      description: 'Vista completa del sistema'
+      description: 'Vista completa del sistema',
+      color: 'purple',
+      stats: [
+        { label: 'Pedidos Hoy', value: '24' },
+        { label: 'En Proceso', value: '12' },
+      ],
+    },
+    {
+      id: 'access-management',
+      name: 'Gestión de Accesos',
+      icon: UserCog,
+      description: 'Administrar usuarios y permisos',
+      color: 'rose',
+      isSuperAdmin: true,
     },
     {
       id: 'orders-admin',
-      name: 'Pedidos (Admin)',
+      name: 'Módulo Pedidos',
       icon: Package,
-      section: 'orders',
       description: 'Control total de pedidos',
-      superAdmin: true
+      color: 'blue',
+      isSuperAdmin: true,
+      stats: [
+        { label: 'Pendientes', value: '8' },
+        { label: 'Urgentes', value: '3' },
+      ],
     },
     {
       id: 'delivery-admin',
-      name: 'Reparto (Admin)',
+      name: 'Módulo Reparto',
       icon: Truck,
-      section: 'delivery',
       description: 'Supervisión de entregas',
-      superAdmin: true
+      color: 'green',
+      isSuperAdmin: true,
+      stats: [
+        { label: 'En Ruta', value: '5' },
+        { label: 'Entregados', value: '18' },
+      ],
     },
     {
       id: 'production-admin',
-      name: 'Producción (Admin)',
+      name: 'Módulo Producción',
       icon: Factory,
-      section: 'production',
       description: 'Control de inventario',
-      superAdmin: true
+      color: 'amber',
+      isSuperAdmin: true,
+      stats: [
+        { label: 'Stock Bajo', value: '4' },
+        { label: 'Productos', value: '47' },
+      ],
     },
     {
       id: 'billing-admin',
-      name: 'Cobranzas (Admin)',
+      name: 'Módulo Cobranzas',
       icon: DollarSign,
-      section: 'billing',
       description: 'Supervisión financiera',
-      superAdmin: true
+      color: 'red',
+      isSuperAdmin: true,
+      stats: [
+        { label: 'Por Cobrar', value: 'S/. 12K' },
+        { label: 'Vencidas', value: '7' },
+      ],
     },
     {
       id: 'customers-admin',
-      name: 'Clientes (Admin)',
+      name: 'Módulo Clientes',
       icon: Users,
-      section: 'customers',
       description: 'Gestión de clientes',
-      superAdmin: true
+      color: 'blue',
+      stats: [
+        { label: 'Total', value: '142' },
+        { label: 'Activos', value: '98' },
+      ],
     },
     {
       id: 'business-admin',
       name: 'Gestión Comercial',
       icon: Building,
-      section: 'business',
-      description: 'Catálogos, mayoristas y promociones'
+      description: 'Catálogos y promociones',
+      color: 'teal',
     },
     {
-  id: 'logistics',
-  name: 'Logística',
-  icon: Truck, // Puedes usar Boxes, Truck o algún otro de Lucide que prefieras
-  section: 'logistics',
-  description: 'Inventario, almacenes y compras'
-},
+      id: 'logistics',
+      name: 'Módulo Logística',
+      icon: Truck,
+      description: 'Inventario y compras',
+      color: 'indigo',
+    },
     {
       id: 'system-config',
       name: 'Configuración',
       icon: Settings,
-      section: 'users',
-      description: 'Sistema, usuarios y parámetros'
+      description: 'Sistema y parámetros',
+      color: 'purple',
     },
     {
       id: 'locations',
       name: 'Ubicaciones',
       icon: MapPin,
-      section: 'locations',
-      description: 'Sedes y puntos de venta'
+      description: 'Sedes y puntos de venta',
+      color: 'indigo',
     },
     {
       id: 'audit',
       name: 'Auditoría',
       icon: Shield,
-      section: 'audit',
-      description: 'Logs y seguimiento'
+      description: 'Logs y seguimiento',
+      color: 'rose',
     },
     {
       id: 'messages',
       name: 'Mensajes',
       icon: MessageSquare,
-      section: 'messages',
-      description: 'Comunicación interna'
-    }
+      description: 'Comunicación interna',
+      color: 'blue',
+    },
   ];
-
-const visibleItems = navigationItems.filter(
-  item => user.profile === 'admin' || user.profile === 'adminGeneral'
-);
 
   const handleLogout = () => {
     logout();
@@ -147,16 +172,46 @@ const visibleItems = navigationItems.filter(
 
   const renderContent = () => {
     switch (activeSection) {
+      case 'modules':
+        return (
+          <div className="p-8 space-y-6">
+            <div>
+              <h1 className="text-4xl font-bold text-stone-800 mb-2">Panel de Administración</h1>
+              <p className="text-stone-600">Selecciona un módulo para empezar a trabajar</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {modules.map((module) => (
+                <ModuleCard
+                  key={module.id}
+                  {...module}
+                  isActive={activeSection === module.id}
+                  onClick={() => setActiveSection(module.id)}
+                />
+              ))}
+            </div>
+          </div>
+        );
       case 'dashboard':
         return <AdminDashboard />;
+      case 'access-management':
+        return (
+          <div className="p-8">
+            <AccessManagement />
+          </div>
+        );
       case 'orders-admin':
         return (
           <div className="relative">
             <div className="absolute top-4 right-4 z-50">
-              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                Modo SuperAdmin
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSection('modules')}
+                className="bg-white"
+              >
+                Volver a Módulos
+              </Button>
             </div>
             <OrdersPanel />
           </div>
@@ -165,10 +220,14 @@ const visibleItems = navigationItems.filter(
         return (
           <div className="relative">
             <div className="absolute top-4 right-4 z-50">
-              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                Modo SuperAdmin
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSection('modules')}
+                className="bg-white"
+              >
+                Volver a Módulos
+              </Button>
             </div>
             <DeliveryPanel />
           </div>
@@ -177,10 +236,14 @@ const visibleItems = navigationItems.filter(
         return (
           <div className="relative">
             <div className="absolute top-4 right-4 z-50">
-              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                Modo SuperAdmin
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSection('modules')}
+                className="bg-white"
+              >
+                Volver a Módulos
+              </Button>
             </div>
             <ProductionPanel />
           </div>
@@ -189,159 +252,154 @@ const visibleItems = navigationItems.filter(
         return (
           <div className="relative">
             <div className="absolute top-4 right-4 z-50">
-              <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-                <Shield className="h-3 w-3" />
-                Modo SuperAdmin
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSection('modules')}
+                className="bg-white"
+              >
+                Volver a Módulos
+              </Button>
             </div>
             <BillingPanel />
           </div>
         );
       case 'customers-admin':
-        return <ClientsManagement />;
-      case 'business-admin':
-        return <ConsolidatedAdminModule />;
-      case 'system-config':
-        return <SystemConfiguration />;
-      case 'locations':
-        return <LocationsManagement />;
         return (
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-3xl font-bold text-stone-800">Gestión de Ubicaciones</h1>
-              <p className="text-stone-600 mt-1">Administra puntos de venta y sedes</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-6 bg-amber-50 rounded-lg">
-                <h3 className="font-medium mb-2">Sede Principal</h3>
-                <p className="text-sm text-stone-500 mb-4">Av. Principal 123, Lima</p>
-                <Button>Editar Sede</Button>
-              </div>
-              <div className="p-6 bg-purple-50 rounded-lg">
-                <h3 className="font-medium mb-2">Puntos de Venta</h3>
-                <p className="text-sm text-stone-500 mb-4">3 ubicaciones activas</p>
-                <Button variant="outline">Gestionar Puntos</Button>
-              </div>
-            </div>
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <ClientsManagement />
+          </div>
+        );
+      case 'business-admin':
+        return (
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <ConsolidatedAdminModule />
+          </div>
+        );
+      case 'system-config':
+        return (
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <SystemConfiguration />
+          </div>
+        );
+      case 'locations':
+        return (
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <LocationsManagement />
           </div>
         );
       case 'audit':
-        return <AuditModule />;
+        return (
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <AuditModule />
+          </div>
+        );
       case 'messages':
-       return <MessagesModule usuarioActual={{
-  id: user.id || '',
-  rol: (user as any).rol || 'cliente',
-  email: user.email || ''
-}} />;
-case 'logistics':
-      return <LogisticsModule />;
+        return (
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <MessagesModule
+              usuarioActual={{
+                id: user.id || '',
+                rol: (user as any).rol || 'cliente',
+                email: user.email || '',
+              }}
+            />
+          </div>
+        );
+      case 'logistics':
+        return (
+          <div className="relative">
+            <div className="absolute top-4 right-4 z-50">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveSection('modules')}
+                className="bg-white"
+              >
+                Volver a Módulos
+              </Button>
+            </div>
+            <LogisticsModule />
+          </div>
+        );
       default:
-        return <AdminDashboard />;
+        return (
+          <div className="p-8 space-y-6">
+            <div>
+              <h1 className="text-4xl font-bold text-stone-800 mb-2">Panel de Administración</h1>
+              <p className="text-stone-600">Selecciona un módulo para empezar a trabajar</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {modules.map((module) => (
+                <ModuleCard
+                  key={module.id}
+                  {...module}
+                  isActive={activeSection === module.id}
+                  onClick={() => setActiveSection(module.id)}
+                />
+              ))}
+            </div>
+          </div>
+        );
     }
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 flex">
-      {/* Sidebar */}
-      <div className={`${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:inset-0`}>
-        <div className="flex items-center justify-between h-16 px-6 border-b border-stone-200">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-sm">A</span>
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-purple-50 to-stone-50">
+      {/* Top Header */}
+      <header className="bg-white border-b border-stone-200 shadow-sm sticky top-0 z-40">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                <Shield className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-stone-800">SuperAdmin Panel</h1>
+                <p className="text-xs text-stone-500">Sistema de gestión integral</p>
+              </div>
             </div>
-            <h2 className="text-lg font-bold text-stone-800">SuperAdmin</h2>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2">
-          {visibleItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  setSidebarOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                  activeSection === item.id
-                    ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                    : 'text-stone-600 hover:bg-stone-50 hover:text-stone-800'
-                }`}
-              >
-                <Icon className="h-5 w-5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{item.name}</p>
-                  <p className="text-xs text-stone-400 truncate">{item.description}</p>
+            <div className="flex items-center gap-4">
+              <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center">
+                  <span className="text-xs font-bold text-purple-600">{user.name?.split(' ')[0][0]}</span>
                 </div>
-                {item.superAdmin && (
-                  <Shield className="h-3 w-3 text-purple-500" />
-                )}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="border-t border-stone-200 p-4">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center">
-              <span className="text-xs font-bold text-purple-600">
-                {user.name?.split(' ')[0][0]}
-              </span>
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-stone-800 truncate">{user.name}</p>
-              <p className="text-xs text-purple-600 font-medium">SUPERADMIN</p>
+                <div>
+                  <p className="text-sm font-medium text-stone-800">{user.name}</p>
+                  <p className="text-xs text-purple-600 font-medium">SUPERADMIN</p>
+                </div>
+              </div>
+              <Button onClick={handleLogout} variant="outline" size="sm">
+                <LogOut className="h-4 w-4 mr-2" />
+                Salir
+              </Button>
             </div>
           </div>
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            size="sm"
-            className="w-full"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Cerrar Sesión
-          </Button>
         </div>
-      </div>
+      </header>
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col lg:ml-0">
-        {/* Top bar */}
-        <header className="h-16 bg-white border-b border-stone-200 flex items-center justify-between px-6 lg:hidden">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-          <h1 className="text-lg font-semibold text-stone-800">Panel SuperAdmin</h1>
-          <div></div>
-        </header>
-
-        {/* Page content */}
-        <main className="flex-1">
-          {renderContent()}
-        </main>
-      </div>
-
-      {/* Backdrop */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
+      <main className="min-h-[calc(100vh-80px)]">{renderContent()}</main>
     </div>
   );
 };

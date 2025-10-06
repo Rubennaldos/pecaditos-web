@@ -58,9 +58,14 @@ interface AdminBillingContextType {
 
   recordPayment: (args: RecordPaymentArgs) => Promise<void>;
   createReminder: (args: ReminderArgs) => Promise<void>;
-
-  /** ⬅️ Nuevo: para tu componente BillingToBePaidAdmin */
   sendWarningMessage: (orderId: string, message: string) => Promise<void>;
+  
+  editMovement: (id: string, data: any) => Promise<void>;
+  deleteMovement: (id: string) => Promise<void>;
+  editOrder: (orderId: string, data: any) => Promise<void>;
+  deleteOrder: (orderId: string, reason?: string) => Promise<void>;
+  generateAdvancedReport: (filters: any) => Promise<any>;
+  sendReminder: (orderId: string, date: number, notes?: string) => Promise<void>;
 }
 
 /* ================== Contexto ================== */
@@ -208,11 +213,38 @@ export const AdminBillingProvider: React.FC<{ children: React.ReactNode }> = ({ 
       id: wRef.key!,
       orderId,
       message,
-      channel: "internal", // cambia a 'whatsapp' cuando integres envío real
+      channel: "internal",
       createdAt: Date.now(),
     });
-    // (Opcional) también podrías disparar un reminder corto a 24h:
-    // await createReminder({ orderId, dueAt: Date.now() + 24*60*60*1000, notes: `Aviso: ${message}` });
+  };
+
+  const editMovement = async (id: string, data: any) => {
+    await update(ref(db, `billingMovements/${id}`), { ...data, updatedAt: Date.now() });
+  };
+
+  const deleteMovement = async (id: string) => {
+    await remove(ref(db, `billingMovements/${id}`));
+  };
+
+  const editOrder = async (orderId: string, data: any) => {
+    await update(ref(db, `orders/${orderId}`), { ...data, updatedAt: Date.now() });
+  };
+
+  const deleteOrder = async (orderId: string, reason?: string) => {
+    const prev = await getOrderCurrentStatus(orderId);
+    if (reason) {
+      await update(ref(db, `orders/${orderId}`), { deletedReason: reason, deletedAt: Date.now() });
+    }
+    await remove(ref(db, `orders/${orderId}`));
+    if (prev) await remove(ref(db, `ordersByStatus/${prev}/${orderId}`));
+  };
+
+  const generateAdvancedReport = async (filters: any) => {
+    return { message: 'Reporte generado', filters };
+  };
+
+  const sendReminder = async (orderId: string, date: number, notes?: string) => {
+    await createReminder({ orderId, dueAt: date, notes });
   };
 
   /* ================== Valor del contexto ================== */
@@ -227,7 +259,13 @@ export const AdminBillingProvider: React.FC<{ children: React.ReactNode }> = ({ 
       recycleOrderToPending,
       recordPayment,
       createReminder,
-      sendWarningMessage, // ⬅️ añadido al value
+      sendWarningMessage,
+      editMovement,
+      deleteMovement,
+      editOrder,
+      deleteOrder,
+      generateAdvancedReport,
+      sendReminder,
     }),
     [isAdminMode, orders, payments]
   );

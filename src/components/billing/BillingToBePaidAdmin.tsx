@@ -70,7 +70,7 @@ const toDate = (v?: string | number) => {
 const todayYMD = () => new Date().toISOString().slice(0, 10);
 
 export const BillingToBePaidAdmin = () => {
-  const { sendReminder } = useAdminBilling();
+  const { sendReminder, sendWarningMessage } = useAdminBilling();
   const { toast } = useToast();
   const { invoices: rawInvoices, clients: rawClients } = useBilling();
 
@@ -276,15 +276,12 @@ export const BillingToBePaidAdmin = () => {
     toast({ title: 'Mensaje copiado', description: 'Se copió al portapapeles' });
   };
 
-  const confirmWarning = () => {
+  const confirmWarning = async () => {
     if (!selectedInvoice) return;
     const c = findClientByInvoice(selectedInvoice);
     if (!c) return;
 
-    sendReminder({
-      clientId: c.clientId,
-      message: getWarningMessage(selectedInvoice),
-    });
+    await sendWarningMessage(selectedInvoice.id, getWarningMessage(selectedInvoice));
 
     toast({ title: 'Advertencia enviada', description: c.comercialName ?? c.client });
     setShowWarningDialog(false);
