@@ -224,6 +224,8 @@ export const ClientsManagement = () => {
     try {
       // Crear usuario en Firebase Authentication
       if (client.emailFacturacion) {
+        console.log('🔐 [ClientsManagement] Creando usuario con email:', client.emailFacturacion);
+        
         // Generar contraseña por defecto: RUC/DNI + @Pecaditos
         const defaultPassword = `${client.rucDni}@Pecaditos`;
         
@@ -234,19 +236,26 @@ export const ClientsManagement = () => {
             defaultPassword
           );
           
+          console.log('✅ [ClientsManagement] Usuario creado con UID:', userCredential.user.uid);
+          
           // Guardar cliente con UID del usuario de Authentication
           const newClientRef = push(clientsRef);
-          await set(newClientRef, {
+          const clientData = {
             ...client,
             authUid: userCredential.user.uid,
             fechaCreacion: Date.now()
-          });
+          };
+          
+          console.log('💾 [ClientsManagement] Guardando cliente:', clientData);
+          await set(newClientRef, clientData);
           
           toast({ 
             title: "Cliente creado exitosamente", 
             description: `Usuario creado en Firebase Auth. Email: ${client.emailFacturacion}, Contraseña: ${defaultPassword}`
           });
         } catch (authError: any) {
+          console.error('❌ [ClientsManagement] Error en Authentication:', authError);
+          
           // Si el email ya existe, crear el cliente de todos modos
           if (authError.code === 'auth/email-already-in-use') {
             const newClientRef = push(clientsRef);
@@ -264,6 +273,8 @@ export const ClientsManagement = () => {
           }
         }
       } else {
+        console.log('⚠️ [ClientsManagement] Sin email de facturación');
+        
         // Si no tiene email, crear sin usuario de Authentication
         const newClientRef = push(clientsRef);
         await set(newClientRef, {
@@ -276,7 +287,7 @@ export const ClientsManagement = () => {
         });
       }
     } catch (error: any) {
-      console.error('Error al crear cliente:', error);
+      console.error('❌ [ClientsManagement] Error al crear cliente:', error);
       toast({ 
         title: "Error", 
         description: error.message || "No se pudo crear el cliente",

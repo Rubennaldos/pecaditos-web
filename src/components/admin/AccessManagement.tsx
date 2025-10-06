@@ -97,10 +97,25 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
     // Cargar clientes desde /clients (solo los que tienen authUid)
     const unsubscribeClients = onValue(clientsRef, (snapshot) => {
       const data = snapshot.val();
+      console.log('📊 [AccessManagement] Datos de clients:', data);
+      
       if (data) {
-        const clientsList = Object.entries(data)
-          .filter(([_, client]: [string, any]) => client.authUid) // Solo clientes con cuenta en Authentication
-          .map(([clientId, client]: [string, any]) => ({
+        const allClients = Object.entries(data);
+        console.log('📊 [AccessManagement] Total clientes en DB:', allClients.length);
+        
+        const clientsWithAuth = allClients.filter(([_, client]: [string, any]) => client.authUid);
+        console.log('📊 [AccessManagement] Clientes con authUid:', clientsWithAuth.length);
+        
+        const clientsList = clientsWithAuth.map(([clientId, client]: [string, any]) => {
+          console.log('📊 [AccessManagement] Cliente:', {
+            clientId,
+            authUid: client.authUid,
+            razonSocial: client.razonSocial,
+            email: client.emailFacturacion,
+            estado: client.estado
+          });
+          
+          return {
             id: client.authUid, // Usar el authUid como ID
             clientId, // Guardar el ID del cliente para referencia
             nombre: client.razonSocial || 'Sin nombre',
@@ -110,9 +125,13 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             comercial: `${client.departamento || ''} - ${client.distrito || ''}`.trim(),
             sede: client.direccionFiscal || 'Sin dirección',
             permissions: [],
-          }));
+          };
+        });
+        
+        console.log('📊 [AccessManagement] Clientes procesados:', clientsList);
         setClients(clientsList);
       } else {
+        console.log('⚠️ [AccessManagement] No hay datos en /clients');
         setClients([]);
       }
     });
