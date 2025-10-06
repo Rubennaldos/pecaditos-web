@@ -62,8 +62,11 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [creatingId, setCreatingId] = useState<string | null>(null);
 
-  // Combinar usuarios y clientes
-  const allUsers = [...users, ...clients];
+  // Combinar usuarios y clientes, eliminando duplicados
+  // Si un cliente tiene registro en /usuarios, solo mostrar el de /usuarios
+  const userIds = new Set(users.map(u => u.id));
+  const uniqueClients = clients.filter(c => !userIds.has(c.id));
+  const allUsers = [...users, ...uniqueClients];
 
   // ------- USUARIOS (/usuarios) -------
   useEffect(() => {
@@ -173,27 +176,6 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
     }
   };
 
-  // Crea un registro en /usuarios a partir de un cliente (si no existe)
-  const createAccessFromClient = async (client: UserProfile) => {
-    if (client.rol !== "cliente") return;
-    if (!client.id) return; // id = authUid
-    try {
-      setCreatingId(client.id);
-      await set(ref(db, `usuarios/${client.id}`), {
-        nombre: client.nombre,
-        correo: client.correo ?? null,
-        rol: "cliente",
-        activo: client.activo,
-        permissions: [], // ajústalo si luego das módulos a clientes
-        createdAt: Date.now(),
-      });
-      toast({ title: "Acceso creado", description: "El cliente ahora aparece como usuario." });
-    } catch (e: any) {
-      toast({ title: "Error", description: e?.message || "No se pudo crear el acceso", variant: "destructive" });
-    } finally {
-      setCreatingId(null);
-    }
-  };
 
   const getRoleBadgeColor = (rol: string) => {
     const colors: Record<string, string> = {
@@ -332,33 +314,17 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
                         <Switch checked={user.activo} onCheckedChange={() => toggleUserAccess(user)} />
                       </div>
 
-                      {/* Para clientes: botón "Crear acceso" (crea /usuarios/{authUid}) */}
-                      {user.rol === "cliente" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={creatingId === user.id}
-                          onClick={() => createAccessFromClient(user)}
-                          title="Crear un registro en /usuarios para este cliente"
-                        >
-                          <UserPlus className="h-4 w-4 mr-2" />
-                          {creatingId === user.id ? "Creando..." : "Crear acceso"}
-                        </Button>
-                      )}
-
-                      {/* Editar (usuarios no-cliente) */}
-                      {user.rol !== "cliente" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedUser(user);
-                            setShowEditModal(true);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      )}
+                      {/* Editar usuario */}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
 
