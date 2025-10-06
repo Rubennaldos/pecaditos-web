@@ -24,7 +24,22 @@ import { useToast } from '@/hooks/use-toast';
 import { db, auth } from '@/config/firebase';
 import { ref, update, remove, get } from 'firebase/database';
 import { updatePassword, deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { User, Lock, Eye, EyeOff, Trash2, Save } from 'lucide-react';
+import { 
+  User, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  Trash2, 
+  Save, 
+  Shield,
+  Package,
+  Truck,
+  Factory,
+  DollarSign,
+  BarChart3,
+  Building2,
+  MapPin
+} from 'lucide-react';
 
 interface UserProfile {
   id: string;
@@ -43,6 +58,16 @@ interface UserEditModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+const AVAILABLE_MODULES = [
+  { id: 'dashboard', name: 'Dashboard Global', icon: BarChart3, color: 'purple' },
+  { id: 'orders', name: 'Pedidos', icon: Package, color: 'blue' },
+  { id: 'delivery', name: 'Reparto', icon: Truck, color: 'green' },
+  { id: 'production', name: 'Producción', icon: Factory, color: 'amber' },
+  { id: 'billing', name: 'Cobranzas', icon: DollarSign, color: 'red' },
+  { id: 'business', name: 'Gestión Comercial', icon: Building2, color: 'teal' },
+  { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'indigo' },
+];
+
 export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -60,6 +85,9 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // Permissions state
+  const [permissions, setPermissions] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -67,6 +95,7 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
       setCorreo(user.correo || '');
       setComercial(user.comercial || '');
       setSede(user.sede || '');
+      setPermissions(user.permissions || []);
     }
   }, [user]);
 
@@ -171,6 +200,41 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
     }
   };
 
+  const toggleModulePermission = (moduleId: string) => {
+    setPermissions((prev) => {
+      if (prev.includes(moduleId)) {
+        return prev.filter((p) => p !== moduleId);
+      } else {
+        return [...prev, moduleId];
+      }
+    });
+  };
+
+  const handleSavePermissions = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      await update(ref(db, `usuarios/${user.id}`), {
+        permissions,
+      });
+
+      toast({
+        title: 'Permisos actualizados',
+        description: 'Los permisos del usuario se han actualizado correctamente',
+      });
+    } catch (error) {
+      console.error('Error al actualizar permisos:', error);
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar los permisos',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!user) return null;
 
   return (
@@ -185,10 +249,14 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
           </DialogHeader>
 
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="profile">
                 <User className="h-4 w-4 mr-2" />
                 Perfil
+              </TabsTrigger>
+              <TabsTrigger value="permissions">
+                <Shield className="h-4 w-4 mr-2" />
+                Permisos
               </TabsTrigger>
               <TabsTrigger value="password">
                 <Lock className="h-4 w-4 mr-2" />
@@ -252,6 +320,99 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
                     Guardar cambios
                   </Button>
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="permissions" className="space-y-4 mt-4">
+              <div className="space-y-4">
+                {user.rol === 'admin' || user.rol === 'adminGeneral' ? (
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="h-5 w-5 text-purple-600" />
+                      <h3 className="font-semibold text-purple-800">Acceso Total</h3>
+                    </div>
+                    <p className="text-sm text-purple-700">
+                      Este usuario tiene rol de <span className="font-semibold">{user.rol}</span> y tiene acceso automático a todos los módulos del sistema.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <Label className="text-base font-semibold">Control de acceso a módulos</Label>
+                      <p className="text-sm text-stone-600 mt-1 mb-4">
+                        Selecciona los módulos a los que este usuario tendrá acceso
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      {AVAILABLE_MODULES.map((module) => {
+                        const hasAccess = permissions.includes(module.id);
+                        const ModuleIcon = module.icon;
+                        
+                        return (
+                          <button
+                            key={module.id}
+                            onClick={() => toggleModulePermission(module.id)}
+                            className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                              hasAccess
+                                ? 'border-green-400 bg-green-50'
+                                : 'border-stone-200 bg-white hover:border-stone-300'
+                            }`}
+                          >
+                            <div
+                              className={`flex items-center justify-center w-10 h-10 rounded-lg ${
+                                hasAccess ? 'bg-green-100' : 'bg-stone-100'
+                              }`}
+                            >
+                              <ModuleIcon
+                                className={`h-5 w-5 ${
+                                  hasAccess ? 'text-green-700' : 'text-stone-600'
+                                }`}
+                              />
+                            </div>
+                            <div className="flex-1 text-left">
+                              <p
+                                className={`font-medium ${
+                                  hasAccess ? 'text-green-900' : 'text-stone-800'
+                                }`}
+                              >
+                                {module.name}
+                              </p>
+                              <p className="text-xs text-stone-500">
+                                {hasAccess ? 'Acceso habilitado' : 'Sin acceso'}
+                              </p>
+                            </div>
+                            {hasAccess && (
+                              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-green-500">
+                                <svg
+                                  className="w-4 h-4 text-white"
+                                  fill="none"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth="2"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path d="M5 13l4 4L19 7"></path>
+                                </svg>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="pt-4 flex justify-end gap-2 border-t">
+                      <Button variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancelar
+                      </Button>
+                      <Button onClick={handleSavePermissions} disabled={loading}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Guardar permisos
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             </TabsContent>
 
