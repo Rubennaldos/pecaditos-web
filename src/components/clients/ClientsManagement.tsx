@@ -439,6 +439,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
   onFinish: () => void;
 }) => {
   const { toast } = useToast();
+  const [tipoCliente, setTipoCliente] = useState<string>('RUC');
   const [formData, setFormData] = useState({
     id: client?.id || '',
     razonSocial: client?.razonSocial || '',
@@ -527,6 +528,22 @@ const ClientForm = ({ client, onSave, onFinish }: {
         <TabsContent value="general" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
+              <Label htmlFor="tipoCliente">Tipo de Cliente *</Label>
+              <Select value={tipoCliente} onValueChange={setTipoCliente}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Identificacion">Identificación</SelectItem>
+                  <SelectItem value="RUC">RUC</SelectItem>
+                  <SelectItem value="DNI">DNI</SelectItem>
+                  <SelectItem value="CE">CE</SelectItem>
+                  <SelectItem value="PASAPORTE">PASAPORTE</SelectItem>
+                  <SelectItem value="DOC.TRI.NO.DISP.SIN.RUC">DOC.TRI.NO.DISP.SIN.RUC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="rucDni">RUC/DNI *</Label>
               <div className="flex gap-2">
                 <Input
@@ -535,10 +552,18 @@ const ClientForm = ({ client, onSave, onFinish }: {
                   onChange={(e) => setFormData(prev => ({ ...prev, rucDni: e.target.value }))}
                   placeholder="20123456789"
                 />
-                <Button variant="outline">
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  SUNAT
-                </Button>
+                {tipoCliente === 'RUC' && (
+                  <Button variant="outline">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    SUNAT
+                  </Button>
+                )}
+                {tipoCliente === 'DNI' && (
+                  <Button variant="outline">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    RENIEC
+                  </Button>
+                )}
               </div>
             </div>
             <div className="space-y-2">
