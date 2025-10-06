@@ -20,6 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
+import UbigeoSelector from '@/components/UbigeoSelector';
 
 import { 
   Search, 
@@ -75,6 +76,9 @@ interface Client {
   razonSocial: string;
   rucDni: string;
   direccionFiscal: string;
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
   sedes: ClientSede[];
   contactos: ClientContact[];
   listaPrecio: string;
@@ -445,6 +449,9 @@ const ClientForm = ({ client, onSave, onFinish }: {
     razonSocial: client?.razonSocial || '',
     rucDni: client?.rucDni || '',
     direccionFiscal: client?.direccionFiscal || '',
+    departamento: client?.departamento || '',
+    provincia: client?.provincia || '',
+    distrito: client?.distrito || '',
     listaPrecio: client?.listaPrecio || '',
     frecuenciaCompras: client?.frecuenciaCompras || '',
     horarioEntrega: client?.horarioEntrega || '',
@@ -576,12 +583,26 @@ const ClientForm = ({ client, onSave, onFinish }: {
               />
             </div>
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="direccionFiscal">Dirección Fiscal</Label>
+              <Label>Ubicación (Perú)</Label>
+              <UbigeoSelector
+                departamento={formData.departamento}
+                provincia={formData.provincia}
+                distrito={formData.distrito}
+                onChange={(data) => setFormData(prev => ({
+                  ...prev,
+                  departamento: data.departamento,
+                  provincia: data.provincia,
+                  distrito: data.distrito
+                }))}
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="direccionFiscal">Dirección Específica</Label>
               <Input
                 id="direccionFiscal"
                 value={formData.direccionFiscal}
                 onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
-                placeholder="Dirección completa"
+                placeholder="Calle, número, referencia"
               />
             </div>
             <div className="space-y-2">

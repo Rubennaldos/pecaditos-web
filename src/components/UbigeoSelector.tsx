@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { db } from "@/config/firebase"; // Ajusta esta ruta según tu proyecto
+import { db } from "@/config/firebase";
 import { ref, get } from "firebase/database";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface UbigeoSelectorProps {
   departamento: string;
@@ -58,58 +59,73 @@ const UbigeoSelector: React.FC<UbigeoSelectorProps> = ({
   }, [provincia]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {/* DEPARTAMENTO */}
-      <select
-        value={departamento}
-        onChange={e =>
-          onChange({ departamento: e.target.value, provincia: "", distrito: "" })
-        }
-        className="border rounded px-2 py-1"
-        disabled={loading}
-      >
-        <option value="">Departamento</option>
-        {loading && <option>Cargando...</option>}
-        {departamentos.map(dep => (
-          <option key={dep} value={dep}>
-            {dep}
-          </option>
-        ))}
-      </select>
+      <div className="space-y-2">
+        <Select
+          value={departamento}
+          onValueChange={(value) =>
+            onChange({ departamento: value, provincia: "", distrito: "" })
+          }
+          disabled={loading}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Departamento" />
+          </SelectTrigger>
+          <SelectContent>
+            {loading && <SelectItem value="loading" disabled>Cargando...</SelectItem>}
+            {departamentos.map(dep => (
+              <SelectItem key={dep} value={dep}>
+                {dep}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* PROVINCIA */}
-      <select
-        value={provincia}
-        onChange={e =>
-          onChange({ departamento, provincia: e.target.value, distrito: "" })
-        }
-        className="border rounded px-2 py-1"
-        disabled={!departamento || loading}
-      >
-        <option value="">Provincia</option>
-        {provincias.map(prov => (
-          <option key={prov} value={prov}>
-            {prov}
-          </option>
-        ))}
-      </select>
+      <div className="space-y-2">
+        <Select
+          value={provincia}
+          onValueChange={(value) =>
+            onChange({ departamento, provincia: value, distrito: "" })
+          }
+          disabled={!departamento || loading}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Provincia" />
+          </SelectTrigger>
+          <SelectContent>
+            {provincias.map(prov => (
+              <SelectItem key={prov} value={prov}>
+                {prov}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* DISTRITO */}
-      <select
-        value={distrito}
-        onChange={e =>
-          onChange({ departamento, provincia, distrito: e.target.value })
-        }
-        className="border rounded px-2 py-1"
-        disabled={!provincia || loading}
-      >
-        <option value="">Distrito</option>
-        {distritos.map(dist => (
-          <option key={dist} value={dist}>
-            {dist}
-          </option>
-        ))}
-      </select>
+      <div className="space-y-2">
+        <Select
+          value={distrito}
+          onValueChange={(value) =>
+            onChange({ departamento, provincia, distrito: value })
+          }
+          disabled={!provincia || loading}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Distrito" />
+          </SelectTrigger>
+          <SelectContent>
+            {distritos.map(dist => (
+              <SelectItem key={dist} value={dist}>
+                {dist}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 };
