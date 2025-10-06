@@ -55,22 +55,22 @@ interface AccessManagementProps {
 export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [clients, setClients] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
 
+  // Combinar usuarios y clientes en un solo array
+  const allUsers = [...users, ...clients];
+
   useEffect(() => {
     const usersRef = ref(db, 'usuarios');
-    const clientsRef = ref(db, 'clients');
     
-    let usersData: UserProfile[] = [];
-    let clientsData: UserProfile[] = [];
-    
-    // Cargar usuarios
+    // Cargar usuarios desde /usuarios
     const unsubscribeUsers = onValue(usersRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        usersData = Object.entries(data).map(([id, user]: [string, any]) => ({
+        const usersList = Object.entries(data).map(([id, user]: [string, any]) => ({
           id,
           nombre: user.nombre || '',
           correo: user.correo || '',
@@ -80,41 +80,49 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
           sede: user.sede || '',
           permissions: user.permissions || [],
         }));
+        setUsers(usersList);
       } else {
-        usersData = [];
+        setUsers([]);
       }
-      setUsers([...usersData, ...clientsData]);
-    });
-
-    // Cargar clientes que tienen authUid (creados en Authentication)
-    const unsubscribeClients = onValue(clientsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        clientsData = Object.entries(data)
-          .filter(([_, client]: [string, any]) => client.authUid) // Solo clientes con cuenta en Authentication
-          .map(([id, client]: [string, any]) => ({
-            id: client.authUid, // Usar el authUid como ID para gestión
-            nombre: client.razonSocial || '',
-            correo: client.emailFacturacion || '',
-            rol: 'cliente',
-            activo: client.estado === 'activo',
-            comercial: client.distrito || '',
-            sede: client.direccionFiscal || '',
-            permissions: [],
-          }));
-      } else {
-        clientsData = [];
-      }
-      setUsers([...usersData, ...clientsData]);
     });
 
     return () => {
       unsubscribeUsers();
+    };
+  }, []);
+
+  useEffect(() => {
+    const clientsRef = ref(db, 'clients');
+    
+    // Cargar clientes desde /clients (solo los que tienen authUid)
+    const unsubscribeClients = onValue(clientsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const clientsList = Object.entries(data)
+          .filter(([_, client]: [string, any]) => client.authUid) // Solo clientes con cuenta en Authentication
+          .map(([clientId, client]: [string, any]) => ({
+            id: client.authUid, // Usar el authUid como ID
+            clientId, // Guardar el ID del cliente para referencia
+            nombre: client.razonSocial || 'Sin nombre',
+            correo: client.emailFacturacion || 'Sin email',
+            rol: 'cliente',
+            activo: client.estado === 'activo',
+            comercial: `${client.departamento || ''} - ${client.distrito || ''}`.trim(),
+            sede: client.direccionFiscal || 'Sin dirección',
+            permissions: [],
+          }));
+        setClients(clientsList);
+      } else {
+        setClients([]);
+      }
+    });
+
+    return () => {
       unsubscribeClients();
     };
   }, []);
 
-  const filteredUsers = users.filter(
+  const filteredUsers = allUsers.filter(
     (user) =>
       user.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.correo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -218,7 +226,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Total Usuarios</p>
-                <p className="text-2xl font-bold text-stone-800">{users.length}</p>
+                <p className="text-2xl font-bold text-stone-800">{allUsers.length}</p>
               </div>
               <Users className="h-8 w-8 text-purple-500" />
             </div>
@@ -230,7 +238,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
               <div>
                 <p className="text-sm text-stone-600">Administradores</p>
                 <p className="text-2xl font-bold text-stone-800">
-                  {users.filter((u) => u.rol === 'admin' || u.rol === 'adminGeneral').length}
+                  {allUsers.filter((u) => u.rol === 'admin' || u.rol === 'adminGeneral').length}
                 </p>
               </div>
               <Shield className="h-8 w-8 text-purple-500" />
@@ -242,7 +250,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Usuarios Activos</p>
-                <p className="text-2xl font-bold text-stone-800">{users.filter((u) => u.activo).length}</p>
+                <p className="text-2xl font-bold text-stone-800">{allUsers.filter((u) => u.activo).length}</p>
               </div>
               <Users className="h-8 w-8 text-green-500" />
             </div>
@@ -253,7 +261,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Clientes</p>
-                <p className="text-2xl font-bold text-stone-800">{users.filter((u) => u.rol === 'cliente').length}</p>
+                <p className="text-2xl font-bold text-stone-800">{allUsers.filter((u) => u.rol === 'cliente').length}</p>
               </div>
               <Building2 className="h-8 w-8 text-blue-500" />
             </div>
