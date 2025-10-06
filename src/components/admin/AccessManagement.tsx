@@ -38,11 +38,13 @@ interface UserProfile {
 
 const AVAILABLE_MODULES = [
   { id: 'dashboard', name: 'Dashboard Global', icon: BarChart3, color: 'purple' },
-  { id: 'orders', name: 'Pedidos', icon: Package, color: 'blue' },
-  { id: 'delivery', name: 'Reparto', icon: Truck, color: 'green' },
-  { id: 'production', name: 'Producción', icon: Factory, color: 'amber' },
-  { id: 'billing', name: 'Cobranzas', icon: DollarSign, color: 'red' },
-  { id: 'business', name: 'Gestión Comercial', icon: Building2, color: 'teal' },
+  { id: 'orders-admin', name: 'Módulo Pedidos', icon: Package, color: 'blue' },
+  { id: 'delivery-admin', name: 'Módulo Reparto', icon: Truck, color: 'green' },
+  { id: 'production-admin', name: 'Módulo Producción', icon: Factory, color: 'amber' },
+  { id: 'billing-admin', name: 'Módulo Cobranzas', icon: DollarSign, color: 'red' },
+  { id: 'customers-admin', name: 'Módulo Clientes', icon: Building2, color: 'blue' },
+  { id: 'business-admin', name: 'Gestión Comercial', icon: Building2, color: 'teal' },
+  { id: 'logistics', name: 'Módulo Logística', icon: Truck, color: 'indigo' },
   { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'indigo' },
 ];
 
