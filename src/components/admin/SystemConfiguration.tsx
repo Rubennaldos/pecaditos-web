@@ -11,6 +11,7 @@ import FooterEditor from './FooterEditor';
 
 // Opción con ruta relativa
 import WholesaleClientsTab from '../wholesale/WholesaleClientsTab';
+import { ClientCatalogManager } from './ClientCatalogManager';
 
 import { Settings, Database, Eye, Calendar } from 'lucide-react';
 
@@ -113,14 +114,15 @@ export const SystemConfiguration = () => {
       <LivePreview companyInfo={companyInfo} />
 
       <Tabs defaultValue="users" className="space-y-6">
-        {/* 👇 Ajustamos a 6 columnas e incluimos el trigger de Mayoristas */}
-        <TabsList className="grid w-full grid-cols-6">
+        {/* 👇 Ajustamos a 7 columnas e incluimos Mayoristas y Catálogos */}
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="users">Usuarios</TabsTrigger>
           <TabsTrigger value="parameters">Parámetros</TabsTrigger>
           <TabsTrigger value="audit">Auditoría</TabsTrigger>
           <TabsTrigger value="footer">Footer</TabsTrigger>
           <TabsTrigger value="landing">Inicio</TabsTrigger>
-          <TabsTrigger value="wholesale">Ajustes Mayoristas</TabsTrigger>
+          <TabsTrigger value="wholesale">Mayoristas</TabsTrigger>
+          <TabsTrigger value="catalogs">Catálogos</TabsTrigger>
         </TabsList>
 
         {/* USUARIOS */}
@@ -403,9 +405,14 @@ export const SystemConfiguration = () => {
           <LandingConfig />
         </TabsContent>
 
-        {/* 👇 NUEVO: AJUSTES MAYORISTAS */}
+        {/* 👇 AJUSTES MAYORISTAS */}
         <TabsContent value="wholesale" className="space-y-6">
           <WholesaleClientsTab />
+        </TabsContent>
+
+        {/* 👇 CATÁLOGOS PERSONALIZADOS */}
+        <TabsContent value="catalogs" className="space-y-6">
+          <ClientCatalogManager />
         </TabsContent>
       </Tabs>
     </div>

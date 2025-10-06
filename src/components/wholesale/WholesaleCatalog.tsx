@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
+import { useWholesaleCustomer } from '@/hooks/useWholesaleCustomer';
 
 // Helpers de precios/cantidades (porcentuales)
 import {
@@ -55,9 +56,31 @@ type Props = {
 export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
   const { toast } = useToast();
   const { addItem } = useWholesaleCart();
+  const { uid } = useWholesaleCustomer();
 
   const [products, setProducts] = useState<UiProduct[]>([]);
+  const [clientCatalog, setClientCatalog] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
+
+  /* -------------------- Carga catálogo personalizado del cliente -------------------- */
+  useEffect(() => {
+    if (!uid) {
+      setClientCatalog({});
+      return;
+    }
+
+    const clientCatalogRef = ref(db, `clientCatalogs/${uid}/products`);
+    const unsub = onValue(
+      clientCatalogRef,
+      (snap) => {
+        const data = snap.val() || {};
+        setClientCatalog(data);
+      },
+      () => setClientCatalog({})
+    );
+
+    return () => unsub();
+  }, [uid]);
 
   /* -------------------- Carga /catalog/products -------------------- */
   useEffect(() => {
@@ -113,9 +136,30 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
 
   /* -------------------- Filtros -------------------- */
   const filtered = useMemo(() => {
-    let out = products.filter(
-      (p) => selectedCategory === 'todas' || p.categoryId === selectedCategory
-    );
+    // Si el cliente tiene catálogo personalizado, solo mostrar esos productos
+    const hasCustomCatalog = Object.keys(clientCatalog).length > 0;
+    
+    let out = products.filter((p) => {
+      // Si hay catálogo personalizado, filtrar por productos activos en el catálogo del cliente
+      if (hasCustomCatalog) {
+        const clientProduct = clientCatalog[p.id];
+        if (!clientProduct || !clientProduct.active) return false;
+      }
+      
+      // Filtrar por categoría
+      return selectedCategory === 'todas' || p.categoryId === selectedCategory;
+    });
+
+    // Aplicar precios personalizados si existen
+    if (hasCustomCatalog) {
+      out = out.map(p => {
+        const clientProduct = clientCatalog[p.id];
+        if (clientProduct && clientProduct.customPrice) {
+          return { ...p, wholesalePrice: clientProduct.customPrice };
+        }
+        return p;
+      });
+    }
 
     const q = searchQuery.trim().toLowerCase();
     if (q) {
@@ -125,7 +169,7 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
       });
     }
     return out;
-  }, [products, selectedCategory, searchQuery]);
+  }, [products, clientCatalog, selectedCategory, searchQuery]);
 
   /* -------------------- Cantidades y añadir -------------------- */
   const [qtyById, setQtyById] = useState<Record<string, number>>({});
