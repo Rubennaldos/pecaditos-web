@@ -35,7 +35,8 @@ const App = () => (
           <AdminProvider>
             {/* ⬇️ Proveedor que expone orders + acciones a todo el panel */}
             <AdminOrdersProvider>
-              <BrowserRouter>
+              {/* 👇 IMPORTANTE: basename para que funcione en /pecaditos-web/ */}
+              <BrowserRouter basename={import.meta.env.BASE_URL}>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
@@ -46,8 +47,7 @@ const App = () => (
                     {/* LOGIN UNIFICADO - Detecta automáticamente el perfil del usuario */}
                     <Route path="/login" element={<Login />} />
 
-                    {/* CATÁLOGO MINORISTA - *** COMPLETAMENTE OCULTO *** */}
-                    {/* Solo admin puede acceder - Para reactivar: cambiar allowedProfiles en ProtectedRoute.tsx */}
+                    {/* CATÁLOGO MINORISTA */}
                     <Route
                       path="/catalogo"
                       element={
@@ -85,7 +85,7 @@ const App = () => (
                       }
                     />
 
-                    {/* PANEL DE REPARTO - Solo perfil reparto y admin */}
+                    {/* PANEL DE REPARTO */}
                     <Route
                       path="/reparto"
                       element={
@@ -95,7 +95,7 @@ const App = () => (
                       }
                     />
 
-                    {/* PANEL DE PRODUCCIÓN - Solo perfil producción y admin */}
+                    {/* PANEL DE PRODUCCIÓN */}
                     <Route
                       path="/produccion"
                       element={
@@ -105,7 +105,7 @@ const App = () => (
                       }
                     />
 
-                    {/* PANEL DE COBRANZAS - Solo perfil cobranzas y admin */}
+                    {/* PANEL DE COBRANZAS */}
                     <Route
                       path="/cobranzas"
                       element={
@@ -115,7 +115,7 @@ const App = () => (
                       }
                     />
 
-                    {/* PANEL DE LOGÍSTICA - Solo perfil logística y admin */}
+                    {/* PANEL DE LOGÍSTICA */}
                     <Route
                       path="/logistica"
                       element={
@@ -125,7 +125,7 @@ const App = () => (
                       }
                     />
 
-                    {/* SEGUIMIENTO PÚBLICO DE PEDIDOS - Acceso público */}
+                    {/* SEGUIMIENTO PÚBLICO */}
                     <Route
                       path="/seguimiento"
                       element={
@@ -135,7 +135,7 @@ const App = () => (
                       }
                     />
 
-                    {/* PORTAL MAYORISTA - Acceso para mayoristas */}
+                    {/* PORTAL MAYORISTA */}
                     <Route
                       path="/mayorista"
                       element={
@@ -145,7 +145,7 @@ const App = () => (
                       }
                     />
 
-                    {/* DÓNDE NOS UBICAMOS - Nueva ruta pública */}
+                    {/* DÓNDE NOS UBICAMOS */}
                     <Route
                       path="/donde-nos-ubicamos"
                       element={
@@ -155,7 +155,7 @@ const App = () => (
                       }
                     />
 
-                    {/* RUTA 404 - Debe ir al final */}
+                    {/* 404 */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </TooltipProvider>
