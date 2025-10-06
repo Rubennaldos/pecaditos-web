@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { db } from '@/config/firebase';
+import { db, auth } from '@/config/firebase';
 import { ref, onValue, push, set, update, remove } from "firebase/database";
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -211,7 +212,7 @@ export const ClientsManagement = () => {
   }, []);
 
   // --- Guardar cliente (nuevo o edición)
- const saveClient = (client: Partial<Client>, isEdit?: boolean) => {
+ const saveClient = async (client: Partial<Client>, isEdit?: boolean) => {
   const clientsRef = ref(db, 'clients');
   if (isEdit && client.id) {
     // ACTUALIZA todo el objeto, incluyendo sedes y contactos
@@ -220,12 +221,68 @@ export const ClientsManagement = () => {
     });
     toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
   } else {
-    const newClientRef = push(clientsRef);
-    set(newClientRef, {
-      ...client,
-      fechaCreacion: Date.now()
-    });
-    toast({ title: "Cliente creado", description: "Guardado correctamente" });
+    try {
+      // Crear usuario en Firebase Authentication
+      if (client.emailFacturacion) {
+        // Generar contraseña por defecto: RUC/DNI + @Pecaditos
+        const defaultPassword = `${client.rucDni}@Pecaditos`;
+        
+        try {
+          const userCredential = await createUserWithEmailAndPassword(
+            auth, 
+            client.emailFacturacion, 
+            defaultPassword
+          );
+          
+          // Guardar cliente con UID del usuario de Authentication
+          const newClientRef = push(clientsRef);
+          await set(newClientRef, {
+            ...client,
+            authUid: userCredential.user.uid,
+            fechaCreacion: Date.now()
+          });
+          
+          toast({ 
+            title: "Cliente creado exitosamente", 
+            description: `Usuario creado en Firebase Auth. Email: ${client.emailFacturacion}, Contraseña: ${defaultPassword}`
+          });
+        } catch (authError: any) {
+          // Si el email ya existe, crear el cliente de todos modos
+          if (authError.code === 'auth/email-already-in-use') {
+            const newClientRef = push(clientsRef);
+            await set(newClientRef, {
+              ...client,
+              fechaCreacion: Date.now()
+            });
+            toast({ 
+              title: "Cliente creado", 
+              description: "El email ya está registrado en Authentication",
+              variant: "default"
+            });
+          } else {
+            throw authError;
+          }
+        }
+      } else {
+        // Si no tiene email, crear sin usuario de Authentication
+        const newClientRef = push(clientsRef);
+        await set(newClientRef, {
+          ...client,
+          fechaCreacion: Date.now()
+        });
+        toast({ 
+          title: "Cliente creado", 
+          description: "Sin email de facturación, no se creó usuario en Authentication" 
+        });
+      }
+    } catch (error: any) {
+      console.error('Error al crear cliente:', error);
+      toast({ 
+        title: "Error", 
+        description: error.message || "No se pudo crear el cliente",
+        variant: "destructive"
+      });
+    }
   }
 };
 
