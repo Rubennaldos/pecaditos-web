@@ -32,7 +32,7 @@ import DeliveryPanel from './DeliveryPanel';
 import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
 import { ClientsManagement } from '@/components/clients/ClientsManagement';
-import { ClientCatalogManager } from '@/components/admin/ClientCatalogManager';
+import { CatalogModule } from './CatalogModule';
 
 const ADMIN_PROFILES = ['admin', 'adminGeneral'];
 
@@ -288,12 +288,7 @@ const AdminPanelContent = () => {
         );
       case 'catalogs-admin':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <ClientCatalogManager />
-          </div>
+          <CatalogModule onBack={() => setActiveSection('modules')} />
         );
       case 'business-admin':
         return (
