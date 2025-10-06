@@ -24,6 +24,7 @@ import {
   MapPin,
   MessageSquare,
   UserCog,
+  ShoppingBag,
 } from 'lucide-react';
 
 import OrdersPanel from './OrdersPanel';
@@ -31,6 +32,7 @@ import DeliveryPanel from './DeliveryPanel';
 import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
 import { ClientsManagement } from '@/components/clients/ClientsManagement';
+import { ClientCatalogManager } from '@/components/admin/ClientCatalogManager';
 
 const ADMIN_PROFILES = ['admin', 'adminGeneral'];
 
@@ -119,6 +121,17 @@ const AdminPanelContent = () => {
       stats: [
         { label: 'Total', value: '142' },
         { label: 'Activos', value: '98' },
+      ],
+    },
+    {
+      id: 'catalogs-admin',
+      name: 'Catálogos por Cliente',
+      icon: ShoppingBag,
+      description: 'Gestión de catálogos personalizados',
+      color: 'emerald',
+      stats: [
+        { label: 'Clientes', value: '-' },
+        { label: 'Productos', value: '-' },
       ],
     },
     {
@@ -271,6 +284,15 @@ const AdminPanelContent = () => {
               Volver a Módulos
             </Button>
             <ClientsManagement />
+          </div>
+        );
+      case 'catalogs-admin':
+        return (
+          <div className="p-8">
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <ClientCatalogManager />
           </div>
         );
       case 'business-admin':
