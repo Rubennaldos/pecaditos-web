@@ -197,7 +197,7 @@ const AdminPanelContent = () => {
       case 'access-management':
         return (
           <div className="p-8">
-            <AccessManagement />
+            <AccessManagement onBack={() => setActiveSection('modules')} />
           </div>
         );
       case 'orders-admin':

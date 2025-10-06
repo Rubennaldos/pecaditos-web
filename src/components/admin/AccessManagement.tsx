@@ -18,10 +18,12 @@ import {
   Factory,
   DollarSign,
   BarChart3,
+  ArrowLeft,
 } from 'lucide-react';
 import { db } from '@/config/firebase';
 import { ref, onValue, update, set, remove } from 'firebase/database';
 import { useToast } from '@/hooks/use-toast';
+import { UserEditModal } from './UserEditModal';
 
 interface UserProfile {
   id: string;
@@ -44,7 +46,11 @@ const AVAILABLE_MODULES = [
   { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'indigo' },
 ];
 
-export const AccessManagement = () => {
+interface AccessManagementProps {
+  onBack?: () => void;
+}
+
+export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -137,9 +143,17 @@ export const AccessManagement = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-stone-800">Gestión de Accesos</h1>
-          <p className="text-stone-600 mt-1">Administra usuarios, perfiles y permisos de módulos</p>
+        <div className="flex items-center gap-4">
+          {onBack && (
+            <Button variant="outline" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Volver
+            </Button>
+          )}
+          <div>
+            <h1 className="text-3xl font-bold text-stone-800">Gestión de Accesos</h1>
+            <p className="text-stone-600 mt-1">Administra usuarios, perfiles y permisos de módulos</p>
+          </div>
         </div>
         <Button className="bg-purple-600 hover:bg-purple-700">
           <Plus className="h-4 w-4 mr-2" />
@@ -249,7 +263,14 @@ export const AccessManagement = () => {
                         <span className="text-sm text-stone-600">Activo</span>
                         <Switch checked={user.activo} onCheckedChange={() => toggleUserAccess(user.id, user.activo)} />
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setSelectedUser(user)}>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowEditModal(true);
+                        }}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
                     </div>
@@ -300,6 +321,15 @@ export const AccessManagement = () => {
           </div>
         </CardContent>
       </Card>
+
+      <UserEditModal
+        user={selectedUser}
+        open={showEditModal}
+        onOpenChange={(open) => {
+          setShowEditModal(open);
+          if (!open) setSelectedUser(null);
+        }}
+      />
     </div>
   );
 };
