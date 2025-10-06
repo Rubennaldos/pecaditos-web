@@ -61,10 +61,16 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
 
   useEffect(() => {
     const usersRef = ref(db, 'usuarios');
-    const unsubscribe = onValue(usersRef, (snapshot) => {
+    const clientsRef = ref(db, 'clients');
+    
+    let usersData: UserProfile[] = [];
+    let clientsData: UserProfile[] = [];
+    
+    // Cargar usuarios
+    const unsubscribeUsers = onValue(usersRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const usersList: UserProfile[] = Object.entries(data).map(([id, user]: [string, any]) => ({
+        usersData = Object.entries(data).map(([id, user]: [string, any]) => ({
           id,
           nombre: user.nombre || '',
           correo: user.correo || '',
@@ -74,11 +80,38 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
           sede: user.sede || '',
           permissions: user.permissions || [],
         }));
-        setUsers(usersList);
+      } else {
+        usersData = [];
       }
+      setUsers([...usersData, ...clientsData]);
     });
 
-    return () => unsubscribe();
+    // Cargar clientes que tienen authUid (creados en Authentication)
+    const unsubscribeClients = onValue(clientsRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        clientsData = Object.entries(data)
+          .filter(([_, client]: [string, any]) => client.authUid) // Solo clientes con cuenta en Authentication
+          .map(([id, client]: [string, any]) => ({
+            id: client.authUid, // Usar el authUid como ID para gestión
+            nombre: client.razonSocial || '',
+            correo: client.emailFacturacion || '',
+            rol: 'cliente',
+            activo: client.estado === 'activo',
+            comercial: client.distrito || '',
+            sede: client.direccionFiscal || '',
+            permissions: [],
+          }));
+      } else {
+        clientsData = [];
+      }
+      setUsers([...usersData, ...clientsData]);
+    });
+
+    return () => {
+      unsubscribeUsers();
+      unsubscribeClients();
+    };
   }, []);
 
   const filteredUsers = users.filter(
