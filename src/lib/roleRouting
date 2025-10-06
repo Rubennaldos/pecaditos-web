@@ -1,0 +1,32 @@
+export type Role =
+  | "admin" | "pedidos" | "reparto" | "produccion"
+  | "cobranzas" | "logistica" | "mayorista" | "retail";
+
+export function normalizeRole(v?: string): Role | undefined {
+  if (!v) return;
+  const s = v.toLowerCase().trim();
+  if (s === "admin") return "admin";
+  if (["pedidos", "orders", "pedido"].includes(s)) return "pedidos";
+  if (["reparto", "delivery"].includes(s)) return "reparto";
+  if (["produccion", "production"].includes(s)) return "produccion";
+  if (["cobranzas", "cobranza", "billing"].includes(s)) return "cobranzas";
+  if (["logistica", "logistics"].includes(s)) return "logistica";
+  if (["mayorista", "wholesale"].includes(s)) return "mayorista";
+  if (s === "retail") return "retail";
+}
+
+export function roleToPath(role?: string): string {
+  const r = normalizeRole(role);
+  if (!r) return "/";
+  switch (r) {
+    case "admin":       return "/admin";
+    case "pedidos":     return "/pedidos";
+    case "reparto":     return "/reparto";
+    case "produccion":  return "/produccion";
+    case "cobranzas":   return "/cobranzas";
+    case "logistica":   return "/logistica";
+    case "mayorista":   return "/mayorista";
+    case "retail":      return "/"; // lo tienes oculto
+    default:            return "/";
+  }
+}
