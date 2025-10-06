@@ -228,25 +228,27 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
   return (
     <section>
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="border rounded-lg p-4">
-              <div className="w-full h-40 bg-stone-200 animate-pulse rounded mb-3" />
-              <div className="h-4 w-2/3 bg-stone-200 animate-pulse rounded mb-2" />
-              <div className="h-4 w-1/3 bg-stone-200 animate-pulse rounded mb-4" />
-              <div className="flex gap-2">
-                <div className="h-10 w-20 bg-stone-200 animate-pulse rounded" />
-                <div className="h-10 w-24 bg-stone-200 animate-pulse rounded" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="border rounded-xl p-6 shadow-sm">
+              <div className="w-full h-64 bg-stone-200 animate-pulse rounded-lg mb-4" />
+              <div className="h-5 w-3/4 bg-stone-200 animate-pulse rounded mb-3" />
+              <div className="h-4 w-1/2 bg-stone-200 animate-pulse rounded mb-5" />
+              <div className="flex gap-3">
+                <div className="h-11 w-24 bg-stone-200 animate-pulse rounded-lg" />
+                <div className="h-11 w-32 bg-stone-200 animate-pulse rounded-lg" />
               </div>
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center text-stone-600 py-12">
-          No hay productos para mostrar.
+        <div className="text-center text-stone-600 py-16">
+          <div className="text-6xl mb-4">🛒</div>
+          <h3 className="text-xl font-semibold mb-2">No hay productos para mostrar</h3>
+          <p className="text-stone-500">Intenta cambiar los filtros de búsqueda</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtered.map((p) => {
             const step = stepFor(p);
             const qty = qtyById[p.id] ?? step;
@@ -258,44 +260,57 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
             );
 
             return (
-              <div key={p.id} className="border rounded-lg p-4 hover:shadow-md transition">
-                <div className="aspect-square w-full mb-3 bg-stone-100 rounded overflow-hidden">
+              <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition-all duration-200 bg-card">
+                <div className="w-full h-64 mb-4 bg-muted rounded-lg overflow-hidden">
                   {p.imageUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={p.imageUrl}
                       alt={p.name}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                       onError={(e) => {
                         (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
                       }}
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-stone-400">
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
                       Sin imagen
                     </div>
                   )}
                 </div>
 
-                <div className="space-y-1">
-                  <h3 className="font-semibold text-stone-800 line-clamp-2">{p.name}</h3>
-                  {p.unit && <p className="text-xs text-stone-500">Unidad: {p.unit}</p>}
+                <div className="space-y-2">
+                  <h3 className="font-bold text-lg text-foreground line-clamp-2 min-h-[3.5rem]">{p.name}</h3>
+                  {p.unit && <p className="text-sm text-muted-foreground">Unidad: {p.unit}</p>}
 
-                  <div className="text-lg font-bold text-green-700">
-                    {money(unit)} <span className="ml-1 text-xs text-stone-500">mayorista c/u</span>
+                  <div className="text-2xl font-bold text-primary">
+                    {money(unit)}
+                  </div>
+                  
+                  <div className="text-sm text-muted-foreground">
+                    <span className="text-xs">Precio mayorista c/u</span>
                   </div>
 
-                  <div className="text-xs text-stone-600">
-                    Base: <b>{money(p.wholesalePrice)}</b>{' '}
-                    {discountPct > 0 && (
-                      <span className="ml-1 text-green-700">({discountPct}% desc.)</span>
-                    )}
+                  {discountPct > 0 && (
+                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium">
+                      🎉 {discountPct}% de descuento
+                    </div>
+                  )}
+                  
+                  <div className="text-sm text-muted-foreground pt-1">
+                    Base: <span className="font-semibold">{money(p.wholesalePrice)}</span>
                   </div>
                 </div>
 
-                <div className="mt-3 flex items-center gap-2">
-                  <Button type="button" variant="outline" onClick={() => dec(p)} className="px-3">
+                <div className="mt-5 flex items-center gap-2">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="lg"
+                    onClick={() => dec(p)} 
+                    className="px-4 text-lg font-bold"
+                  >
                     −
                   </Button>
                   <Input
@@ -306,15 +321,25 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
                     value={qty}
                     onChange={(e) => setQty(p.id, Number(e.target.value || 0), p)}
                     onBlur={(e) => setQty(p.id, Number(e.target.value || 0), p)}
-                    className="w-24 text-center"
-                    placeholder={`Múltiplos de ${step}`}
+                    className="flex-1 text-center text-lg font-semibold h-11"
+                    placeholder={`${step}`}
                   />
-                  <Button type="button" variant="outline" onClick={() => inc(p)} className="px-3">
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="lg"
+                    onClick={() => inc(p)} 
+                    className="px-4 text-lg font-bold"
+                  >
                     +
                   </Button>
                 </div>
 
-                <Button className="mt-3 w-full" onClick={() => addToCart(p)}>
+                <Button 
+                  className="mt-4 w-full h-11 text-base font-semibold" 
+                  size="lg"
+                  onClick={() => addToCart(p)}
+                >
                   Añadir al carrito
                 </Button>
               </div>
