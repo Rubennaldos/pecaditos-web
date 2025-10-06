@@ -19,6 +19,7 @@ import {
   BarChart3,
   ArrowLeft,
   UserPlus,
+  ShoppingCart,
 } from "lucide-react";
 import { db } from "@/config/firebase"; // 👈 asegúrate de usar esta ruta
 import { ref, onValue, update, set } from "firebase/database";
@@ -39,11 +40,13 @@ interface UserProfile {
 
 const AVAILABLE_MODULES = [
   { id: "dashboard", name: "Dashboard Global", icon: BarChart3, color: "purple" },
+  { id: "access-management", name: "Gestión de Accesos", icon: Shield, color: "rose" },
   { id: "orders-admin", name: "Módulo Pedidos", icon: Package, color: "blue" },
   { id: "delivery-admin", name: "Módulo Reparto", icon: Truck, color: "green" },
   { id: "production-admin", name: "Módulo Producción", icon: Factory, color: "amber" },
   { id: "billing-admin", name: "Módulo Cobranzas", icon: DollarSign, color: "red" },
   { id: "customers-admin", name: "Módulo Clientes", icon: Building2, color: "blue" },
+  { id: "catalogs-admin", name: "Catálogos por Cliente", icon: ShoppingCart, color: "emerald" },
   { id: "business-admin", name: "Gestión Comercial", icon: Building2, color: "teal" },
   { id: "logistics", name: "Módulo Logística", icon: Truck, color: "indigo" },
   { id: "locations", name: "Ubicaciones", icon: MapPin, color: "indigo" },
