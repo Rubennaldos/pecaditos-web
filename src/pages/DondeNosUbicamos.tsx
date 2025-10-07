@@ -1,14 +1,13 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Phone, Clock, ExternalLink, Search, Filter } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapPin, Phone, Clock, ExternalLink, Search, Filter } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-import { ref, onValue } from 'firebase/database';
-import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
-import { db, auth } from '@/config/firebase';
+import { ref, onValue } from "firebase/database";
+import { db } from "@/config/firebase";
 
 type Store = {
   id: string;
@@ -19,85 +18,60 @@ type Store = {
   hours?: string;
   mapsUrl?: string;
   coordinates?: { lat: number; lng: number };
-  logoDataUrl?: string;   // 👈 nuevo
+  logoDataUrl?: string;
   active?: boolean;
 };
 
-// Espera a que Firebase determine el usuario actual; si no hay, inicia sesión anónima.
-function ensureAnon(): Promise<void> {
-  return new Promise<void>((resolve) => {
-    if (auth.currentUser) return resolve();
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      unsub();
-      if (user) return resolve();
-      try {
-        await signInAnonymously(auth);
-      } catch (e: any) {
-        console.error('signInAnonymously failed:', e?.code, e?.message);
-      } finally {
-        resolve();
-      }
-    });
-  });
-}
-
 const DondeNosUbicamos = () => {
   const navigate = useNavigate();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDistrict, setSelectedDistrict] = useState('Todos los distritos');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedDistrict, setSelectedDistrict] = useState("Todos los distritos");
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let off = () => {};
-    (async () => {
-      await ensureAnon(); // Reglas RTDB: auth != null
-
-      const r = ref(db, 'locations'); // mismo nodo que usa tu Admin
-      off = onValue(
-        r,
-        (snapshot) => {
-          const data = snapshot.val() || {};
-          const arr: Store[] = Object.entries<any>(data).map(([id, v]) => ({
-            id,
-            name: v?.nombre || '',
-            address: v?.direccion || '',
-            district: v?.distrito || v?.provincia || v?.departamento || '',
-            phone: v?.telefono || '',
-            hours: v?.hours || '',
-            mapsUrl: v?.mapsUrl || '',
-            coordinates:
-              v?.coordinates ||
-              (v?.lat && v?.lng ? { lat: v.lat, lng: v.lng } : undefined),
-            logoDataUrl: v?.logoDataUrl || '', // 👈 nuevo
-            active: v?.active !== false,
-          }));
-          setStores(arr.filter((s) => s.active !== false));
-          setLoading(false);
-        },
-        () => setLoading(false)
-      );
-    })();
+    const r = ref(db, "locations");
+    const off = onValue(
+      r,
+      (snapshot) => {
+        const data = snapshot.val() || {};
+        const arr: Store[] = Object.entries<any>(data).map(([id, v]) => ({
+          id,
+          name: v?.nombre || "",
+          address: v?.direccion || "",
+          district: v?.distrito || v?.provincia || v?.departamento || "",
+          phone: v?.telefono || "",
+          hours: v?.hours || "",
+          mapsUrl: v?.mapsUrl || "",
+          coordinates: v?.coordinates || (v?.lat && v?.lng ? { lat: v.lat, lng: v.lng } : undefined),
+          logoDataUrl: v?.logoDataUrl || "",
+          active: v?.active !== false
+        }));
+        setStores(arr.filter((s) => s.active !== false));
+        setLoading(false);
+      },
+      () => setLoading(false)
+    );
     return () => off();
   }, []);
 
   const allDistricts = useMemo(() => {
     const set = new Set(stores.map((s) => s.district).filter(Boolean) as string[]);
-    return ['Todos los distritos', ...Array.from(set).sort()];
+    return ["Todos los distritos", ...Array.from(set).sort()];
   }, [stores]);
 
   const filteredStores = useMemo(() => {
     let filtered = stores;
-    if (selectedDistrict !== 'Todos los distritos') {
-      filtered = filtered.filter((store) => (store.district || '') === selectedDistrict);
+    if (selectedDistrict !== "Todos los distritos") {
+      filtered = filtered.filter((store) => (store.district || "") === selectedDistrict);
     }
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (store) =>
-          (store.name || '').toLowerCase().includes(q) ||
-          (store.address || '').toLowerCase().includes(q) ||
-          (store.district || '').toLowerCase().includes(q)
+          (store.name || "").toLowerCase().includes(q) ||
+          (store.address || "").toLowerCase().includes(q) ||
+          (store.district || "").toLowerCase().includes(q)
       );
     }
     return filtered;
@@ -105,18 +79,18 @@ const DondeNosUbicamos = () => {
 
   const openInGoogleMaps = (store: Store) => {
     if (store.mapsUrl) {
-      window.open(store.mapsUrl, '_blank');
+      window.open(store.mapsUrl, "_blank");
       return;
     }
     if (store.coordinates) {
       const url = `https://www.google.com/maps/search/?api=1&query=${store.coordinates.lat},${store.coordinates.lng}&query_place_id=${encodeURIComponent(
         `${store.name} ${store.address}`
       )}`;
-      window.open(url, '_blank');
+      window.open(url, "_blank");
       return;
     }
-    const q = encodeURIComponent(`${store.address || ''} ${store.district || ''}`);
-    window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');
+    const q = encodeURIComponent(`${store.address || ""} ${store.district || ""}`);
+    window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, "_blank");
   };
 
   return (
@@ -133,7 +107,11 @@ const DondeNosUbicamos = () => {
                 <p className="text-stone-600">Encuentra nuestros productos cerca de ti</p>
               </div>
             </div>
-            <Button variant="outline" onClick={() => navigate('/')} className="text-amber-600 border-amber-300 hover:bg-amber-50">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/")}
+              className="text-amber-600 border-amber-300 hover:bg-amber-50"
+            >
               ← Volver al inicio
             </Button>
           </div>
@@ -177,14 +155,16 @@ const DondeNosUbicamos = () => {
         {!loading && (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStores.map((store) => (
-              <Card key={store.id} className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 hover:border-amber-200">
+              <Card
+                key={store.id}
+                className="hover:shadow-lg transition-all duration-300 hover:-translate-y-1 border-2 hover:border-amber-200"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <CardTitle className="text-lg font-bold text-stone-800 mb-1">{store.name}</CardTitle>
                       <CardDescription className="text-stone-600">{store.district}</CardDescription>
                     </div>
-                    {/* Avatar/logo de la tienda */}
                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-gradient-to-br from-purple-400 to-purple-500 border">
                       {store.logoDataUrl ? (
                         <img src={store.logoDataUrl} alt={store.name} className="w-full h-full object-cover" />
@@ -235,8 +215,8 @@ const DondeNosUbicamos = () => {
             <p className="text-stone-600 mb-4">Intenta con otros términos de búsqueda o distrito</p>
             <Button
               onClick={() => {
-                setSearchTerm('');
-                setSelectedDistrict('Todos los distritos');
+                setSearchTerm("");
+                setSelectedDistrict("Todos los distritos");
               }}
               variant="outline"
               className="text-amber-600 border-amber-300 hover:bg-amber-50"
@@ -253,8 +233,8 @@ const DondeNosUbicamos = () => {
             <Button
               onClick={() =>
                 window.open(
-                  'https://wa.me/51999888777?text=Hola,%20necesito%20encontrar%20un%20punto%20de%20venta%20cerca%20de%20mi%20ubicación',
-                  '_blank'
+                  "https://wa.me/51999888777?text=Hola,%20necesito%20encontrar%20un%20punto%20de%20venta%20cerca%20de%20mi%20ubicación",
+                  "_blank"
                 )
               }
               className="bg-green-600 hover:bg-green-700 text-white"
@@ -262,7 +242,7 @@ const DondeNosUbicamos = () => {
               <Phone className="h-4 w-4 mr-2" />
               WhatsApp: +51 999 888 777
             </Button>
-            <Button variant="outline" onClick={() => navigate('/')} className="text-amber-600 border-amber-300 hover:bg-amber-50">
+            <Button variant="outline" onClick={() => navigate("/")} className="text-amber-600 border-amber-300 hover:bg-amber-50">
               Volver al inicio
             </Button>
           </div>

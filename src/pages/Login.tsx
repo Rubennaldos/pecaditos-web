@@ -1,106 +1,109 @@
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from '@/components/ui/use-toast';
-import { Eye, EyeOff, User, Lock } from 'lucide-react';
+// src/pages/Login.tsx
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "@/components/ui/use-toast";
+import { Eye, EyeOff, User, Lock } from "lucide-react";
 
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
-import { auth, db } from '../config/firebase'; // RUTA RELATIVA
+import { ref, get } from "firebase/database";
+import { auth, db } from "@/config/firebase";
+import { signInAndEnsureProfile } from "@/services/auth";
 
 // Normaliza posibles valores de rol y devuelve la ruta correspondiente
 function roleToPath(raw?: string): string {
-  if (!raw) return '/';
+  if (!raw) return "/";
   const s = String(raw).toLowerCase().trim();
-
-  // sinónimos comunes que podrías tener en RTDB
-  if (s === 'admin' || s === 'admingeneral') return '/admin';
-  if (s === 'pedidos' || s === 'order' || s === 'orders') return '/pedidos';
-  if (s === 'reparto' || s === 'delivery') return '/reparto';
-  if (s === 'produccion' || s === 'production') return '/produccion';
-  if (s === 'cobranzas' || s === 'billing' || s === 'cobranza') return '/cobranzas';
-  if (s === 'logistica' || s === 'logistics') return '/logistica';
-  if (s === 'mayorista' || s === 'wholesale') return '/mayorista';
-  if (s === 'retail') return '/'; // catálogo retail oculto en tu app
-
-  // por defecto, quédate en la landing
-  return '/';
+  if (s === "admin" || s === "admingeneral") return "/admin";
+  if (["pedidos", "order", "orders"].includes(s)) return "/pedidos";
+  if (["reparto", "delivery"].includes(s)) return "/reparto";
+  if (["produccion", "production"].includes(s)) return "/produccion";
+  if (["cobranzas", "billing", "cobranza"].includes(s)) return "/cobranzas";
+  if (["logistica", "logistics"].includes(s)) return "/logistica";
+  if (["mayorista", "wholesale"].includes(s)) return "/mayorista";
+  if (s === "retail") return "/";
+  return "/";
 }
 
 const Login = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as any)?.from?.pathname || '/';
+  const from = (location.state as any)?.from?.pathname || "/";
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!email || !password) {
       toast({
-        title: 'Error',
-        description: 'Por favor completa todos los campos',
-        variant: 'destructive',
+        title: "Error",
+        description: "Por favor completa todos los campos",
+        variant: "destructive",
       });
       return;
     }
 
     setIsLoading(true);
-
     try {
-      // 1) Login en Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // 1) Login + asegurar perfil en RTDB
+      const user = await signInAndEnsureProfile(email, password);
 
-      // 2) Traer perfil desde RTDB
-      const userRef = ref(db, `usuarios/${user.uid}`);
-      const snapshot = await get(userRef);
-
-      if (!snapshot.exists()) {
+      // 2) Leer perfil (ya debería existir)
+      const snap = await get(ref(db, `usuarios/${user.uid}`));
+      if (!snap.exists()) {
         toast({
-          title: 'Perfil no encontrado',
-          description: 'No se encontró un perfil para este usuario.',
-          variant: 'destructive',
+          title: "Perfil no encontrado",
+          description:
+            "Tu cuenta inició sesión, pero no se encontró el perfil. Contacta al administrador.",
+          variant: "destructive",
         });
-        setIsLoading(false);
-        return navigate('/', { replace: true });
+        navigate("/", { replace: true });
+        return;
       }
-
-      const userData = snapshot.val();
+      const perfil = snap.val();
 
       // 2.1) Validar activo
-      if (userData.activo === false) {
+      if (perfil.activo === false) {
         toast({
-          title: 'Acceso denegado',
-          description: 'Tu usuario está inactivo. Contacta al administrador.',
-          variant: 'destructive',
+          title: "Acceso denegado",
+          description: "Tu usuario está inactivo. Contacta al administrador.",
+          variant: "destructive",
         });
-        setIsLoading(false);
-        return navigate('/', { replace: true });
+        navigate("/", { replace: true });
+        return;
       }
 
       // 3) Determinar ruta por rol
-      const rol = userData.rol ?? userData.role; // soporta "rol" o "role"
+      const rol = perfil.rol ?? perfil.role;
       const redirectPath = roleToPath(rol);
 
       toast({
-        title: 'Bienvenido',
-        description: `Has iniciado sesión como ${rol ?? 'usuario'}`,
+        title: "Bienvenido",
+        description: `Has iniciado sesión como ${rol ?? "usuario"}`,
       });
 
-      // 4) Respetar "from" si venías de una ruta protegida
-      navigate(from !== '/' ? from : redirectPath, { replace: true });
-    } catch (error: any) {
+      // 4) Respetar "from"
+      navigate(from !== "/" ? from : redirectPath, { replace: true });
+    } catch (err: any) {
+      const code = err?.code || "";
+      const msgMap: Record<string, string> = {
+        "auth/invalid-credential": "Correo o contraseña inválidos.",
+        "auth/user-not-found": "El correo no está registrado.",
+        "auth/wrong-password": "Contraseña incorrecta.",
+        "auth/too-many-requests":
+          "Demasiados intentos. Vuelve a intentar en unos minutos.",
+        "auth/operation-not-allowed":
+          "El método Email/Password está deshabilitado.",
+        "auth/network-request-failed": "Error de red. Verifica tu conexión.",
+      };
       toast({
-        title: 'Error de autenticación',
-        description: error?.message || 'Usuario o contraseña incorrectos',
-        variant: 'destructive',
+        title: "Error de autenticación",
+        description: msgMap[code] || err?.message || "Usuario o contraseña incorrectos",
+        variant: "destructive",
       });
     } finally {
       setIsLoading(false);
@@ -136,7 +139,7 @@ const Login = () => {
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-stone-400" />
               <Input
-                type={showPassword ? 'text' : 'password'}
+                type={showPassword ? "text" : "password"}
                 placeholder="Contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -157,7 +160,7 @@ const Login = () => {
               className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-medium transition-all duration-200 hover:shadow-lg"
               disabled={isLoading}
             >
-              {isLoading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
             </Button>
           </form>
         </CardContent>
