@@ -51,7 +51,7 @@ const App = () => (
                     <Route
                       path="/catalogo"
                       element={
-                        <ProtectedRoute routeType="CATALOG_RETAIL">
+                        <ProtectedRoute module="catalog">
                           <Catalog />
                         </ProtectedRoute>
                       }
@@ -59,27 +59,27 @@ const App = () => (
                     <Route
                       path="/productos"
                       element={
-                        <ProtectedRoute routeType="CATALOG_RETAIL">
+                        <ProtectedRoute module="catalog">
                           <Catalog />
                         </ProtectedRoute>
                       }
                     />
 
-                    {/* PANEL DE ADMINISTRACIÓN GENERAL - Solo admin */}
+                    {/* PANEL DE ADMINISTRACIÓN GENERAL */}
                     <Route
                       path="/admin"
                       element={
-                        <ProtectedRoute routeType="ADMIN">
+                        <ProtectedRoute module="dashboard">
                           <AdminPanel />
                         </ProtectedRoute>
                       }
                     />
 
-                    {/* PANEL DE PEDIDOS - Solo perfil pedidos y admin */}
+                    {/* PANEL DE PEDIDOS */}
                     <Route
                       path="/pedidos"
                       element={
-                        <ProtectedRoute routeType="ORDERS">
+                        <ProtectedRoute module="orders">
                           <OrdersPanel />
                         </ProtectedRoute>
                       }
@@ -89,7 +89,7 @@ const App = () => (
                     <Route
                       path="/reparto"
                       element={
-                        <ProtectedRoute routeType="DELIVERY">
+                        <ProtectedRoute module="delivery">
                           <DeliveryPanel />
                         </ProtectedRoute>
                       }
@@ -99,7 +99,7 @@ const App = () => (
                     <Route
                       path="/produccion"
                       element={
-                        <ProtectedRoute routeType="PRODUCTION">
+                        <ProtectedRoute module="production">
                           <ProductionPanel />
                         </ProtectedRoute>
                       }
@@ -109,7 +109,7 @@ const App = () => (
                     <Route
                       path="/cobranzas"
                       element={
-                        <ProtectedRoute routeType="BILLING">
+                        <ProtectedRoute module="billing">
                           <BillingPanel />
                         </ProtectedRoute>
                       }
@@ -119,7 +119,7 @@ const App = () => (
                     <Route
                       path="/logistica"
                       element={
-                        <ProtectedRoute routeType="LOGISTICS">
+                        <ProtectedRoute module="logistics">
                           <LogisticsPanel />
                         </ProtectedRoute>
                       }
@@ -129,7 +129,7 @@ const App = () => (
                     <Route
                       path="/seguimiento"
                       element={
-                        <ProtectedRoute routeType="PUBLIC">
+                        <ProtectedRoute module="tracking">
                           <OrderTracking />
                         </ProtectedRoute>
                       }
@@ -139,7 +139,7 @@ const App = () => (
                     <Route
                       path="/mayorista"
                       element={
-                        <ProtectedRoute routeType="CATALOG_WHOLESALE">
+                        <ProtectedRoute module="wholesale">
                           <WholesalePortal />
                         </ProtectedRoute>
                       }
@@ -149,7 +149,7 @@ const App = () => (
                     <Route
                       path="/donde-nos-ubicamos"
                       element={
-                        <ProtectedRoute routeType="PUBLIC">
+                        <ProtectedRoute>
                           <DondeNosUbicamos />
                         </ProtectedRoute>
                       }

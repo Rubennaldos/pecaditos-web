@@ -7,13 +7,13 @@ import { getDatabase } from "firebase-admin/database";
 initializeApp();
 
 export const createUser = onCall({ region: "us-central1" }, async (req) => {
-  const { email, password, nombre, rol } = (req.data || {}) as {
-    email?: string; password?: string; nombre?: string; rol?: string;
+  const { email, password, nombre, isAdmin } = (req.data || {}) as {
+    email?: string; password?: string; nombre?: string; isAdmin?: boolean;
   };
 
-  if (!email || !password || !nombre || !rol) {
+  if (!email || !password || !nombre) {
     throw new HttpsError("invalid-argument",
-      "Faltan campos requeridos: email, password, nombre, rol");
+      "Faltan campos requeridos: email, password, nombre");
   }
 
   try {
@@ -23,9 +23,13 @@ export const createUser = onCall({ region: "us-central1" }, async (req) => {
     const uid = userRecord.uid;
 
     await getDatabase().ref(`usuarios/${uid}`).set({
-      nombre, correo: email, rol, activo: true,
+      nombre,
+      correo: email,
+      isAdmin: isAdmin || false,
+      activo: true,
       createdAt: new Date().toISOString(),
-      permissions: (rol === "admin" || rol === "adminGeneral") ? ["all"] : [],
+      accessModules: [],
+      permissions: [],
     });
 
     return { ok: true, uid };

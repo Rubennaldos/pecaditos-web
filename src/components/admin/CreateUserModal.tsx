@@ -9,29 +9,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { db, functions } from '@/config/firebase';
 import { ref, update } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
-import { Eye, EyeOff, UserPlus } from 'lucide-react';
-
-type Rol =
-  | 'admin'
-  | 'adminGeneral'
-  | 'pedidos'
-  | 'reparto'
-  | 'produccion'
-  | 'cobranzas'
-  | 'logistica'
-  | 'mayorista'
-  | 'cliente';
+import { Eye, EyeOff, UserPlus, Shield } from 'lucide-react';
 
 interface CreateUserModalProps {
   open: boolean;
@@ -39,7 +22,6 @@ interface CreateUserModalProps {
   prefilledData?: {
     nombre?: string;
     email?: string;
-    rol?: string;
     clientId?: string;
   };
 }
@@ -53,7 +35,7 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rol, setRol] = useState<Rol>('cliente');
+  const [isAdmin, setIsAdmin] = useState(false);
   const [clientId, setClientId] = useState<string>('');
 
   // Pre-llenar datos cuando abre y hay prefilledData
@@ -61,8 +43,8 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
     if (open && prefilledData) {
       setNombre(prefilledData.nombre || '');
       setEmail(prefilledData.email || '');
-      setRol(((prefilledData.rol as Rol) || 'cliente') as Rol);
       setClientId(prefilledData.clientId || '');
+      setIsAdmin(false);
     }
     if (open && !prefilledData) {
       resetForm();
@@ -74,7 +56,7 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
     setNombre('');
     setEmail('');
     setPassword('');
-    setRol('cliente');
+    setIsAdmin(false);
     setClientId('');
     setShowPassword(false);
   };
@@ -136,7 +118,7 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
         email: email.trim(),
         password: password.trim(),
         nombre: nombre.trim(),
-        rol,
+        isAdmin,
       })) as { data?: { ok?: boolean; uid?: string } };
 
       const uid = result?.data?.uid;
@@ -238,28 +220,25 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
             </p>
           </div>
 
-          <div>
-            <Label htmlFor="rol">Rol *</Label>
-            <Select
-              value={rol}
-              onValueChange={(v) => setRol(v as Rol)}
+          <div className="flex items-center space-x-2 p-3 bg-purple-50 rounded-lg border border-purple-200">
+            <Checkbox
+              id="isAdmin"
+              checked={isAdmin}
+              onCheckedChange={(checked) => setIsAdmin(checked as boolean)}
               disabled={loading}
-            >
-              <SelectTrigger id="rol">
-                <SelectValue placeholder="Selecciona un rol" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="cliente">Cliente</SelectItem>
-                <SelectItem value="mayorista">Mayorista</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="adminGeneral">Admin General</SelectItem>
-                <SelectItem value="pedidos">Pedidos</SelectItem>
-                <SelectItem value="reparto">Reparto</SelectItem>
-                <SelectItem value="produccion">Producción</SelectItem>
-                <SelectItem value="cobranzas">Cobranzas</SelectItem>
-                <SelectItem value="logistica">Logística</SelectItem>
-              </SelectContent>
-            </Select>
+            />
+            <div className="flex-1">
+              <Label
+                htmlFor="isAdmin"
+                className="text-sm font-medium leading-none cursor-pointer flex items-center gap-2"
+              >
+                <Shield className="h-4 w-4 text-purple-600" />
+                Usuario Administrador
+              </Label>
+              <p className="text-xs text-stone-600 mt-1">
+                Los administradores tienen acceso completo a todos los módulos del sistema
+              </p>
+            </div>
           </div>
 
           {/* Si viene desde un cliente, opcionalmente muestra el clientId (solo lectura) */}

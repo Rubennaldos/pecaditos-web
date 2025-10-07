@@ -11,19 +11,34 @@ import { ref, get } from "firebase/database";
 import { auth, db } from "@/config/firebase";
 import { signInAndEnsureProfile } from "@/services/auth";
 
-// Normaliza posibles valores de rol y devuelve la ruta correspondiente
-function roleToPath(raw?: string): string {
-  if (!raw) return "/";
-  const s = String(raw).toLowerCase().trim();
-  if (s === "admin" || s === "admingeneral") return "/admin";
-  if (["pedidos", "order", "orders"].includes(s)) return "/pedidos";
-  if (["reparto", "delivery"].includes(s)) return "/reparto";
-  if (["produccion", "production"].includes(s)) return "/produccion";
-  if (["cobranzas", "billing", "cobranza"].includes(s)) return "/cobranzas";
-  if (["logistica", "logistics"].includes(s)) return "/logistica";
-  if (["mayorista", "wholesale"].includes(s)) return "/mayorista";
-  if (["cliente", "client"].includes(s)) return "/catalogo";
-  if (s === "retail") return "/";
+// Mapeo de módulos a rutas
+const MODULE_TO_ROUTE: Record<string, string> = {
+  "dashboard": "/admin",
+  "catalog": "/catalogo",
+  "orders": "/pedidos",
+  "tracking": "/seguimiento",
+  "delivery": "/reparto",
+  "production": "/produccion",
+  "billing": "/cobranzas",
+  "logistics": "/logistica",
+  "wholesale": "/mayorista",
+};
+
+// Obtener primera ruta disponible según módulos
+function getFirstAvailableRoute(perfil: any): string {
+  // Admin siempre va al panel de administración
+  if (perfil?.isAdmin) return "/admin";
+  
+  // Obtener módulos del usuario
+  const modules = perfil?.accessModules || perfil?.permissions || [];
+  
+  // Buscar la primera ruta disponible
+  for (const module of modules) {
+    if (MODULE_TO_ROUTE[module]) {
+      return MODULE_TO_ROUTE[module];
+    }
+  }
+  
   return "/";
 }
 
@@ -78,16 +93,15 @@ const Login = () => {
         return;
       }
 
-      // 3) Determinar ruta por rol
-      const rol = perfil.rol ?? perfil.role;
-      const redirectPath = roleToPath(rol);
+      // 3) Determinar ruta según módulos disponibles
+      const redirectPath = getFirstAvailableRoute(perfil);
 
       toast({
         title: "Bienvenido",
-        description: `Has iniciado sesión como ${rol ?? "usuario"}`,
+        description: `Has iniciado sesión exitosamente`,
       });
 
-      // 4) Respetar "from"
+      // 4) Respetar "from" si viene de una ruta protegida
       navigate(from !== "/" ? from : redirectPath, { replace: true });
     } catch (err: any) {
       const code = err?.code || "";

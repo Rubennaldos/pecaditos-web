@@ -21,8 +21,9 @@ async function ensureUserProfile(user: User) {
   let payload: any = {
     nombre: user.displayName || (user.email ? user.email.split("@")[0] : "Cliente"),
     correo: user.email ?? null,
-    rol: "cliente",
+    isAdmin: false,
     activo: true,
+    accessModules: [],
     permissions: [],
     createdAt: Date.now(),
   };
@@ -34,6 +35,7 @@ async function ensureUserProfile(user: User) {
       nombre: c?.razonSocial || payload.nombre,
       correo: c?.emailFacturacion ?? payload.correo,
       activo: (c?.estado || "activo") === "activo",
+      accessModules: c?.accessModules || [],
       clientId,
     };
   }

@@ -2,81 +2,49 @@ import { Navigate } from "react-router-dom";
 import { PropsWithChildren, useEffect } from "react";
 import { useAuth } from "@/hooks/useAuth";
 
-type RouteType =
-  | "PUBLIC"
-  | "ADMIN"
-  | "ORDERS"
-  | "DELIVERY"
-  | "PRODUCTION"
-  | "BILLING"
-  | "LOGISTICS"
-  | "CATALOG_RETAIL"
-  | "CATALOG_WHOLESALE";
-
-type Role =
-  | "admin"
-  | "pedidos"
-  | "reparto"
-  | "produccion"
-  | "cobranzas"
-  | "logistica"
-  | "mayorista"
-  | "cliente"
-  | "retail";
-
-// Normaliza lo que venga de RTDB
-function normalizeRole(v?: string): Role | undefined {
-  if (!v) return undefined;
-  const s = v.toLowerCase().trim();
-  if (["admin", "admingeneral"].includes(s)) return "admin";
-  if (["pedidos", "pedido", "orders"].includes(s)) return "pedidos";
-  if (["reparto", "delivery"].includes(s)) return "reparto";
-  if (["produccion", "production"].includes(s)) return "produccion";
-  if (["cobranzas", "cobranza", "billing"].includes(s)) return "cobranzas";
-  if (["logistica", "logistics"].includes(s)) return "logistica";
-  if (["mayorista", "wholesale"].includes(s)) return "mayorista";
-  if (["cliente", "client"].includes(s)) return "cliente";
-  if (["retail"].includes(s)) return "retail";
-  return undefined;
-}
-
-// Quién puede entrar a cada route
-const ALLOW: Record<RouteType, Role[]> = {
-  PUBLIC: ["admin", "pedidos", "reparto", "produccion", "cobranzas", "logistica", "mayorista", "cliente", "retail"],
-  ADMIN: ["admin"],
-  ORDERS: ["admin", "pedidos", "cliente"],
-  DELIVERY: ["admin", "reparto"],
-  PRODUCTION: ["admin", "produccion"],
-  BILLING: ["admin", "cobranzas", "cliente"],
-  LOGISTICS: ["admin", "logistica"],
-  CATALOG_RETAIL: ["admin", "cliente"],
-  CATALOG_WHOLESALE: ["admin", "mayorista"],
+// Mapeo de módulos a rutas
+const MODULE_TO_ROUTE: Record<string, string> = {
+  "dashboard": "/admin",
+  "catalog": "/catalogo",
+  "orders": "/pedidos",
+  "tracking": "/seguimiento",
+  "delivery": "/reparto",
+  "production": "/produccion",
+  "billing": "/cobranzas",
+  "logistics": "/logistica",
+  "locations": "/donde-nos-ubicamos",
+  "reports": "/admin",
+  "wholesale": "/mayorista",
 };
 
 export function ProtectedRoute({
-  routeType,
+  module,
   children,
-}: PropsWithChildren<{ routeType: RouteType }>) {
+}: PropsWithChildren<{ module?: string }>) {
   const { user, perfil, loading } = useAuth() as {
     user: { uid: string } | null;
-    perfil?: { rol?: string; role?: string; activo?: boolean } | null;
+    perfil?: { 
+      activo?: boolean;
+      isAdmin?: boolean;
+      accessModules?: string[];
+      permissions?: string[];
+    } | null;
     loading: boolean;
   };
 
   useEffect(() => {
-    // Útil para depurar (quítalo en prod si quieres)
     console.log("ProtectedRoute check:", {
-      routeType,
+      module,
       uid: user?.uid,
       perfil,
     });
-  }, [routeType, user, perfil]);
+  }, [module, user, perfil]);
 
-  // Público: pasa directo
-  if (routeType === "PUBLIC") return <>{children}</>;
+  // Sin módulo = ruta pública
+  if (!module) return <>{children}</>;
 
   // Cargando perfil
-  if (loading) return null; // o spinner
+  if (loading) return null;
 
   // Sin sesión → login
   if (!user) {
@@ -87,27 +55,24 @@ export function ProtectedRoute({
   // Perfil inactivo
   if (perfil && perfil.activo === false) {
     console.warn("Acceso denegado: usuario inactivo");
-    // usa /403 si la tienes; si no, usa "/"
-    return <Navigate to="/403" replace />;
-  }
-
-  // Normaliza rol
-  const rol = normalizeRole(perfil?.rol || perfil?.role);
-  if (!rol) {
-    console.warn("Acceso denegado: usuario sin rol definido", { perfil });
     return <Navigate to="/" replace />;
   }
 
-  // Si el routeType no está en ALLOW, trata como denegado
-  const allowed = ALLOW[routeType] ?? [];
-  const ok = allowed.includes(rol);
-
-  if (!ok) {
-    console.warn("Acceso denegado:", { routeType, rol, allowed });
-    // Si no tienes /403, cambia a "/"
-    return <Navigate to="/403" replace />;
+  // Admin tiene acceso a todo
+  if (perfil?.isAdmin) {
+    console.log("Acceso autorizado: admin");
+    return <>{children}</>;
   }
 
-  console.log("Acceso autorizado:", { routeType, rol });
+  // Verificar si tiene acceso al módulo
+  const userModules = perfil?.accessModules || perfil?.permissions || [];
+  const hasAccess = userModules.includes(module);
+
+  if (!hasAccess) {
+    console.warn("Acceso denegado:", { module, userModules });
+    return <Navigate to="/" replace />;
+  }
+
+  console.log("Acceso autorizado:", { module });
   return <>{children}</>;
 }
