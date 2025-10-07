@@ -21,19 +21,29 @@ import {
   UserPlus,
   ShoppingCart,
 } from "lucide-react";
-import { db, functions } from "@/config/firebase";
-import { ref, onValue, update, set } from "firebase/database";
-import { httpsCallable } from "firebase/functions";
+import { db } from "@/config/firebase";
+import { ref, onValue, update } from "firebase/database";
 import { useToast } from "@/hooks/use-toast";
 import { UserEditModal } from "./UserEditModal";
 import { CreateUserModal } from "./CreateUserModal";
+
+type Rol =
+  | "admin"
+  | "adminGeneral"
+  | "pedidos"
+  | "reparto"
+  | "produccion"
+  | "cobranzas"
+  | "logistica"
+  | "cliente"
+  | "mayorista";
 
 interface UserProfile {
   id: string;          // En usuarios = userId; En clientes = authUid
   clientId?: string;   // Solo para clientes (id en /clients)
   nombre: string;
   correo: string;
-  rol: "admin" | "adminGeneral" | "pedidos" | "reparto" | "produccion" | "cobranzas" | "cliente";
+  rol: Rol;
   activo: boolean;
   comercial?: string;
   sede?: string;
@@ -58,6 +68,19 @@ interface AccessManagementProps {
   onBack?: () => void;
 }
 
+type ClientRow = {
+  clientId: string;
+  razonSocial?: string;
+  emailFacturacion?: string;
+  estado?: string;
+  departamento?: string;
+  distrito?: string;
+  direccionFiscal?: string;
+  comercialAsignado?: string;
+  ruc?: string;
+  authUid?: string;
+};
+
 export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const { toast } = useToast();
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -66,71 +89,78 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [allClients, setAllClients] = useState<any[]>([]);
+  const [allClients, setAllClients] = useState<ClientRow[]>([]);
 
-  // Combinar usuarios y clientes, eliminando duplicados
-  // Si un cliente tiene registro en /usuarios, solo mostrar el de /usuarios
-  const userIds = new Set(users.map(u => u.id));
-  const uniqueClients = clients.filter(c => !userIds.has(c.id));
+  // Combinar usuarios y clientes, eliminando duplicados por id (uid)
+  const userIds = new Set(users.map((u) => u.id));
+  const uniqueClients = clients.filter((c) => !userIds.has(c.id));
   const allUsers = [...users, ...uniqueClients];
 
-  // Clientes sin acceso (sin authUid)
-  const clientsWithoutAccess = allClients.filter(c => !c.authUid);
+  // Clientes sin acceso (no tienen authUid)
+  const clientsWithoutAccess = allClients.filter((c) => !c.authUid);
 
-  // ------- USUARIOS (/usuarios) -------
+  /* ------- USUARIOS (/usuarios) ------- */
   useEffect(() => {
     const usersRef = ref(db, "usuarios");
     const unsub = onValue(usersRef, (snap) => {
-      const data = snap.val();
+      const data = snap.val() as Record<string, any> | null;
       if (!data) {
         setUsers([]);
         return;
       }
-      const usersList: UserProfile[] = Object.entries<any>(data).map(([id, u]) => ({
+      const usersList: UserProfile[] = Object.entries(data).map(([id, u]) => ({
         id,
-        nombre: u.nombre || "",
-        correo: u.correo || "",
-        rol: (u.rol || "cliente") as UserProfile["rol"],
-        activo: u.activo !== false,
-        comercial: u.comercial || "",
-        sede: u.sede || "",
-        permissions: u.permissions || [],
+        nombre: u?.nombre || "",
+        correo: u?.correo || "",
+        rol: (u?.rol || "cliente") as Rol,
+        activo: u?.activo !== false,
+        comercial: u?.comercial || "",
+        sede: u?.sede || "",
+        permissions: Array.isArray(u?.permissions) ? u.permissions : [],
       }));
       setUsers(usersList);
     });
     return () => unsub();
   }, []);
 
-  // ------- CLIENTES (/clients) -------
+  /* ------- CLIENTES (/clients) ------- */
   useEffect(() => {
     const clientsRef = ref(db, "clients");
     const unsub = onValue(clientsRef, (snap) => {
-      const data = snap.val();
+      const data = snap.val() as Record<string, any> | null;
       if (!data) {
         setClients([]);
         setAllClients([]);
         return;
       }
 
-      const allClientsList = Object.entries<any>(data).map(([clientId, c]) => ({
+      const allClientsList: ClientRow[] = Object.entries(data).map(([clientId, c]) => ({
         clientId,
-        ...c
+        razonSocial: c?.razonSocial,
+        emailFacturacion: c?.emailFacturacion,
+        estado: c?.estado,
+        departamento: c?.departamento,
+        distrito: c?.distrito,
+        direccionFiscal: c?.direccionFiscal,
+        comercialAsignado: c?.comercialAsignado,
+        ruc: c?.ruc,
+        authUid: c?.authUid,
       }));
       setAllClients(allClientsList);
 
-      // Solo clientes que tienen cuenta en Auth (authUid)
+      // Solo clientes con cuenta en Auth (tienen authUid)
       const list: UserProfile[] = allClientsList
         .filter((c) => !!c.authUid)
         .map((c) => ({
-          id: c.authUid, // usamos el UID de Auth como id "de usuario"
-          clientId: c.clientId,      // guardamos el id del cliente para actualizar /clients
+          id: c.authUid!,               // usamos el UID de Auth como id "de usuario"
+          clientId: c.clientId,         // guardamos el id del cliente para actualizar /clients
           nombre: c.razonSocial || "Sin nombre",
           correo: c.emailFacturacion || "Sin email",
           rol: "cliente",
           activo: (c.estado || "activo") === "activo",
           comercial: [c.departamento, c.distrito].filter(Boolean).join(" - "),
           sede: c.direccionFiscal || "Sin dirección",
-          permissions: [], // los clientes no gestionan módulos acá (puedes añadir luego)
+          permissions: [],              // clientes: sin módulos aquí (puedes extender luego)
         }));
 
       setClients(list);
@@ -138,13 +168,15 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
     return () => unsub();
   }, []);
 
-  // ------- Helpers -------
-  const filteredUsers = allUsers.filter(
-    (u) =>
-      u.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.correo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.rol.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  /* ------- Helpers ------- */
+  const filteredUsers = allUsers.filter((u) => {
+    const q = searchTerm.toLowerCase();
+    return (
+      (u.nombre || "").toLowerCase().includes(q) ||
+      (u.correo || "").toLowerCase().includes(q) ||
+      (u.rol || "").toLowerCase().includes(q)
+    );
+  });
 
   // Cambia el estado activo (usuarios VS clientes)
   const toggleUserAccess = async (user: UserProfile) => {
@@ -161,7 +193,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
         title: user.activo ? "Acceso deshabilitado" : "Acceso habilitado",
         description: `Usuario ${user.activo ? "bloqueado" : "activado"} exitosamente`,
       });
-    } catch (e) {
+    } catch {
       toast({
         title: "Error",
         description: "No se pudo actualizar el acceso",
@@ -173,7 +205,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   // Cambia permisos de módulos (solo usuarios no-admin; los clientes se ignoran)
   const toggleModuleAccess = async (user: UserProfile, moduleId: string) => {
     if (user.rol === "cliente") return; // no gestionamos módulos para clientes aquí
-    const current = user.permissions || [];
+    const current = Array.isArray(user.permissions) ? user.permissions : [];
     const has = current.includes(moduleId);
     const next = has ? current.filter((p) => p !== moduleId) : [...current, moduleId];
 
@@ -183,7 +215,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
         title: has ? "Acceso removido" : "Acceso otorgado",
         description: `Módulo ${has ? "deshabilitado" : "habilitado"}`,
       });
-    } catch (e) {
+    } catch {
       toast({
         title: "Error",
         description: "No se pudo actualizar los permisos",
@@ -191,7 +223,6 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
       });
     }
   };
-
 
   const getRoleBadgeColor = (rol: string) => {
     const colors: Record<string, string> = {
@@ -201,7 +232,9 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
       reparto: "bg-green-100 text-green-700 border-green-300",
       produccion: "bg-amber-100 text-amber-700 border-amber-300",
       cobranzas: "bg-red-100 text-red-700 border-red-300",
+      logistica: "bg-cyan-100 text-cyan-700 border-cyan-300",
       cliente: "bg-stone-100 text-stone-700 border-stone-300",
+      mayorista: "bg-emerald-100 text-emerald-700 border-emerald-300",
     };
     return colors[rol] || "bg-stone-100 text-stone-700";
   };
@@ -221,9 +254,12 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <p className="text-stone-600 mt-1">Administra usuarios, perfiles y permisos de módulos</p>
           </div>
         </div>
-        <Button 
+        <Button
           className="bg-purple-600 hover:bg-purple-700"
-          onClick={() => setShowCreateModal(true)}
+          onClick={() => {
+            setSelectedUser(null); // creación manual sin prefills
+            setShowCreateModal(true);
+          }}
         >
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Usuario
@@ -276,7 +312,9 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Usuarios Activos</p>
-                <p className="text-2xl font-bold text-stone-800">{allUsers.filter((u) => u.activo).length}</p>
+                <p className="text-2xl font-bold text-stone-800">
+                  {allUsers.filter((u) => u.activo).length}
+                </p>
               </div>
               <Users className="h-8 w-8 text-green-500" />
             </div>
@@ -287,7 +325,9 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-stone-600">Clientes</p>
-                <p className="text-2xl font-bold text-stone-800">{allUsers.filter((u) => u.rol === "cliente").length}</p>
+                <p className="text-2xl font-bold text-stone-800">
+                  {allUsers.filter((u) => u.rol === "cliente").length}
+                </p>
               </div>
               <Building2 className="h-8 w-8 text-blue-500" />
             </div>
@@ -317,7 +357,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
                         <h3 className="font-bold text-stone-800">{client.razonSocial || "Sin nombre"}</h3>
                         <p className="text-sm text-stone-600">{client.emailFacturacion || "Sin email"}</p>
                         <p className="text-xs text-stone-500 mt-1">
-                          RUC: {client.ruc || "N/A"} • {client.departamento || ""} {client.distrito || ""}
+                          RUC: {client.ruc || "N/A"} • {[client.departamento, client.distrito].filter(Boolean).join(" - ")}
                         </p>
                       </div>
                       <Button
@@ -335,7 +375,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
                             activo: true,
                             comercial: client.comercialAsignado || "",
                             sede: client.direccionFiscal || "",
-                          } as any);
+                          } as UserProfile);
                           setShowCreateModal(true);
                         }}
                       >
@@ -464,12 +504,16 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
           setShowCreateModal(open);
           if (!open) setSelectedUser(null);
         }}
-        prefilledData={selectedUser ? {
-          nombre: selectedUser.nombre,
-          email: selectedUser.correo,
-          rol: selectedUser.rol,
-          clientId: selectedUser.clientId,
-        } : undefined}
+        prefilledData={
+          selectedUser
+            ? {
+                nombre: selectedUser.nombre,
+                email: selectedUser.correo,
+                rol: selectedUser.rol,
+                clientId: selectedUser.clientId,
+              }
+            : undefined
+        }
       />
     </div>
   );

@@ -4,55 +4,29 @@ import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
 
-// Inicializa Admin SDK
 initializeApp();
 
-/**
- * Callable: createUser
- * Espera: { email, password, nombre, rol }
- * Guarda: /usuarios/{uid}
- */
-export const createUser = onCall(async (req) => {
+export const createUser = onCall({ region: "us-central1" }, async (req) => {
   const { email, password, nombre, rol } = (req.data || {}) as {
-    email?: string;
-    password?: string;
-    nombre?: string;
-    rol?: string;
+    email?: string; password?: string; nombre?: string; rol?: string;
   };
 
   if (!email || !password || !nombre || !rol) {
-    throw new HttpsError(
-      "invalid-argument",
-      "Faltan campos requeridos: email, password, nombre, rol"
-    );
+    throw new HttpsError("invalid-argument",
+      "Faltan campos requeridos: email, password, nombre, rol");
   }
 
   try {
-    // 1) Crear usuario en Auth
     const userRecord = await getAuth().createUser({
-      email,
-      password,
-      displayName: nombre,
-      disabled: false,
+      email, password, displayName: nombre, disabled: false,
     });
-
     const uid = userRecord.uid;
 
-    // 2) Guardar perfil en RTDB
-    const now = new Date().toISOString();
-    const permissions =
-      rol === "admin" || rol === "adminGeneral" ? ["all"] : [];
-
-    await getDatabase()
-      .ref(`usuarios/${uid}`)
-      .set({
-        nombre,
-        correo: email,
-        rol,
-        activo: true,
-        createdAt: now,
-        permissions,
-      });
+    await getDatabase().ref(`usuarios/${uid}`).set({
+      nombre, correo: email, rol, activo: true,
+      createdAt: new Date().toISOString(),
+      permissions: (rol === "admin" || rol === "adminGeneral") ? ["all"] : [],
+    });
 
     return { ok: true, uid };
   } catch (err: any) {

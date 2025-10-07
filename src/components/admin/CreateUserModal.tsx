@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -21,7 +21,17 @@ import { db, functions } from '@/config/firebase';
 import { ref, update } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
-import { useEffect } from 'react';
+
+type Rol =
+  | 'admin'
+  | 'adminGeneral'
+  | 'pedidos'
+  | 'reparto'
+  | 'produccion'
+  | 'cobranzas'
+  | 'logistica'
+  | 'mayorista'
+  | 'cliente';
 
 interface CreateUserModalProps {
   open: boolean;
@@ -43,18 +53,22 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rol, setRol] = useState<string>('cliente');
+  const [rol, setRol] = useState<Rol>('cliente');
   const [clientId, setClientId] = useState<string>('');
 
-  // Pre-llenar datos cuando cambia prefilledData
+  // Pre-llenar datos cuando abre y hay prefilledData
   useEffect(() => {
-    if (prefilledData) {
+    if (open && prefilledData) {
       setNombre(prefilledData.nombre || '');
       setEmail(prefilledData.email || '');
-      setRol(prefilledData.rol || 'cliente');
+      setRol(((prefilledData.rol as Rol) || 'cliente') as Rol);
       setClientId(prefilledData.clientId || '');
     }
-  }, [prefilledData, open]);
+    if (open && !prefilledData) {
+      resetForm();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const resetForm = () => {
     setNombre('');
@@ -63,6 +77,26 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
     setRol('cliente');
     setClientId('');
     setShowPassword(false);
+  };
+
+  const mapErrorMessage = (error: any) => {
+    const code: string | undefined = error?.code;
+    const msg: string | undefined = error?.message;
+
+    // Posibles mensajes retornados por HttpsError o Firebase Admin
+    if (code === 'functions/internal' || code === 'internal') {
+      // Mensaje del backend suele venir ya legible en `message`
+      if (msg?.toLowerCase().includes('email already') || msg?.toLowerCase().includes('already exists')) {
+        return 'El correo ya está registrado';
+      }
+      return msg || 'Error interno al crear usuario';
+    }
+
+    if (code === 'auth/email-already-in-use') return 'El correo ya está registrado';
+    if (code === 'auth/invalid-email') return 'El correo no es válido';
+    if (code === 'auth/weak-password') return 'La contraseña es muy débil';
+
+    return msg || 'No se pudo crear el usuario';
   };
 
   const handleCreate = async () => {
@@ -96,49 +130,37 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
 
     setLoading(true);
     try {
-      // Llamar a la Cloud Function
+      // Llamar a la Cloud Function (createUser)
       const createUser = httpsCallable(functions, 'createUser');
-      const result: any = await createUser({
+      const result = (await createUser({
         email: email.trim(),
         password: password.trim(),
         nombre: nombre.trim(),
         rol,
-      });
+      })) as { data?: { ok?: boolean; uid?: string } };
 
-      // Si es un cliente, vincular el authUid al cliente en /clients
-      if (clientId && result.data?.uid) {
+      const uid = result?.data?.uid;
+
+      // Si es un cliente vinculado desde /clients, guardamos su UID y activamos
+      if (clientId && uid) {
         await update(ref(db, `clients/${clientId}`), {
-          authUid: result.data.uid,
+          authUid: uid,
           estado: 'activo',
         });
       }
 
       toast({
         title: 'Usuario creado',
-        description: `Usuario ${nombre} creado exitosamente. Ya puede iniciar sesión.`,
+        description: `Usuario ${nombre} creado exitosamente${uid ? ` (UID: ${uid})` : ''}.`,
       });
 
       resetForm();
       onOpenChange(false);
     } catch (error: any) {
       console.error('Error al crear usuario:', error);
-      
-      let errorMessage = 'No se pudo crear el usuario';
-      
-      // Manejar errores específicos de Firebase
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'El correo ya está registrado';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'El correo no es válido';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'La contraseña es muy débil';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
       toast({
         title: 'Error',
-        description: errorMessage,
+        description: mapErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -147,7 +169,13 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(v) => {
+        if (!v) resetForm();
+        onOpenChange(v);
+      }}
+    >
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
@@ -212,11 +240,17 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
 
           <div>
             <Label htmlFor="rol">Rol *</Label>
-            <Select value={rol} onValueChange={setRol} disabled={loading}>
+            <Select
+              value={rol}
+              onValueChange={(v) => setRol(v as Rol)}
+              disabled={loading}
+            >
               <SelectTrigger id="rol">
                 <SelectValue placeholder="Selecciona un rol" />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="cliente">Cliente</SelectItem>
+                <SelectItem value="mayorista">Mayorista</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="adminGeneral">Admin General</SelectItem>
                 <SelectItem value="pedidos">Pedidos</SelectItem>
@@ -224,10 +258,20 @@ export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUse
                 <SelectItem value="produccion">Producción</SelectItem>
                 <SelectItem value="cobranzas">Cobranzas</SelectItem>
                 <SelectItem value="logistica">Logística</SelectItem>
-                <SelectItem value="cliente">Cliente</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Si viene desde un cliente, opcionalmente muestra el clientId (solo lectura) */}
+          {clientId ? (
+            <div>
+              <Label>Cliente vinculado</Label>
+              <Input value={clientId} readOnly className="bg-stone-50" />
+              <p className="text-xs text-stone-500 mt-1">
+                Se asignará el UID creado a este cliente y quedará en estado <b>activo</b>.
+              </p>
+            </div>
+          ) : null}
 
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button
