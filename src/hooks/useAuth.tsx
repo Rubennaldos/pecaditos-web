@@ -42,85 +42,93 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [userData, setUserData] = useState<User | null>(null);
   const [perfil, setPerfil] = useState<Perfil>(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     let detachRTDB: (() => void) | null = null;
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setUser(firebaseUser);
-
-      // Limpia listener anterior si existía
-      if (detachRTDB) {
-        try { detachRTDB(); } catch {}
-        detachRTDB = null;
-      }
-
-      if (!firebaseUser) {
-        setUserData(null);
-        setPerfil(null);
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-
       try {
-        // 1) Intento con tu servicio (si trae rol/role, perfecto)
-        let dataFromService: User | null = null;
-        try {
-          dataFromService = await getUserData(firebaseUser.uid);
-        } catch (e) {
-          console.warn('getUserData falló o no devolvió datos, continúo con RTDB:', e);
+        setUser(firebaseUser);
+
+        // Limpia listener anterior si existía
+        if (detachRTDB) {
+          try { detachRTDB(); } catch {}
+          detachRTDB = null;
         }
-        setUserData(dataFromService);
 
-        const serviceHasRole =
-          !!dataFromService &&
-          (typeof (dataFromService as any).rol === 'string' || typeof (dataFromService as any).role === 'string');
-
-        if (serviceHasRole) {
-          setPerfil(dataFromService as any);
+        if (!firebaseUser) {
+          setUserData(null);
+          setPerfil(null);
           setLoading(false);
           return;
         }
 
-        // 2) Fallback: buscar perfil en RTDB en rutas conocidas
-        const tryPaths = [
-          `usuarios/${firebaseUser.uid}`,
-          `users/${firebaseUser.uid}`,
-          `${firebaseUser.uid}`,
-        ];
+        setLoading(true);
 
-        let foundPath: string | null = null;
-        for (const path of tryPaths) {
-          const r = ref(db, path);
-          const snap = await get(r);
-          if (snap.exists()) {
-            foundPath = path;
-            setPerfil(snap.val() || null);
-
-            // Suscripción en tiempo real — guardamos el callback para unmount correcto
-            const cb = (s: DataSnapshot) => setPerfil(s.val() || null);
-            onValue(r, cb);
-            detachRTDB = () => off(r, 'value', cb);
-
-            break;
+        try {
+          // 1) Intento con tu servicio (si trae rol/role, perfecto)
+          let dataFromService: User | null = null;
+          try {
+            dataFromService = await getUserData(firebaseUser.uid);
+          } catch (e) {
+            console.warn('getUserData falló o no devolvió datos, continúo con RTDB:', e);
           }
-        }
+          setUserData(dataFromService);
 
-        if (!foundPath) {
-          console.warn('useAuth: no encontré perfil en RTDB para uid', firebaseUser.uid);
+          const serviceHasRole =
+            !!dataFromService &&
+            (typeof (dataFromService as any).rol === 'string' || typeof (dataFromService as any).role === 'string');
+
+          if (serviceHasRole) {
+            setPerfil(dataFromService as any);
+            setLoading(false);
+            return;
+          }
+
+          // 2) Fallback: buscar perfil en RTDB en rutas conocidas
+          const tryPaths = [
+            `usuarios/${firebaseUser.uid}`,
+            `users/${firebaseUser.uid}`,
+            `${firebaseUser.uid}`,
+          ];
+
+          let foundPath: string | null = null;
+          for (const path of tryPaths) {
+            const r = ref(db, path);
+            const snap = await get(r);
+            if (snap.exists()) {
+              foundPath = path;
+              setPerfil(snap.val() || null);
+
+              // Suscripción en tiempo real — guardamos el callback para unmount correcto
+              const cb = (s: DataSnapshot) => setPerfil(s.val() || null);
+              onValue(r, cb);
+              detachRTDB = () => off(r, 'value', cb);
+
+              break;
+            }
+          }
+
+          if (!foundPath) {
+            console.warn('useAuth: no encontré perfil en RTDB para uid', firebaseUser.uid);
+            setPerfil(null);
+          }
+        } catch (error) {
+          console.error('Error al obtener datos/perfil del usuario:', error);
           setPerfil(null);
+        } finally {
+          setLoading(false);
         }
       } catch (error) {
-        console.error('Error al obtener datos/perfil del usuario:', error);
-        setPerfil(null);
-      } finally {
+        console.error('Error crítico en AuthProvider:', error);
         setLoading(false);
       }
     });
 
     return () => {
+      setMounted(false);
       unsubscribe();
       if (detachRTDB) {
         try { detachRTDB(); } catch {}
@@ -176,9 +184,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout,
   };
 
+  // Siempre renderizar el Provider, incluso si hay errores
   return (
     <AuthContext.Provider value={value}>
-      {children}
+      {mounted && children}
     </AuthContext.Provider>
   );
 };
