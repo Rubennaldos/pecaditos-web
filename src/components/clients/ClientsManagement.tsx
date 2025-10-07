@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '@/config/firebase';
 import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,7 +48,10 @@ import {
   Truck,
   Factory,
   BarChart3,
-  MapPin
+  MapPin,
+  Key,
+  Copy,
+  RefreshCw
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -1133,14 +1136,137 @@ const ClientForm = ({ client, onSave, onFinish }: {
 
               {/* Información de credenciales */}
               {client?.authUid && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">Credenciales de Acceso</h4>
-                  <p className="text-sm text-blue-700">
-                    <strong>Email:</strong> {formData.emailFacturacion}<br />
-                    <strong>Contraseña:</strong> {formData.rucDni}@Pecaditos (si se creó automáticamente)
-                  </p>
-                  <p className="text-xs text-blue-600 mt-2">
-                    El cliente puede cambiar su contraseña desde la opción de recuperación en el login.
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-blue-800 flex items-center gap-2">
+                      <Key className="h-4 w-4" />
+                      Credenciales de Acceso
+                    </h4>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
+                      <div>
+                        <p className="text-xs text-blue-600 font-medium">Email</p>
+                        <p className="text-sm text-blue-900">{formData.emailFacturacion}</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          navigator.clipboard.writeText(formData.emailFacturacion);
+                          toast({ title: "Copiado", description: "Email copiado al portapapeles" });
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
+                      <div>
+                        <p className="text-xs text-blue-600 font-medium">Contraseña</p>
+                        <p className="text-sm text-blue-900 font-mono">{formData.rucDni}@Pecaditos</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          navigator.clipboard.writeText(`${formData.rucDni}@Pecaditos`);
+                          toast({ title: "Copiado", description: "Contraseña copiada al portapapeles" });
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={async () => {
+                        try {
+                          const newPassword = `${formData.rucDni}@Pecaditos`;
+                          
+                          // Necesitamos iniciar sesión temporalmente como el usuario
+                          const currentUser = auth.currentUser;
+                          const userCredential = await signInWithEmailAndPassword(
+                            auth, 
+                            formData.emailFacturacion, 
+                            newPassword
+                          );
+                          
+                          await updatePassword(userCredential.user, newPassword);
+                          
+                          // Volver a iniciar sesión como admin
+                          if (currentUser?.email) {
+                            await signInWithEmailAndPassword(auth, currentUser.email, currentUser.email);
+                          }
+                          
+                          toast({
+                            title: "Contraseña restablecida",
+                            description: "La contraseña se ha restablecido exitosamente"
+                          });
+                        } catch (error: any) {
+                          toast({
+                            title: "Error",
+                            description: "No se pudo restablecer la contraseña. El usuario debe usar la opción de recuperación.",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Restablecer Contraseña
+                    </Button>
+                    
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => {
+                        const credencialesTexto = `
+===========================================
+CREDENCIALES DE ACCESO
+===========================================
+
+Cliente: ${formData.razonSocial}
+RUC/DNI: ${formData.rucDni}
+
+Email: ${formData.emailFacturacion}
+Contraseña: ${formData.rucDni}@Pecaditos
+
+URL de acceso: ${window.location.origin}/login
+
+===========================================
+Nota: El cliente puede cambiar su contraseña
+desde la opción de recuperación en el login.
+===========================================
+                        `.trim();
+                        
+                        const blob = new Blob([credencialesTexto], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `credenciales-${formData.razonSocial.replace(/\s+/g, '-')}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        
+                        toast({
+                          title: "Archivo descargado",
+                          description: "Las credenciales se han descargado exitosamente"
+                        });
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Descargar Credenciales
+                    </Button>
+                  </div>
+
+                  <p className="text-xs text-blue-600">
+                    💡 El cliente puede cambiar su contraseña desde la opción de recuperación en el login.
                   </p>
                 </div>
               )}
