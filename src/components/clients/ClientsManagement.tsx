@@ -262,6 +262,15 @@ export const ClientsManagement = () => {
           
           console.log('✅ [ClientsManagement] Usuario creado con UID:', userCredential.user.uid);
           
+          // Crear perfil en usuarios/{uid}
+          await set(ref(db, `usuarios/${userCredential.user.uid}`), {
+            nombre: client.razonSocial,
+            correo: client.emailFacturacion,
+            rol: 'retailUser',
+            activo: true,
+            accessModules: client.accessModules || []
+          });
+          
           // Guardar cliente con UID del usuario de Authentication
           const newClientRef = push(clientsRef);
           const clientData = {
@@ -1077,13 +1086,20 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       return (
                         <button
                           key={module.id}
-                          onClick={() => {
+                          onClick={async () => {
                             const current = client?.accessModules || [];
                             const next = hasAccess 
                               ? current.filter(m => m !== module.id)
                               : [...current, module.id];
                             
-                            update(ref(db, `clients/${client.id}`), { accessModules: next });
+                            // Actualizar en clients
+                            await update(ref(db, `clients/${client.id}`), { accessModules: next });
+                            
+                            // Sincronizar en usuarios/{authUid}
+                            if (client?.authUid) {
+                              await update(ref(db, `usuarios/${client.authUid}`), { accessModules: next });
+                            }
+                            
                             toast({
                               title: hasAccess ? "Acceso removido" : "Acceso otorgado",
                               description: `Módulo ${module.name} ${hasAccess ? 'deshabilitado' : 'habilitado'}`,
