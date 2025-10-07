@@ -289,3 +289,22 @@ SISTEMA DE PRODUCCIÓN - FIREBASE COMPLETAMENTE INTEGRADO
 - Envío a "Por Cobrar" con billing/invoices
 - Perfiles de usuario y datos personalizados
 */
+// --- Helpers opcionales de contraseña --- //
+import {
+  sendPasswordResetEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider,
+} from 'firebase/auth';
+
+export async function sendResetEmail(targetEmail: string) {
+  return sendPasswordResetEmail(auth, targetEmail);
+}
+
+export async function changeOwnPassword(currentEmail: string, currentPassword: string, newPassword: string) {
+  const user = auth.currentUser;
+  if (!user) throw new Error('No hay sesión activa');
+  const cred = EmailAuthProvider.credential(currentEmail, currentPassword);
+  await reauthenticateWithCredential(user, cred);
+  await updatePassword(user, newPassword);
+}
