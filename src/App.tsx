@@ -12,6 +12,7 @@ import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import UserDashboard from "./pages/UserDashboard";
 import Catalog from "./pages/Catalog";
 import WholesalePortal from "./pages/WholesalePortal";
 import AdminPanel from "./pages/AdminPanel";
@@ -46,6 +47,16 @@ const App = () => (
 
                     {/* LOGIN UNIFICADO - Detecta automáticamente el perfil del usuario */}
                     <Route path="/login" element={<Login />} />
+
+                    {/* DASHBOARD DE USUARIO - Muestra módulos habilitados */}
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <UserDashboard />
+                        </ProtectedRoute>
+                      }
+                    />
 
                     {/* CATÁLOGO MINORISTA */}
                     <Route

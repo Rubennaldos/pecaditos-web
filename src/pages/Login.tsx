@@ -11,40 +11,31 @@ import { ref, get } from "firebase/database";
 import { auth, db } from "@/config/firebase";
 import { signInAndEnsureProfile } from "@/services/auth";
 
-// Mapeo de módulos a rutas
-const MODULE_TO_ROUTE: Record<string, string> = {
-  "dashboard": "/admin",
-  "catalog": "/catalogo",
-  "orders": "/pedidos",
-  "tracking": "/seguimiento",
-  "delivery": "/reparto",
-  "production": "/produccion",
-  "billing": "/cobranzas",
-  "logistics": "/logistica",
-  "wholesale": "/mayorista",
-};
-
-// Obtener primera ruta disponible según módulos
+// Helper: detecta la ruta de dashboard para usuarios con módulos
 function getFirstAvailableRoute(perfil: any): string {
-  // Admin siempre va al panel de administración
-  if (perfil?.isAdmin) return "/admin";
-  
-  // Compatibilidad con roles antiguos
-  const rol = perfil?.rol || perfil?.role;
-  if (rol === "admin" || rol === "adminGeneral") {
+  console.log("[Login] getFirstAvailableRoute => perfil:", perfil);
+
+  // Si es admin (nuevo o antiguo), redirigir a /admin
+  if (
+    perfil?.isAdmin || 
+    perfil?.rol === "admin" || 
+    perfil?.rol === "adminGeneral"
+  ) {
+    console.log("[Login] Usuario admin detectado → /admin");
     return "/admin";
   }
-  
-  // Obtener módulos del usuario
-  const modules = perfil?.accessModules || perfil?.permissions || [];
-  
-  // Buscar la primera ruta disponible
-  for (const module of modules) {
-    if (MODULE_TO_ROUTE[module]) {
-      return MODULE_TO_ROUTE[module];
-    }
+
+  // Si tiene módulos habilitados, redirigir al dashboard de usuario
+  const userModules = perfil?.accessModules || perfil?.permissions || [];
+  console.log("[Login] Módulos del usuario:", userModules);
+
+  if (userModules.length > 0) {
+    console.log("[Login] Usuario con módulos → /dashboard");
+    return "/dashboard";
   }
-  
+
+  // Sin módulos ni admin → home
+  console.warn("[Login] Sin módulos ni permisos → /");
   return "/";
 }
 
