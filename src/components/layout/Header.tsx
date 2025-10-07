@@ -12,7 +12,7 @@ export const Header = () => {
   const navigate = useNavigate();
 
   // Hooks de autenticación
-  const { user: retailUser, userData: retailUserData, logout: retailLogout } = useAuth();
+  const { user: retailUser, userData: retailUserData, perfil, logout: retailLogout } = useAuth();
   const { user: wholesaleUser, logout: wholesaleLogout } = useWholesaleAuth();
   const { user: adminUser, logout: adminLogout } = useAdmin();
 
@@ -45,10 +45,41 @@ export const Header = () => {
 
   const navigateToProfile = () => {
     // Redirigir según el tipo de usuario
-    if (adminUser) navigate('/admin');
-    else if (wholesaleUser) navigate('/mayorista');
-    // Para retail user, redirigir a login ya que el catálogo está oculto
-    else if (retailUser) navigate('/login');
+    if (adminUser) {
+      navigate('/admin');
+    } else if (wholesaleUser) {
+      navigate('/mayorista');
+    } else if (retailUser) {
+      // Para usuarios normales, usar el perfil del contexto
+      if (perfil?.isAdmin) {
+        navigate('/admin');
+      } else {
+        const modules = perfil?.accessModules || perfil?.permissions || [];
+        const MODULE_TO_ROUTE: Record<string, string> = {
+          "dashboard": "/admin",
+          "catalog": "/catalogo",
+          "orders": "/pedidos",
+          "tracking": "/seguimiento",
+          "delivery": "/reparto",
+          "production": "/produccion",
+          "billing": "/cobranzas",
+          "logistics": "/logistica",
+          "wholesale": "/mayorista",
+        };
+        
+        // Buscar la primera ruta disponible
+        for (const module of modules) {
+          if (MODULE_TO_ROUTE[module]) {
+            navigate(MODULE_TO_ROUTE[module]);
+            setIsMenuOpen(false);
+            return;
+          }
+        }
+        
+        // Si no tiene módulos, ir al inicio
+        navigate('/');
+      }
+    }
     
     setIsMenuOpen(false);
   };
