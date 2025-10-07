@@ -54,10 +54,15 @@ import { useToast } from '@/hooks/use-toast';
 
 // Módulos disponibles para clientes
 const AVAILABLE_MODULES = [
+  { id: "dashboard", name: "Dashboard Global", icon: BarChart3, color: "purple" },
   { id: "catalog", name: "Catálogo de Productos", icon: ShoppingCart, color: "blue" },
-  { id: "orders", name: "Mis Pedidos", icon: Package, color: "green" },
+  { id: "orders", name: "Pedidos", icon: Package, color: "blue" },
   { id: "tracking", name: "Seguimiento", icon: Truck, color: "amber" },
-  { id: "billing", name: "Facturación", icon: DollarSign, color: "red" },
+  { id: "delivery", name: "Reparto", icon: Truck, color: "green" },
+  { id: "production", name: "Producción", icon: Factory, color: "amber" },
+  { id: "billing", name: "Cobranzas", icon: DollarSign, color: "red" },
+  { id: "logistics", name: "Logística", icon: Truck, color: "indigo" },
+  { id: "locations", name: "Ubicaciones", icon: MapPin, color: "indigo" },
   { id: "reports", name: "Reportes", icon: BarChart3, color: "purple" },
 ];
 
@@ -1065,7 +1070,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                   <p className="text-sm text-stone-600 mb-4">
                     Selecciona qué módulos puede ver este cliente en el sistema
                   </p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     {AVAILABLE_MODULES.map((module) => {
                       const hasAccess = (client?.accessModules || []).includes(module.id);
                       const ModuleIcon = module.icon;
@@ -1177,7 +1182,7 @@ const ClientDetails = ({ client }: { client: Client }) => {
         {/* SEDES CON COMENTARIOS */}
         <TabsContent value="sedes" className="space-y-4">
           <div className="space-y-6">
-            {client.sedes.map((sede) => (
+            {(client.sedes || []).map((sede) => (
               <Card key={sede.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1214,7 +1219,7 @@ const ClientDetails = ({ client }: { client: Client }) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {client.contactos.map((contacto, idx) => (
+                {(client.contactos || []).map((contacto, idx) => (
                   <div key={idx} className="border rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <Badge variant="outline">
