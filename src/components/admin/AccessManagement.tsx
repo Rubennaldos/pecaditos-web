@@ -21,10 +21,12 @@ import {
   UserPlus,
   ShoppingCart,
 } from "lucide-react";
-import { db } from "@/config/firebase"; // 👈 asegúrate de usar esta ruta
+import { db, functions } from "@/config/firebase";
 import { ref, onValue, update, set } from "firebase/database";
+import { httpsCallable } from "firebase/functions";
 import { useToast } from "@/hooks/use-toast";
 import { UserEditModal } from "./UserEditModal";
+import { CreateUserModal } from "./CreateUserModal";
 
 interface UserProfile {
   id: string;          // En usuarios = userId; En clientes = authUid
@@ -63,7 +65,7 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [creatingId, setCreatingId] = useState<string | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Combinar usuarios y clientes, eliminando duplicados
   // Si un cliente tiene registro en /usuarios, solo mostrar el de /usuarios
@@ -208,7 +210,10 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
             <p className="text-stone-600 mt-1">Administra usuarios, perfiles y permisos de módulos</p>
           </div>
         </div>
-        <Button className="bg-purple-600 hover:bg-purple-700">
+        <Button 
+          className="bg-purple-600 hover:bg-purple-700"
+          onClick={() => setShowCreateModal(true)}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Usuario
         </Button>
@@ -384,6 +389,11 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
           setShowEditModal(open);
           if (!open) setSelectedUser(null);
         }}
+      />
+
+      <CreateUserModal
+        open={showCreateModal}
+        onOpenChange={setShowCreateModal}
       />
     </div>
   );
