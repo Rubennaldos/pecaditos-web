@@ -29,6 +29,12 @@ function getFirstAvailableRoute(perfil: any): string {
   // Admin siempre va al panel de administración
   if (perfil?.isAdmin) return "/admin";
   
+  // Compatibilidad con roles antiguos
+  const rol = perfil?.rol || perfil?.role;
+  if (rol === "admin" || rol === "adminGeneral") {
+    return "/admin";
+  }
+  
   // Obtener módulos del usuario
   const modules = perfil?.accessModules || perfil?.permissions || [];
   

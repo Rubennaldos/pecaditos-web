@@ -26,6 +26,8 @@ export function ProtectedRoute({
     perfil?: { 
       activo?: boolean;
       isAdmin?: boolean;
+      rol?: string;
+      role?: string;
       accessModules?: string[];
       permissions?: string[];
     } | null;
@@ -58,8 +60,9 @@ export function ProtectedRoute({
     return <Navigate to="/" replace />;
   }
 
-  // Admin tiene acceso a todo
-  if (perfil?.isAdmin) {
+  // Admin tiene acceso a todo (nuevo sistema o roles antiguos)
+  const rol = perfil?.rol || perfil?.role;
+  if (perfil?.isAdmin || rol === "admin" || rol === "adminGeneral") {
     console.log("Acceso autorizado: admin");
     return <>{children}</>;
   }
