@@ -22,6 +22,7 @@ function roleToPath(raw?: string): string {
   if (["cobranzas", "billing", "cobranza"].includes(s)) return "/cobranzas";
   if (["logistica", "logistics"].includes(s)) return "/logistica";
   if (["mayorista", "wholesale"].includes(s)) return "/mayorista";
+  if (["cliente", "client"].includes(s)) return "/catalogo";
   if (s === "retail") return "/";
   return "/";
 }

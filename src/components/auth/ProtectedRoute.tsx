@@ -21,6 +21,7 @@ type Role =
   | "cobranzas"
   | "logistica"
   | "mayorista"
+  | "cliente"
   | "retail";
 
 // Normaliza lo que venga de RTDB
@@ -34,20 +35,21 @@ function normalizeRole(v?: string): Role | undefined {
   if (["cobranzas", "cobranza", "billing"].includes(s)) return "cobranzas";
   if (["logistica", "logistics"].includes(s)) return "logistica";
   if (["mayorista", "wholesale"].includes(s)) return "mayorista";
+  if (["cliente", "client"].includes(s)) return "cliente";
   if (["retail"].includes(s)) return "retail";
   return undefined;
 }
 
 // Quién puede entrar a cada route
 const ALLOW: Record<RouteType, Role[]> = {
-  PUBLIC: ["admin", "pedidos", "reparto", "produccion", "cobranzas", "logistica", "mayorista", "retail"],
+  PUBLIC: ["admin", "pedidos", "reparto", "produccion", "cobranzas", "logistica", "mayorista", "cliente", "retail"],
   ADMIN: ["admin"],
-  ORDERS: ["admin", "pedidos"],
+  ORDERS: ["admin", "pedidos", "cliente"],
   DELIVERY: ["admin", "reparto"],
   PRODUCTION: ["admin", "produccion"],
-  BILLING: ["admin", "cobranzas"],
+  BILLING: ["admin", "cobranzas", "cliente"],
   LOGISTICS: ["admin", "logistica"],
-  CATALOG_RETAIL: ["admin"],            // oculto
+  CATALOG_RETAIL: ["admin", "cliente"],
   CATALOG_WHOLESALE: ["admin", "mayorista"],
 };
 
