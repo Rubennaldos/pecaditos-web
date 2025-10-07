@@ -40,9 +40,26 @@ import {
   DollarSign,
   Calendar,
   Package,
-  Star
+  Star,
+  Lock,
+  Unlock,
+  UserPlus,
+  ShoppingCart,
+  Truck,
+  Factory,
+  BarChart3,
+  MapPin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+
+// Módulos disponibles para clientes
+const AVAILABLE_MODULES = [
+  { id: "catalog", name: "Catálogo de Productos", icon: ShoppingCart, color: "blue" },
+  { id: "orders", name: "Mis Pedidos", icon: Package, color: "green" },
+  { id: "tracking", name: "Seguimiento", icon: Truck, color: "amber" },
+  { id: "billing", name: "Facturación", icon: DollarSign, color: "red" },
+  { id: "reports", name: "Reportes", icon: BarChart3, color: "purple" },
+];
 
 interface SedeComment {
   id: string;
@@ -93,6 +110,8 @@ interface Client {
   fechaCreacion: string;
   ultimaCompra?: string;
   montoDeuda?: number;
+  authUid?: string;
+  accessModules?: string[];
 }
 // --- EXPORTAR PDF DETALLADO ---
 export const generateClientReportPDF = (client) => {
@@ -407,6 +426,19 @@ export const ClientsManagement = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
+  {/* Badge de acceso */}
+  {client.authUid ? (
+    <Badge className="bg-green-100 text-green-800 border-green-300">
+      <Lock className="h-3 w-3 mr-1" />
+      Con Acceso
+    </Badge>
+  ) : (
+    <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+      <Unlock className="h-3 w-3 mr-1" />
+      Sin Acceso
+    </Badge>
+  )}
+
   {/* Ver */}
   <Dialog open={isViewModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
     if (!open) setSelectedClient(null);
@@ -593,11 +625,12 @@ const ClientForm = ({ client, onSave, onFinish }: {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="general" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="sedes">Sedes</TabsTrigger>
           <TabsTrigger value="contactos">Contactos</TabsTrigger>
           <TabsTrigger value="comercial">Comercial</TabsTrigger>
+          <TabsTrigger value="access">Accesos</TabsTrigger>
         </TabsList>
         {/* General */}
         <TabsContent value="general" className="space-y-4">
@@ -981,6 +1014,109 @@ const ClientForm = ({ client, onSave, onFinish }: {
               />
             </div>
           </div>
+        </TabsContent>
+        
+        {/* Accesos */}
+        <TabsContent value="access" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Gestión de Accesos al Sistema
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Estado de acceso */}
+              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
+                <div>
+                  <h4 className="font-medium text-stone-800">Acceso al Sistema</h4>
+                  <p className="text-sm text-stone-600">
+                    {client?.authUid 
+                      ? `Usuario registrado con email: ${formData.emailFacturacion}` 
+                      : 'Este cliente aún no tiene acceso al sistema'}
+                  </p>
+                </div>
+                {client?.authUid ? (
+                  <Badge className="bg-green-100 text-green-800 border-green-300">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Con Acceso
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                    <Unlock className="h-3 w-3 mr-1" />
+                    Sin Acceso
+                  </Badge>
+                )}
+              </div>
+
+              {/* Crear acceso si no existe */}
+              {!client?.authUid && formData.emailFacturacion && (
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                  <p className="text-sm text-amber-800 mb-2">
+                    ⚠️ Para habilitar el acceso, primero guarda el cliente. Luego podrás crear sus credenciales de acceso.
+                  </p>
+                </div>
+              )}
+
+              {/* Módulos disponibles */}
+              {client?.authUid && (
+                <div>
+                  <h4 className="font-medium text-stone-800 mb-3">Módulos Disponibles</h4>
+                  <p className="text-sm text-stone-600 mb-4">
+                    Selecciona qué módulos puede ver este cliente en el sistema
+                  </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {AVAILABLE_MODULES.map((module) => {
+                      const hasAccess = (client?.accessModules || []).includes(module.id);
+                      const ModuleIcon = module.icon;
+                      return (
+                        <button
+                          key={module.id}
+                          onClick={() => {
+                            const current = client?.accessModules || [];
+                            const next = hasAccess 
+                              ? current.filter(m => m !== module.id)
+                              : [...current, module.id];
+                            
+                            update(ref(db, `clients/${client.id}`), { accessModules: next });
+                            toast({
+                              title: hasAccess ? "Acceso removido" : "Acceso otorgado",
+                              description: `Módulo ${module.name} ${hasAccess ? 'deshabilitado' : 'habilitado'}`,
+                            });
+                          }}
+                          className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                            hasAccess
+                              ? 'border-green-300 bg-green-50'
+                              : 'border-stone-200 bg-white hover:border-stone-300'
+                          }`}
+                        >
+                          <ModuleIcon className={`h-5 w-5 ${hasAccess ? 'text-green-600' : 'text-stone-400'}`} />
+                          <span className={`text-sm font-medium ${hasAccess ? 'text-green-800' : 'text-stone-600'}`}>
+                            {module.name}
+                          </span>
+                          {hasAccess && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Información de credenciales */}
+              {client?.authUid && (
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <h4 className="font-medium text-blue-800 mb-2">Credenciales de Acceso</h4>
+                  <p className="text-sm text-blue-700">
+                    <strong>Email:</strong> {formData.emailFacturacion}<br />
+                    <strong>Contraseña:</strong> {formData.rucDni}@Pecaditos (si se creó automáticamente)
+                  </p>
+                  <p className="text-xs text-blue-600 mt-2">
+                    El cliente puede cambiar su contraseña desde la opción de recuperación en el login.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
       <div className="flex justify-end gap-2 pt-4 border-t">

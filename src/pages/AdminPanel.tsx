@@ -6,7 +6,7 @@ import MessagesModule from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
 import ConsolidatedAdminModule from '@/components/admin/ConsolidatedAdminModule';
 import { LocationsManagement } from "@/components/admin/LocationsManagement";
-import { AccessManagement } from '@/components/admin/AccessManagement';
+import { ClientsManagement } from '@/components/clients/ClientsManagement';
 import { ModuleCard } from '@/components/admin/ModuleCard';
 import { Button } from '@/components/ui/button';
 import LogisticsModule from './LogisticsModule';
@@ -31,7 +31,6 @@ import OrdersPanel from './OrdersPanel';
 import DeliveryPanel from './DeliveryPanel';
 import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
-import { ClientsManagement } from '@/components/clients/ClientsManagement';
 import { CatalogModule } from './CatalogModule';
 
 const ADMIN_PROFILES = ['admin', 'adminGeneral'];
@@ -58,9 +57,9 @@ const AdminPanelContent = () => {
     },
     {
       id: 'access-management',
-      name: 'Gestión de Accesos',
+      name: 'Clientes y Accesos',
       icon: UserCog,
-      description: 'Administrar usuarios y permisos',
+      description: 'Gestionar clientes y sus accesos al sistema',
       color: 'rose',
       isSuperAdmin: true,
     },
@@ -210,7 +209,7 @@ const AdminPanelContent = () => {
       case 'access-management':
         return (
           <div className="p-8">
-            <AccessManagement onBack={() => setActiveSection('modules')} />
+            <ClientsManagement />
           </div>
         );
       case 'orders-admin':
