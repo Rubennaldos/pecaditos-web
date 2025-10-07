@@ -81,6 +81,8 @@ const Login = () => {
         return;
       }
       const perfil = snap.val();
+      
+      console.log("📋 Perfil del usuario:", perfil);
 
       // 2.1) Validar activo
       if (perfil.activo === false) {
@@ -95,6 +97,9 @@ const Login = () => {
 
       // 3) Determinar ruta según módulos disponibles
       const redirectPath = getFirstAvailableRoute(perfil);
+      
+      console.log("🔀 Ruta de redirección:", redirectPath);
+      console.log("🎯 Módulos disponibles:", perfil?.accessModules || perfil?.permissions || []);
 
       toast({
         title: "Bienvenido",
