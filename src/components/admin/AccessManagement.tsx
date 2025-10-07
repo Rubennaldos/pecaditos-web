@@ -66,12 +66,16 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [allClients, setAllClients] = useState<any[]>([]);
 
   // Combinar usuarios y clientes, eliminando duplicados
   // Si un cliente tiene registro en /usuarios, solo mostrar el de /usuarios
   const userIds = new Set(users.map(u => u.id));
   const uniqueClients = clients.filter(c => !userIds.has(c.id));
   const allUsers = [...users, ...uniqueClients];
+
+  // Clientes sin acceso (sin authUid)
+  const clientsWithoutAccess = allClients.filter(c => !c.authUid);
 
   // ------- USUARIOS (/usuarios) -------
   useEffect(() => {
@@ -104,15 +108,22 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
       const data = snap.val();
       if (!data) {
         setClients([]);
+        setAllClients([]);
         return;
       }
 
+      const allClientsList = Object.entries<any>(data).map(([clientId, c]) => ({
+        clientId,
+        ...c
+      }));
+      setAllClients(allClientsList);
+
       // Solo clientes que tienen cuenta en Auth (authUid)
-      const list: UserProfile[] = Object.entries<any>(data)
-        .filter(([_, c]) => !!c.authUid)
-        .map(([clientId, c]) => ({
+      const list: UserProfile[] = allClientsList
+        .filter((c) => !!c.authUid)
+        .map((c) => ({
           id: c.authUid, // usamos el UID de Auth como id "de usuario"
-          clientId,      // guardamos el id del cliente para actualizar /clients
+          clientId: c.clientId,      // guardamos el id del cliente para actualizar /clients
           nombre: c.razonSocial || "Sin nombre",
           correo: c.emailFacturacion || "Sin email",
           rol: "cliente",
@@ -393,8 +404,73 @@ export const AccessManagement = ({ onBack }: AccessManagementProps) => {
 
       <CreateUserModal
         open={showCreateModal}
-        onOpenChange={setShowCreateModal}
+        onOpenChange={(open) => {
+          setShowCreateModal(open);
+          if (!open) setSelectedUser(null);
+        }}
+        prefilledData={selectedUser ? {
+          nombre: selectedUser.nombre,
+          email: selectedUser.correo,
+          rol: selectedUser.rol,
+          clientId: selectedUser.clientId,
+        } : undefined}
       />
+
+      {/* Sección de clientes sin acceso */}
+      {clientsWithoutAccess.length > 0 && (
+        <Card className="border-amber-200 bg-amber-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-800">
+              <UserPlus className="h-5 w-5" />
+              Clientes sin Acceso ({clientsWithoutAccess.length})
+            </CardTitle>
+            <p className="text-sm text-amber-700">
+              Estos clientes no tienen cuenta de acceso al sistema. Puedes crearles una cuenta para que puedan iniciar sesión.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {clientsWithoutAccess.map((client) => (
+                <Card key={client.clientId} className="border-amber-200 bg-white">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="font-bold text-stone-800">{client.razonSocial || "Sin nombre"}</h3>
+                        <p className="text-sm text-stone-600">{client.emailFacturacion || "Sin email"}</p>
+                        <p className="text-xs text-stone-500 mt-1">
+                          RUC: {client.ruc || "N/A"} • {client.departamento || ""} {client.distrito || ""}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-amber-400 text-amber-700 hover:bg-amber-100"
+                        onClick={() => {
+                          // Pre-llenar el modal con datos del cliente
+                          setSelectedUser({
+                            id: "",
+                            clientId: client.clientId,
+                            nombre: client.razonSocial || "",
+                            correo: client.emailFacturacion || "",
+                            rol: "cliente",
+                            activo: true,
+                            comercial: client.comercialAsignado || "",
+                            sede: client.direccionFiscal || "",
+                          } as any);
+                          setShowCreateModal(true);
+                        }}
+                      >
+                        <UserPlus className="h-4 w-4 mr-2" />
+                        Crear Acceso
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

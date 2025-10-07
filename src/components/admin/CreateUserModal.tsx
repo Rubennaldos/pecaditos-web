@@ -17,16 +17,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { functions } from '@/config/firebase';
+import { db, functions } from '@/config/firebase';
+import { ref, update } from 'firebase/database';
 import { httpsCallable } from 'firebase/functions';
 import { Eye, EyeOff, UserPlus } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface CreateUserModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  prefilledData?: {
+    nombre?: string;
+    email?: string;
+    rol?: string;
+    clientId?: string;
+  };
 }
 
-export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) => {
+export const CreateUserModal = ({ open, onOpenChange, prefilledData }: CreateUserModalProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -36,12 +44,24 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rol, setRol] = useState<string>('cliente');
+  const [clientId, setClientId] = useState<string>('');
+
+  // Pre-llenar datos cuando cambia prefilledData
+  useEffect(() => {
+    if (prefilledData) {
+      setNombre(prefilledData.nombre || '');
+      setEmail(prefilledData.email || '');
+      setRol(prefilledData.rol || 'cliente');
+      setClientId(prefilledData.clientId || '');
+    }
+  }, [prefilledData, open]);
 
   const resetForm = () => {
     setNombre('');
     setEmail('');
     setPassword('');
     setRol('cliente');
+    setClientId('');
     setShowPassword(false);
   };
 
@@ -78,12 +98,20 @@ export const CreateUserModal = ({ open, onOpenChange }: CreateUserModalProps) =>
     try {
       // Llamar a la Cloud Function
       const createUser = httpsCallable(functions, 'createUser');
-      const result = await createUser({
+      const result: any = await createUser({
         email: email.trim(),
         password: password.trim(),
         nombre: nombre.trim(),
         rol,
       });
+
+      // Si es un cliente, vincular el authUid al cliente en /clients
+      if (clientId && result.data?.uid) {
+        await update(ref(db, `clients/${clientId}`), {
+          authUid: result.data.uid,
+          estado: 'activo',
+        });
+      }
 
       toast({
         title: 'Usuario creado',
