@@ -1089,17 +1089,25 @@ const ClientForm = ({ client, onSave, onFinish }: {
                               description: `Módulo ${module.name} ${hasAccess ? 'deshabilitado' : 'habilitado'}`,
                             });
                           }}
-                          className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                          className={`relative flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left ${
                             hasAccess
-                              ? 'border-green-300 bg-green-50'
-                              : 'border-stone-200 bg-white hover:border-stone-300'
+                              ? 'border-green-500 bg-green-50 shadow-sm'
+                              : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
                           }`}
                         >
-                          <ModuleIcon className={`h-5 w-5 ${hasAccess ? 'text-green-600' : 'text-stone-400'}`} />
-                          <span className={`text-sm font-medium ${hasAccess ? 'text-green-800' : 'text-stone-600'}`}>
-                            {module.name}
-                          </span>
-                          {hasAccess && <CheckCircle className="h-4 w-4 ml-auto text-green-600" />}
+                          <div className={`p-2 rounded-lg ${hasAccess ? 'bg-green-100' : 'bg-stone-100'}`}>
+                            <ModuleIcon className={`h-5 w-5 ${hasAccess ? 'text-green-600' : 'text-stone-500'}`} />
+                          </div>
+                          <div className="flex-1">
+                            <span className={`text-sm font-semibold block ${hasAccess ? 'text-green-900' : 'text-stone-700'}`}>
+                              {module.name}
+                            </span>
+                          </div>
+                          {hasAccess && (
+                            <div className="absolute top-2 right-2">
+                              <CheckCircle className="h-5 w-5 text-green-600 fill-green-100" />
+                            </div>
+                          )}
                         </button>
                       );
                     })}
