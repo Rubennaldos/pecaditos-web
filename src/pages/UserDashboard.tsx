@@ -152,35 +152,37 @@ const UserDashboard = () => {
 
           {/* Grid de módulos disponibles */}
           {visibleModules.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
               {visibleModules.map((module) => {
                 const Icon = module.icon;
                 return (
-                  <Card 
+                  <div
                     key={module.id}
-                    className={`group hover:shadow-xl transition-all duration-300 hover:-translate-y-2 border-2 ${module.hoverColor} bg-gradient-to-br ${module.bgGradient} cursor-pointer`}
+                    className="group cursor-pointer"
                     onClick={() => handleModuleClick(module.route)}
                   >
-                    <CardHeader className="text-center pb-4">
-                      <div className={`mx-auto w-16 h-16 bg-gradient-to-br ${module.color} rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-                        <Icon className="h-8 w-8 text-white" />
+                    {/* Mobile: Circular design */}
+                    <div className="md:hidden flex flex-col items-center gap-3">
+                      <div className={`w-20 h-20 bg-gradient-to-br ${module.color} rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300`}>
+                        <Icon className="h-9 w-9 text-white" />
                       </div>
-                      <CardTitle className="text-xl font-bold text-foreground">
+                      <span className="text-sm font-medium text-foreground text-center leading-tight px-1">
                         {module.name}
-                      </CardTitle>
-                      <CardDescription className="text-muted-foreground">
-                        {module.description}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-center">
-                      <Button 
-                        className={`w-full bg-gradient-to-r ${module.color} text-white hover:opacity-90 group-hover:shadow-lg transition-all`}
-                      >
-                        Acceder
-                        <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                      </Button>
-                    </CardContent>
-                  </Card>
+                      </span>
+                    </div>
+
+                    {/* Desktop: Compact card */}
+                    <Card className="hidden md:block group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 border hover:border-primary/30 bg-card/50 backdrop-blur-sm">
+                      <CardHeader className="p-4 text-center space-y-3">
+                        <div className={`mx-auto w-12 h-12 bg-gradient-to-br ${module.color} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform shadow-md`}>
+                          <Icon className="h-6 w-6 text-white" />
+                        </div>
+                        <CardTitle className="text-sm font-semibold text-foreground leading-tight">
+                          {module.name}
+                        </CardTitle>
+                      </CardHeader>
+                    </Card>
+                  </div>
                 );
               })}
             </div>
