@@ -9,7 +9,6 @@ interface ModuleCardProps {
   description: string;
   color: string;
   isActive?: boolean;
-  isSuperAdmin?: boolean;
   stats?: { label: string; value: number | string }[];
   onClick: () => void;
 }
@@ -20,7 +19,6 @@ export const ModuleCard = ({
   description,
   color,
   isActive,
-  isSuperAdmin,
   stats,
   onClick,
 }: ModuleCardProps) => {
@@ -58,11 +56,6 @@ export const ModuleCard = ({
           <div className={`p-3 rounded-xl ${colorClasses[color as keyof typeof colorClasses]}`}>
             <Icon className={`h-8 w-8 ${iconColorClasses[color as keyof typeof iconColorClasses]}`} />
           </div>
-          {isSuperAdmin && (
-            <Badge variant="outline" className="bg-purple-100 text-purple-700 border-purple-300">
-              Admin
-            </Badge>
-          )}
         </div>
 
         <h3 className="text-lg font-bold text-stone-800 mb-1">{name}</h3>

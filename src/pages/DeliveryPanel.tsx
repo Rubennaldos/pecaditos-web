@@ -17,7 +17,7 @@ import {
 
 import DeliveryPersonLogin from '@/components/delivery/DeliveryPersonLogin';
 import DeliveryQRReader from '@/components/delivery/DeliveryQRReader';
-import { AdminModeToggle } from '@/components/delivery/AdminModeToggle';
+
 import { DeliveryHistory } from '@/components/delivery/DeliveryHistory';
 import { DeliveryEditModal } from '@/components/delivery/DeliveryEditModal';
 import { DeliveryHistoryModal } from '@/components/delivery/DeliveryHistoryModal';
@@ -370,16 +370,6 @@ const DeliveryPanelContent = () => {
         </div>
       </div>
 
-      {/* Admin Mode Toggle */}
-      <AdminModeToggle
-        onEditDelivery={(orderId) => setShowEditModal(orderId)}
-        onViewHistory={(orderId) => setShowHistoryModal(orderId)}
-        onDeleteDelivery={(orderId) => setShowDeleteModal(orderId)}
-        onManagePersons={() => setShowPersonsModal(true)}
-        onSendMessage={() => setShowMessageModal(true)}
-        totalDeliveries={orders.length}
-        totalPersons={deliveryPersons.length}
-      />
 
       {/* Modal de confirmación de entrega */}
       <Dialog open={!!showDeliveryModal} onOpenChange={() => setShowDeliveryModal(null)}>

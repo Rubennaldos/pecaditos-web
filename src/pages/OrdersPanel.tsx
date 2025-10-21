@@ -27,7 +27,7 @@ import OrdersDashboard from '@/components/orders/OrdersDashboard';
 import QRReaderModal from '@/components/orders/QRReaderModal';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
 import { useAdminOrders } from '@/contexts/AdminOrdersContext';
-import { AdminModeToggle } from '@/components/orders/AdminModeToggle';
+
 import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
 import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
@@ -505,7 +505,7 @@ const OrdersPanel = () => {
         .blink-red { background:#ef4444; animation:pulseRed .7s infinite; }
       `}</style>
 
-      <AdminModeToggle />
+      
 
       {/* Header */}
       <div className="bg-white shadow-sm border-b border-sand-200">
