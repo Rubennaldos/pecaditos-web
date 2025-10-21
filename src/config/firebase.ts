@@ -1,6 +1,7 @@
 // src/config/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getDatabase } from "firebase/database";
+import { getStorage } from "firebase/storage";
 import { getAuth } from "firebase/auth";
 import { getFunctions } from "firebase/functions";
 
@@ -18,8 +19,9 @@ const firebaseConfig = {
 const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
 const db = getDatabase(app);        // RTDB
+const storage = getStorage(app);   // Storage
 const auth = getAuth(app);
 // Importante: misma región donde desplegaste la Function (us-central1 por defecto)
 const functions = getFunctions(app, "us-central1");
 
-export { app, db, auth, functions };
+export { app, db, auth, functions, storage };
