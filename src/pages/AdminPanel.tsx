@@ -108,9 +108,9 @@ const AdminPanelContent = () => {
     },
     {
       id: 'customers-admin',
-      name: 'Módulo Clientes',
-      icon: Users,
-      description: 'Gestión de clientes',
+      name: '¿Dónde nos ubicamos?',
+      icon: MapPin,
+      description: 'Ubicaciones y puntos de venta',
       color: 'blue',
       stats: [
         { label: 'Total', value: '142' },
