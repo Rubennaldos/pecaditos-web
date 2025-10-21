@@ -377,12 +377,6 @@ export const ClientsManagement = () => {
           <h1 className="text-3xl font-bold text-stone-800">Gestión de Clientes</h1>
           <p className="text-stone-600 mt-1">Administración completa de clientes y ubicaciones</p>
         </div>
-        <div className="flex gap-2">
-          <div className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
-            <Shield className="h-3 w-3" />
-            SuperAdmin
-          </div>
-        </div>
       </div>
 
       {/* Search and Actions */}

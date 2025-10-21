@@ -61,7 +61,6 @@ const AdminPanelContent = () => {
       icon: UserCog,
       description: 'Gestionar clientes y sus accesos al sistema',
       color: 'rose',
-      isSuperAdmin: true,
     },
     {
       id: 'orders-admin',
@@ -69,7 +68,6 @@ const AdminPanelContent = () => {
       icon: Package,
       description: 'Control total de pedidos',
       color: 'blue',
-      isSuperAdmin: true,
       stats: [
         { label: 'Pendientes', value: '8' },
         { label: 'Urgentes', value: '3' },
@@ -81,7 +79,6 @@ const AdminPanelContent = () => {
       icon: Truck,
       description: 'Supervisión de entregas',
       color: 'green',
-      isSuperAdmin: true,
       stats: [
         { label: 'En Ruta', value: '5' },
         { label: 'Entregados', value: '18' },
@@ -93,7 +90,6 @@ const AdminPanelContent = () => {
       icon: Factory,
       description: 'Control de inventario',
       color: 'amber',
-      isSuperAdmin: true,
       stats: [
         { label: 'Stock Bajo', value: '4' },
         { label: 'Productos', value: '47' },
@@ -105,7 +101,6 @@ const AdminPanelContent = () => {
       icon: DollarSign,
       description: 'Supervisión financiera',
       color: 'red',
-      isSuperAdmin: true,
       stats: [
         { label: 'Por Cobrar', value: 'S/. 12K' },
         { label: 'Vencidas', value: '7' },
@@ -390,7 +385,7 @@ const AdminPanelContent = () => {
                 <Shield className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-stone-800">SuperAdmin Panel</h1>
+                <h1 className="text-xl font-bold text-stone-800">Panel de Administración</h1>
                 <p className="text-xs text-stone-500">Sistema de gestión integral</p>
               </div>
             </div>
@@ -402,7 +397,7 @@ const AdminPanelContent = () => {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-stone-800">{user.name}</p>
-                  <p className="text-xs text-purple-600 font-medium">SUPERADMIN</p>
+                  <p className="text-xs text-purple-600 font-medium">ADMIN</p>
                 </div>
               </div>
               <Button onClick={handleLogout} variant="outline" size="sm">
