@@ -7,6 +7,7 @@ import { AuditModule } from '@/components/admin/AuditModule';
 import ConsolidatedAdminModule from '@/components/admin/ConsolidatedAdminModule';
 import { LocationsManagement } from "@/components/admin/LocationsManagement";
 import { ClientsManagement } from '@/components/clients/ClientsManagement';
+import { ClientsAccessManagement } from '@/components/admin/ClientsAccessManagement';
 import { ModuleCard } from '@/components/admin/ModuleCard';
 import { Button } from '@/components/ui/button';
 import LogisticsModule from './LogisticsModule';
@@ -56,11 +57,15 @@ const AdminPanelContent = () => {
       ],
     },
     {
-      id: 'access-management',
+      id: 'clients-access',
       name: 'Clientes y Accesos',
       icon: UserCog,
-      description: 'Gestionar clientes y sus accesos al sistema',
+      description: 'Gestión de clientes con usuarios y permisos',
       color: 'rose',
+      stats: [
+        { label: 'Clientes', value: '-' },
+        { label: 'Usuarios', value: '-' },
+      ],
     },
     {
       id: 'orders-admin',
@@ -115,6 +120,17 @@ const AdminPanelContent = () => {
       stats: [
         { label: 'Total', value: '142' },
         { label: 'Activos', value: '98' },
+      ],
+    },
+    {
+      id: 'clients-access',
+      name: 'Clientes y Accesos',
+      icon: UserCog,
+      description: 'Gestión de clientes con usuarios y permisos',
+      color: 'rose',
+      stats: [
+        { label: 'Clientes', value: '-' },
+        { label: 'Usuarios', value: '-' },
       ],
     },
     {
@@ -201,10 +217,13 @@ const AdminPanelContent = () => {
         );
       case 'dashboard':
         return <AdminDashboard />;
-      case 'access-management':
+      case 'clients-access':
         return (
           <div className="p-8">
-            <ClientsManagement />
+            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
+              Volver a Módulos
+            </Button>
+            <ClientsAccessManagement />
           </div>
         );
       case 'orders-admin':
