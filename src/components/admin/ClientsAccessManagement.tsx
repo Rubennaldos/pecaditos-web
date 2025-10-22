@@ -1080,7 +1080,9 @@ const UserForm = ({ user, onFinish }: { user?: UserRecord; onFinish: () => void 
     rol: user?.rol || 'usuario',
     activo: user?.activo ?? true,
   });
-  const [permissions, setPermissions] = useState<string[]>(user?.permissions || []);
+  const [permissions, setPermissions] = useState<string[]>(
+    (user as any)?.accessModules || user?.permissions || []
+  );
   const [password, setPassword] = useState('');
   const [password2, setPassword2] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -1121,14 +1123,17 @@ const UserForm = ({ user, onFinish }: { user?: UserRecord; onFinish: () => void 
     try {
       if (user) {
         // EDITAR
+        console.log('Guardando permisos para usuario:', user.id, permissions);
         await update(ref(db, `usuarios/${user.id}`), {
           nombre: formData.nombre,
           correo: formData.correo,
           rol: formData.rol,
           activo: formData.activo,
           permissions,
+          accessModules: permissions, // CRÍTICO: guardar en ambos campos
         });
-        toast({ title: 'Usuario actualizado' });
+        console.log('Usuario actualizado exitosamente');
+        toast({ title: 'Usuario actualizado', description: 'Los cambios se guardaron correctamente' });
       } else {
         // CREAR
         const call = httpsCallable(functions, 'createUser');
@@ -1158,6 +1163,7 @@ const UserForm = ({ user, onFinish }: { user?: UserRecord; onFinish: () => void 
               rol: formData.rol,
               activo: formData.activo,
               permissions,
+              accessModules: permissions, // CRÍTICO: guardar en ambos campos
             });
           } else {
             throw new Error('No se obtuvo el UID del usuario creado');
@@ -1169,6 +1175,7 @@ const UserForm = ({ user, onFinish }: { user?: UserRecord; onFinish: () => void 
             rol: formData.rol,
             activo: formData.activo,
             permissions,
+            accessModules: permissions, // CRÍTICO: guardar en ambos campos
             createdAt: Date.now(),
           });
         }

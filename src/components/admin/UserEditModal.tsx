@@ -278,7 +278,11 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
       });
       console.log('UserEditModal - Permisos guardados exitosamente');
       toast({ title: 'Permisos actualizados', description: 'Se guardaron los permisos correctamente.' });
-      onOpenChange(false);
+      
+      // Cerrar el modal después de guardar exitosamente
+      setTimeout(() => {
+        onOpenChange(false);
+      }, 500);
     } catch (error) {
       console.error('Error al actualizar permisos:', error);
       toast({ title: 'Error', description: 'No se pudo actualizar los permisos', variant: 'destructive' });
