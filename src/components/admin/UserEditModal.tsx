@@ -104,7 +104,10 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
       setCorreo(user.correo || '');
       setComercial(user.comercial || '');
       setSede(user.sede || '');
-      setPermissions(user.permissions || []);
+      // Leer de accessModules o permissions
+      const userPermissions = (user as any).accessModules || user.permissions || [];
+      console.log('UserEditModal - Cargando permisos para usuario:', user.id, userPermissions);
+      setPermissions(userPermissions);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -123,7 +126,7 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
         correo,
         comercial,
         sede,
-        permissions, // <-- añadimos permisos al guardar el perfil
+        permissions, // <-- Corrección
       });
 
       toast({
@@ -270,16 +273,24 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
     setLoading(true);
     try {
       await update(ref(db, `usuarios/${user.id}`), {
-        nombre, // <-- añadimos los campos de perfil para mantener consistencia
-        correo,
-        comercial,
-        sede,
+        nombre,        // <-- Añadido
+        correo,        // <-- Añadido
+        comercial,     // <-- Añadido
+        sede,          // <-- Añadido
         permissions,
       });
-      toast({ title: 'Datos actualizados', description: 'Se guardaron los cambios correctamente.' });
+      toast({
+        title: 'Datos actualizados', // <-- Mensaje unificado
+        description: 'Se guardaron los cambios correctamente.',
+      });
+      onOpenChange(false); // <-- Cierra el modal al guardar
     } catch (error) {
       console.error('Error al actualizar permisos:', error);
-      toast({ title: 'Error', description: 'No se pudo actualizar los permisos', variant: 'destructive' });
+      toast({
+        title: 'Error',
+        description: 'No se pudo actualizar los permisos',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }

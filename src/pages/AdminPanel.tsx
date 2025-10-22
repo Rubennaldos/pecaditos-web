@@ -123,17 +123,6 @@ const AdminPanelContent = () => {
       ],
     },
     {
-      id: 'clients-access',
-      name: 'Clientes y Accesos',
-      icon: UserCog,
-      description: 'Gestión de clientes con usuarios y permisos',
-      color: 'rose',
-      stats: [
-        { label: 'Clientes', value: '-' },
-        { label: 'Usuarios', value: '-' },
-      ],
-    },
-    {
       id: 'catalogs-admin',
       name: 'Catálogos por Cliente',
       icon: ShoppingBag,
