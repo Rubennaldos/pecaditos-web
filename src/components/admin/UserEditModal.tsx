@@ -123,6 +123,7 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
         correo,
         comercial,
         sede,
+        permissions, // <-- añadimos permisos al guardar el perfil
       });
 
       toast({
@@ -268,8 +269,14 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
   const handleSavePermissions = async () => {
     setLoading(true);
     try {
-      await update(ref(db, `usuarios/${user.id}`), { permissions });
-      toast({ title: 'Permisos actualizados', description: 'Se guardaron los permisos correctamente.' });
+      await update(ref(db, `usuarios/${user.id}`), {
+        nombre, // <-- añadimos los campos de perfil para mantener consistencia
+        correo,
+        comercial,
+        sede,
+        permissions,
+      });
+      toast({ title: 'Datos actualizados', description: 'Se guardaron los cambios correctamente.' });
     } catch (error) {
       console.error('Error al actualizar permisos:', error);
       toast({ title: 'Error', description: 'No se pudo actualizar los permisos', variant: 'destructive' });
