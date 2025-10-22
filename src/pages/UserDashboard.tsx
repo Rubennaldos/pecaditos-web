@@ -125,7 +125,11 @@ const UserDashboard = () => {
 
   // Determinar qué módulos mostrar
   const isAdmin = perfil?.isAdmin || perfil?.rol === 'admin' || perfil?.rol === 'adminGeneral';
-  const userModules = perfil?.accessModules || [];
+  const userModules = perfil?.accessModules || (perfil as any)?.permissions || [];
+  
+  console.log('UserDashboard - perfil:', perfil);
+  console.log('UserDashboard - isAdmin:', isAdmin);
+  console.log('UserDashboard - userModules:', userModules);
   
   const visibleModules = isAdmin 
     ? AVAILABLE_MODULES 

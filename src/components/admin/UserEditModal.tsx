@@ -268,7 +268,10 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
   const handleSavePermissions = async () => {
     setLoading(true);
     try {
-      await update(ref(db, `usuarios/${user.id}`), { permissions });
+      await update(ref(db, `usuarios/${user.id}`), { 
+        accessModules: permissions,
+        permissions // mantener ambos por compatibilidad
+      });
       toast({ title: 'Permisos actualizados', description: 'Se guardaron los permisos correctamente.' });
     } catch (error) {
       console.error('Error al actualizar permisos:', error);
