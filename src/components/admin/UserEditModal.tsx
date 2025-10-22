@@ -104,7 +104,10 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
       setCorreo(user.correo || '');
       setComercial(user.comercial || '');
       setSede(user.sede || '');
-      setPermissions(user.permissions || []);
+      // Leer de accessModules o permissions
+      const userPermissions = (user as any).accessModules || user.permissions || [];
+      console.log('UserEditModal - Cargando permisos para usuario:', user.id, userPermissions);
+      setPermissions(userPermissions);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -268,11 +271,14 @@ export const UserEditModal = ({ user, open, onOpenChange }: UserEditModalProps) 
   const handleSavePermissions = async () => {
     setLoading(true);
     try {
+      console.log('UserEditModal - Guardando permisos:', permissions, 'para usuario:', user.id);
       await update(ref(db, `usuarios/${user.id}`), { 
         accessModules: permissions,
         permissions // mantener ambos por compatibilidad
       });
+      console.log('UserEditModal - Permisos guardados exitosamente');
       toast({ title: 'Permisos actualizados', description: 'Se guardaron los permisos correctamente.' });
+      onOpenChange(false);
     } catch (error) {
       console.error('Error al actualizar permisos:', error);
       toast({ title: 'Error', description: 'No se pudo actualizar los permisos', variant: 'destructive' });

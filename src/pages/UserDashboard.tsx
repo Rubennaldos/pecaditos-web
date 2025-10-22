@@ -120,20 +120,31 @@ const UserDashboard = () => {
       isAdmin?: boolean;
       rol?: string;
       accessModules?: string[];
+      permissions?: string[];
     } | null;
   };
+
+  console.log('=== UserDashboard Debug ===');
+  console.log('User UID:', user?.uid);
+  console.log('Perfil completo:', JSON.stringify(perfil, null, 2));
+  console.log('isAdmin:', perfil?.isAdmin);
+  console.log('rol:', perfil?.rol);
+  console.log('accessModules:', perfil?.accessModules);
+  console.log('permissions:', (perfil as any)?.permissions);
 
   // Determinar qué módulos mostrar
   const isAdmin = perfil?.isAdmin || perfil?.rol === 'admin' || perfil?.rol === 'adminGeneral';
   const userModules = perfil?.accessModules || (perfil as any)?.permissions || [];
   
-  console.log('UserDashboard - perfil:', perfil);
-  console.log('UserDashboard - isAdmin:', isAdmin);
-  console.log('UserDashboard - userModules:', userModules);
+  console.log('isAdmin calculado:', isAdmin);
+  console.log('userModules calculado:', userModules);
+  console.log('========================');
   
   const visibleModules = isAdmin 
     ? AVAILABLE_MODULES 
     : AVAILABLE_MODULES.filter(module => userModules.includes(module.id));
+
+  console.log('visibleModules:', visibleModules.map(m => m.id));
 
   const handleModuleClick = (route: string) => {
     navigate(route);
