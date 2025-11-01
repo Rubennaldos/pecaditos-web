@@ -4,7 +4,6 @@ import { Menu, X, LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useWholesaleAuth } from '@/contexts/WholesaleAuthContext';
-import { useAdmin } from '@/contexts/AdminContext';
 import { useNavigate } from 'react-router-dom';
 
 export const Header = () => {
@@ -14,15 +13,13 @@ export const Header = () => {
   // Hooks de autenticación
   const { user: retailUser, userData: retailUserData, perfil, logout: retailLogout } = useAuth();
   const { user: wholesaleUser, logout: wholesaleLogout } = useWholesaleAuth();
-  const { user: adminUser, logout: adminLogout } = useAdmin();
 
   // Determinar usuario activo y obtener el nombre correctamente
-  const currentUser = adminUser || wholesaleUser || retailUser;
-  const userType = adminUser ? 'Admin' : wholesaleUser ? 'Mayorista' : retailUser ? 'Cliente' : null;
+  const currentUser = wholesaleUser || retailUser;
+  const userType = wholesaleUser ? 'Mayorista' : retailUser ? 'Usuario' : null;
   
   // Obtener el nombre del usuario según su tipo
-  const userName = adminUser?.name || 
-                   wholesaleUser?.name || 
+  const userName = wholesaleUser?.name || 
                    retailUserData?.name || 
                    retailUser?.displayName || 
                    retailUser?.email || 
@@ -31,8 +28,7 @@ export const Header = () => {
   const handleLogout = async () => {
     try {
       // Cerrar sesión según el tipo de usuario
-      if (adminUser) await adminLogout();
-      else if (wholesaleUser) await wholesaleLogout();
+      if (wholesaleUser) await wholesaleLogout();
       else if (retailUser) await retailLogout();
       
       // Redirigir al inicio
@@ -45,40 +41,11 @@ export const Header = () => {
 
   const navigateToProfile = () => {
     // Redirigir según el tipo de usuario
-    if (adminUser) {
-      navigate('/admin');
-    } else if (wholesaleUser) {
+    if (wholesaleUser) {
       navigate('/mayorista');
     } else if (retailUser) {
-      // Para usuarios normales, usar el perfil del contexto
-      if (perfil?.isAdmin) {
-        navigate('/admin');
-      } else {
-        const modules = perfil?.accessModules || perfil?.permissions || [];
-        const MODULE_TO_ROUTE: Record<string, string> = {
-          "dashboard": "/admin",
-          "catalog": "/catalogo",
-          "orders": "/pedidos",
-          "tracking": "/seguimiento",
-          "delivery": "/reparto",
-          "production": "/produccion",
-          "billing": "/cobranzas",
-          "logistics": "/logistica",
-          "wholesale": "/mayorista",
-        };
-        
-        // Buscar la primera ruta disponible
-        for (const module of modules) {
-          if (MODULE_TO_ROUTE[module]) {
-            navigate(MODULE_TO_ROUTE[module]);
-            setIsMenuOpen(false);
-            return;
-          }
-        }
-        
-        // Si no tiene módulos, ir al inicio
-        navigate('/');
-      }
+      // Para usuarios normales, navegar al dashboard
+      navigate('/dashboard');
     }
     
     setIsMenuOpen(false);

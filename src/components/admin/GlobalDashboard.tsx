@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   BarChart3, 
   Package, 
@@ -17,7 +17,7 @@ import { DatePickerWithRange } from '@/components/ui/date-picker';
 import { DateRange } from 'react-day-picker';
 
 export const GlobalDashboard = () => {
-  const { user } = useAdmin();
+  const { user } = useAuth();
 
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),

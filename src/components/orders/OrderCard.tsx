@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { OrderActionButtons } from './OrderActionButtons';
 import { useAdminOrders } from '@/contexts/AdminOrdersContext';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 
 interface OrderCardProps {
   order: {
@@ -61,12 +61,13 @@ export const OrderCard = ({
   onHistory,
   onStatusChange = () => {}
 }: OrderCardProps) => {
-  const { user } = useAdmin();
+  const { perfil } = useAuth();
   const { isAdminMode } = useAdminOrders();
   
-  // Verificar si es admin general para mostrar controles especiales
-  const isAdminGeneral = user?.profile === 'admin';
-  const showAdminControls = isAdminGeneral && isAdminMode;
+  // Verificar si tiene acceso al dashboard para mostrar controles especiales
+  const rol = perfil?.rol || perfil?.role;
+  const hasAdminAccess = rol === 'admin' || rol === 'adminGeneral' || perfil?.accessModules?.includes('dashboard');
+  const showAdminControls = hasAdminAccess && isAdminMode;
   
   // Lógica para indicadores visuales
   const now = Date.now();
