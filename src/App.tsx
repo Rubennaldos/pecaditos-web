@@ -5,8 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { WholesaleAuthProvider } from "@/contexts/WholesaleAuthContext";
-import { AdminProvider } from "@/contexts/AdminContext";
-import { AdminOrdersProvider } from "@/contexts/AdminOrdersContext"; // ⬅️ NUEVO
+import { AdminOrdersProvider } from "@/contexts/AdminOrdersContext";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
 import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 
@@ -31,12 +30,11 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthErrorBoundary>
-      {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado por perfiles */}
+      {/* PROVIDERS DE AUTENTICACIÓN - Sistema unificado */}
       <AuthProvider>
         <WholesaleAuthProvider>
-          <AdminProvider>
-            {/* ⬇️ Proveedor que expone orders + acciones a todo el panel */}
-            <AdminOrdersProvider>
+          {/* ⬇️ Proveedor que expone orders + acciones a todo el panel */}
+          <AdminOrdersProvider>
               {/* 👇 IMPORTANTE: basename para que funcione en /pecaditos-web/ */}
               <BrowserRouter basename={import.meta.env.BASE_URL}>
                 <TooltipProvider>
@@ -183,7 +181,6 @@ const App = () => (
                 </TooltipProvider>
               </BrowserRouter>
             </AdminOrdersProvider>
-          </AdminProvider>
         </WholesaleAuthProvider>
       </AuthProvider>
     </AuthErrorBoundary>

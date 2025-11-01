@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 import { AdminDashboard } from '@/components/admin/AdminDashboard';
 import { SystemConfiguration } from '@/components/admin/SystemConfiguration';
 import MessagesModule from '@/components/admin/MessagesModule';
@@ -20,12 +20,12 @@ import {
   Users,
   DollarSign,
   Settings,
-  Shield,
   Building,
   MapPin,
   MessageSquare,
   UserCog,
   ShoppingBag,
+  FileCheck,
 } from 'lucide-react';
 
 import OrdersPanel from './OrdersPanel';
@@ -34,15 +34,15 @@ import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
 import { CatalogModule } from './CatalogModule';
 
-const ADMIN_PROFILES = ['admin', 'adminGeneral'];
-
-const AdminPanelContent = () => {
-  const { user, logout } = useAdmin();
+const DashboardContent = () => {
+  const { user, perfil, logout } = useAuth();
   const [activeSection, setActiveSection] = useState('modules');
 
-  if (!user || !ADMIN_PROFILES.includes(user.profile)) {
+  if (!user) {
     return null;
   }
+
+  const userName = perfil?.nombre || 'Usuario';
 
   const modules = [
     {
@@ -164,7 +164,7 @@ const AdminPanelContent = () => {
     {
       id: 'audit',
       name: 'Auditoría',
-      icon: Shield,
+      icon: FileCheck,
       description: 'Logs y seguimiento',
       color: 'rose',
     },
@@ -177,8 +177,8 @@ const AdminPanelContent = () => {
     },
   ];
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     window.location.href = '/';
   };
 
@@ -188,7 +188,7 @@ const AdminPanelContent = () => {
         return (
           <div className="p-8 space-y-6">
             <div>
-              <h1 className="text-4xl font-bold text-stone-800 mb-2">Panel de Administración</h1>
+              <h1 className="text-4xl font-bold text-stone-800 mb-2">Panel de Control</h1>
               <p className="text-stone-600">Selecciona un módulo para empezar a trabajar</p>
             </div>
 
@@ -336,8 +336,8 @@ const AdminPanelContent = () => {
             </Button>
             <MessagesModule
               usuarioActual={{
-                id: user.id || '',
-                rol: (user as any).rol || 'cliente',
+                id: user.uid || '',
+                rol: (perfil?.rol as 'admin' | 'cliente') || 'cliente',
                 email: user.email || '',
               }}
             />
@@ -363,7 +363,7 @@ const AdminPanelContent = () => {
         return (
           <div className="p-8 space-y-6">
             <div>
-              <h1 className="text-4xl font-bold text-stone-800 mb-2">Panel de Administración</h1>
+              <h1 className="text-4xl font-bold text-stone-800 mb-2">Panel de Control</h1>
               <p className="text-stone-600">Selecciona un módulo para empezar a trabajar</p>
             </div>
 
@@ -390,10 +390,10 @@ const AdminPanelContent = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                <Shield className="h-6 w-6 text-white" />
+                <BarChart3 className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-stone-800">Panel de Administración</h1>
+                <h1 className="text-xl font-bold text-stone-800">Panel de Control</h1>
                 <p className="text-xs text-stone-500">Sistema de gestión integral</p>
               </div>
             </div>
@@ -401,11 +401,11 @@ const AdminPanelContent = () => {
             <div className="flex items-center gap-4">
               <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-purple-50 rounded-lg border border-purple-200">
                 <div className="w-8 h-8 bg-purple-200 rounded-full flex items-center justify-center">
-                  <span className="text-xs font-bold text-purple-600">{user.name?.split(' ')[0][0]}</span>
+                  <span className="text-xs font-bold text-purple-600">{userName?.split(' ')[0][0] || 'U'}</span>
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-stone-800">{user.name}</p>
-                  <p className="text-xs text-purple-600 font-medium">ADMIN</p>
+                  <p className="text-sm font-medium text-stone-800">{userName}</p>
+                  <p className="text-xs text-purple-600 font-medium">USUARIO</p>
                 </div>
               </div>
               <Button onClick={handleLogout} variant="outline" size="sm">
@@ -424,7 +424,7 @@ const AdminPanelContent = () => {
 };
 
 const AdminPanel = () => {
-  return <AdminPanelContent />;
+  return <DashboardContent />;
 };
 
 export default AdminPanel;
