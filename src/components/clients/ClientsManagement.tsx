@@ -59,6 +59,7 @@ import { useToast } from '@/hooks/use-toast';
 const AVAILABLE_MODULES = [
   { id: "dashboard", name: "Dashboard Global", icon: BarChart3, color: "purple" },
   { id: "catalog", name: "Catálogo de Productos", icon: ShoppingCart, color: "blue" },
+  { id: "catalogs-admin", name: "Catálogo por Cliente", icon: Package, color: "emerald" },
   { id: "orders", name: "Pedidos", icon: Package, color: "blue" },
   { id: "tracking", name: "Seguimiento", icon: Truck, color: "amber" },
   { id: "delivery", name: "Reparto", icon: Truck, color: "green" },

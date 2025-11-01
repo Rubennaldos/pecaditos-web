@@ -1,7 +1,6 @@
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -14,40 +13,43 @@ import {
   PackageSearch,
   Users,
   MapPin,
-  ArrowRight
+  BarChart3,
+  DollarSign
 } from 'lucide-react';
 
 // Definición de módulos disponibles
 const AVAILABLE_MODULES = [
   {
     id: 'dashboard',
-    name: 'Panel de Administración',
-    description: 'Gestión completa del sistema',
-    icon: LayoutDashboard,
+    name: 'Dashboard Global',
+    description: 'Vista completa del sistema',
+    icon: BarChart3,
     route: '/admin',
-    color: 'from-blue-500 to-blue-600',
-    hoverColor: 'hover:border-blue-200',
-    bgGradient: 'from-white to-blue-50'
+    color: 'purple'
   },
   {
     id: 'catalog',
     name: 'Catálogo de Productos',
     description: 'Explora nuestros productos',
-    icon: Package,
+    icon: ShoppingCart,
     route: '/catalogo',
-    color: 'from-green-500 to-green-600',
-    hoverColor: 'hover:border-green-200',
-    bgGradient: 'from-white to-green-50'
+    color: 'blue'
+  },
+  {
+    id: 'catalogs-admin',
+    name: 'Catálogo por Cliente',
+    description: 'Gestión de catálogos personalizados',
+    icon: Package,
+    route: '/catalogo-clientes',
+    color: 'emerald'
   },
   {
     id: 'orders',
     name: 'Gestión de Pedidos',
     description: 'Administra pedidos y ventas',
-    icon: ShoppingCart,
+    icon: Package,
     route: '/pedidos',
-    color: 'from-orange-500 to-orange-600',
-    hoverColor: 'hover:border-orange-200',
-    bgGradient: 'from-white to-orange-50'
+    color: 'blue'
   },
   {
     id: 'delivery',
@@ -55,9 +57,7 @@ const AVAILABLE_MODULES = [
     description: 'Gestiona entregas y rutas',
     icon: TruckIcon,
     route: '/reparto',
-    color: 'from-purple-500 to-purple-600',
-    hoverColor: 'hover:border-purple-200',
-    bgGradient: 'from-white to-purple-50'
+    color: 'green'
   },
   {
     id: 'production',
@@ -65,39 +65,23 @@ const AVAILABLE_MODULES = [
     description: 'Control de producción y stock',
     icon: Factory,
     route: '/produccion',
-    color: 'from-red-500 to-red-600',
-    hoverColor: 'hover:border-red-200',
-    bgGradient: 'from-white to-red-50'
+    color: 'amber'
   },
   {
     id: 'billing',
     name: 'Cobranzas',
     description: 'Gestión de pagos y facturas',
-    icon: Wallet,
+    icon: DollarSign,
     route: '/cobranzas',
-    color: 'from-teal-500 to-teal-600',
-    hoverColor: 'hover:border-teal-200',
-    bgGradient: 'from-white to-teal-50'
+    color: 'red'
   },
   {
     id: 'logistics',
     name: 'Logística',
     description: 'Control de inventario y almacén',
-    icon: PackageSearch,
+    icon: TruckIcon,
     route: '/logistica',
-    color: 'from-indigo-500 to-indigo-600',
-    hoverColor: 'hover:border-indigo-200',
-    bgGradient: 'from-white to-indigo-50'
-  },
-  {
-    id: 'wholesale',
-    name: 'Portal Mayorista',
-    description: 'Compras al por mayor',
-    icon: Users,
-    route: '/mayorista',
-    color: 'from-pink-500 to-pink-600',
-    hoverColor: 'hover:border-pink-200',
-    bgGradient: 'from-white to-pink-50'
+    color: 'indigo'
   },
   {
     id: 'locations',
@@ -105,9 +89,15 @@ const AVAILABLE_MODULES = [
     description: 'Puntos de venta',
     icon: MapPin,
     route: '/donde-nos-ubicamos',
-    color: 'from-yellow-500 to-yellow-600',
-    hoverColor: 'hover:border-yellow-200',
-    bgGradient: 'from-white to-yellow-50'
+    color: 'indigo'
+  },
+  {
+    id: 'reports',
+    name: 'Reportes',
+    description: 'Reportes y estadísticas',
+    icon: BarChart3,
+    route: '/reportes',
+    color: 'purple'
   }
 ];
 
@@ -150,63 +140,76 @@ const UserDashboard = () => {
     navigate(route);
   };
 
+  const colorClasses = {
+    purple: 'bg-gradient-to-br from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 border-purple-200',
+    blue: 'bg-gradient-to-br from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 border-blue-200',
+    green: 'bg-gradient-to-br from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 border-green-200',
+    amber: 'bg-gradient-to-br from-amber-50 to-amber-100 hover:from-amber-100 hover:to-amber-200 border-amber-200',
+    red: 'bg-gradient-to-br from-red-50 to-red-100 hover:from-red-100 hover:to-red-200 border-red-200',
+    teal: 'bg-gradient-to-br from-teal-50 to-teal-100 hover:from-teal-100 hover:to-teal-200 border-teal-200',
+    indigo: 'bg-gradient-to-br from-indigo-50 to-indigo-100 hover:from-indigo-100 hover:to-indigo-200 border-indigo-200',
+    rose: 'bg-gradient-to-br from-rose-50 to-rose-100 hover:from-rose-100 hover:to-rose-200 border-rose-200',
+    emerald: 'bg-gradient-to-br from-emerald-50 to-emerald-100 hover:from-emerald-100 hover:to-emerald-200 border-emerald-200',
+  };
+
+  const iconColorClasses = {
+    purple: 'text-purple-600',
+    blue: 'text-blue-600',
+    green: 'text-green-600',
+    amber: 'text-amber-600',
+    red: 'text-red-600',
+    teal: 'text-teal-600',
+    indigo: 'text-indigo-600',
+    rose: 'text-rose-600',
+    emerald: 'text-emerald-600',
+  };
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-stone-50 via-purple-50 to-stone-50">
       <Header />
-      <main className="py-16 px-4">
-        <div className="max-w-6xl mx-auto">
+      <main className="py-8 px-4">
+        <div className="max-w-7xl mx-auto">
           {/* Encabezado de bienvenida */}
-          <div className="text-center mb-12">
-            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold text-stone-800 mb-2">
               Bienvenido, {perfil?.nombre || 'Usuario'}
             </h1>
-            <p className="text-muted-foreground text-lg">
-              Selecciona un módulo para continuar
-            </p>
+            <p className="text-stone-600">Selecciona un módulo para continuar</p>
           </div>
 
           {/* Grid de módulos disponibles */}
           {visibleModules.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {visibleModules.map((module) => {
                 const Icon = module.icon;
+                const color = module.color as keyof typeof colorClasses;
+                
                 return (
-                  <div
+                  <Card
                     key={module.id}
-                    className="group cursor-pointer"
+                    className={`cursor-pointer transition-all duration-300 border-2 ${colorClasses[color]}`}
                     onClick={() => handleModuleClick(module.route)}
                   >
-                    {/* Mobile: Circular design */}
-                    <div className="md:hidden flex flex-col items-center gap-3">
-                      <div className={`w-20 h-20 bg-gradient-to-br ${module.color} rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 group-hover:shadow-xl transition-all duration-300`}>
-                        <Icon className="h-9 w-9 text-white" />
-                      </div>
-                      <span className="text-sm font-medium text-foreground text-center leading-tight px-1">
-                        {module.name}
-                      </span>
-                    </div>
-
-                    {/* Desktop: Compact card */}
-                    <Card className="hidden md:block group-hover:shadow-xl transition-all duration-300 group-hover:-translate-y-1 border hover:border-primary/30 bg-card/50 backdrop-blur-sm">
-                      <CardHeader className="p-4 text-center space-y-3">
-                        <div className={`mx-auto w-12 h-12 bg-gradient-to-br ${module.color} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform shadow-md`}>
-                          <Icon className="h-6 w-6 text-white" />
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`p-3 rounded-xl ${colorClasses[color]}`}>
+                          <Icon className={`h-8 w-8 ${iconColorClasses[color]}`} />
                         </div>
-                        <CardTitle className="text-sm font-semibold text-foreground leading-tight">
-                          {module.name}
-                        </CardTitle>
-                      </CardHeader>
-                    </Card>
-                  </div>
+                      </div>
+
+                      <h3 className="text-lg font-bold text-stone-800 mb-1">{module.name}</h3>
+                      <p className="text-sm text-stone-600">{module.description}</p>
+                    </CardContent>
+                  </Card>
                 );
               })}
             </div>
           ) : (
             <div className="text-center py-12">
-              <p className="text-muted-foreground text-lg mb-4">
+              <p className="text-stone-600 text-lg mb-4">
                 No tienes módulos habilitados
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-stone-500">
                 Contacta al administrador para solicitar acceso
               </p>
             </div>

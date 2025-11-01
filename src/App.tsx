@@ -23,6 +23,7 @@ import BillingPanel from "./pages/BillingPanel";
 import LogisticsPanel from "./pages/LogisticsPanel";
 import OrderTracking from "./pages/OrderTracking";
 import DondeNosUbicamos from "./pages/DondeNosUbicamos";
+import ClientCatalogPage from "./pages/ClientCatalogPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -132,6 +133,16 @@ const App = () => (
                       element={
                         <ProtectedRoute module="logistics">
                           <LogisticsPanel />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* CATÁLOGO POR CLIENTE */}
+                    <Route
+                      path="/catalogo-clientes"
+                      element={
+                        <ProtectedRoute module="catalogs-admin">
+                          <ClientCatalogPage />
                         </ProtectedRoute>
                       }
                     />
