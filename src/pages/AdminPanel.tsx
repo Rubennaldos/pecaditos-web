@@ -6,8 +6,8 @@ import MessagesModule from '@/components/admin/MessagesModule';
 import { AuditModule } from '@/components/admin/AuditModule';
 import ConsolidatedAdminModule from '@/components/admin/ConsolidatedAdminModule';
 import { LocationsManagement } from "@/components/admin/LocationsManagement";
-import { ClientsManagement } from '@/components/clients/ClientsManagement';
 import { ClientsAccessManagement } from '@/components/admin/ClientsAccessManagement';
+import { ClientCatalogManager } from '@/components/admin/ClientCatalogManager';
 import { ModuleCard } from '@/components/admin/ModuleCard';
 import { Button } from '@/components/ui/button';
 import LogisticsModule from './LogisticsModule';
@@ -32,7 +32,6 @@ import OrdersPanel from './OrdersPanel';
 import DeliveryPanel from './DeliveryPanel';
 import ProductionPanel from './ProductionPanel';
 import BillingPanel from './BillingPanel';
-import { CatalogModule } from './CatalogModule';
 
 const ADMIN_PROFILES = ['admin', 'adminGeneral'];
 
@@ -109,17 +108,6 @@ const AdminPanelContent = () => {
       stats: [
         { label: 'Por Cobrar', value: 'S/. 12K' },
         { label: 'Vencidas', value: '7' },
-      ],
-    },
-    {
-      id: 'customers-admin',
-      name: '¿Dónde nos ubicamos?',
-      icon: MapPin,
-      description: 'Ubicaciones y puntos de venta',
-      color: 'blue',
-      stats: [
-        { label: 'Total', value: '142' },
-        { label: 'Activos', value: '98' },
       ],
     },
     {
@@ -279,18 +267,14 @@ const AdminPanelContent = () => {
             <BillingPanel />
           </div>
         );
-      case 'customers-admin':
+      case 'catalogs-admin':
         return (
           <div className="p-8">
             <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
               Volver a Módulos
             </Button>
-            <ClientsManagement />
+            <ClientCatalogManager />
           </div>
-        );
-      case 'catalogs-admin':
-        return (
-          <CatalogModule onBack={() => setActiveSection('modules')} />
         );
       case 'business-admin':
         return (
