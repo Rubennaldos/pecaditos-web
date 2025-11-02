@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Eye, EyeOff, User, Lock } from "lucide-react";
 import { ref, get } from "firebase/database";
 import { auth, db } from "@/config/firebase";
 import { signInAndEnsureProfile } from "@/services/auth";
+import { useAuth } from '@/hooks/useAuth';
 
 // Helper: detecta la ruta de dashboard para usuarios con módulos
 function getFirstAvailableRoute(perfil: any): string {
@@ -50,6 +51,8 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || "/";
+  const { perfil, loading: authLoading } = useAuth() as any;
+  const [pendingRedirect, setPendingRedirect] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,46 +70,11 @@ const Login = () => {
       // 1) Login + asegurar perfil en RTDB
       const user = await signInAndEnsureProfile(email, password);
 
-      // 2) Leer perfil (ya debería existir)
-      const snap = await get(ref(db, `usuarios/${user.uid}`));
-      if (!snap.exists()) {
-        toast({
-          title: "Perfil no encontrado",
-          description:
-            "Tu cuenta inició sesión, pero no se encontró el perfil. Contacta al administrador.",
-          variant: "destructive",
-        });
-        navigate("/", { replace: true });
-        return;
-      }
-      const perfil = snap.val();
-      
-      console.log("📋 Perfil del usuario:", perfil);
-
-      // 2.1) Validar activo
-      if (perfil.activo === false) {
-        toast({
-          title: "Acceso denegado",
-          description: "Tu usuario está inactivo. Contacta al administrador.",
-          variant: "destructive",
-        });
-        navigate("/", { replace: true });
-        return;
-      }
-
-      // 3) Determinar ruta según módulos disponibles
-      const redirectPath = getFirstAvailableRoute(perfil);
-      
-      console.log("🔀 Ruta de redirección:", redirectPath);
-      console.log("🎯 Módulos disponibles:", perfil?.accessModules || perfil?.permissions || []);
-
-      toast({
-        title: "Bienvenido",
-        description: `Has iniciado sesión exitosamente`,
-      });
-
-      // 4) Respetar "from" si viene de una ruta protegida
-      navigate(from !== "/" ? from : redirectPath, { replace: true });
+      // Marcamos que, tras el login, esperaremos a que AuthProvider termine de
+      // cargar y parchear el perfil (ensureDashboardForAdmin). La redirección
+      // se hará en el useEffect que escucha authLoading/perfil.
+      setPendingRedirect(true);
+      console.log('[Login] inicio de sesión correcto, esperando a AuthProvider para redirigir', user.uid);
     } catch (err: any) {
       const code = err?.code || "";
       const msgMap: Record<string, string> = {
@@ -125,9 +93,56 @@ const Login = () => {
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      // No forzamos isLoading=false aquí porque esperamos al redirect flow.
+      // isLoading seguirá activo hasta que la redirección se complete.
     }
   };
+
+  // Effect: cuando hay un pendingRedirect, espera a que authLoading sea false
+  // y luego usa el perfil cargado por AuthProvider para decidir la ruta.
+  useEffect(() => {
+    if (!pendingRedirect) return;
+
+    // Mientras el provider esté cargando, no hacer nada
+    if (authLoading) {
+      console.log('[Login] esperando a que useAuth termine de cargar el perfil...');
+      return;
+    }
+
+    // Ya no está cargando — evaluar perfil
+    try {
+      if (!perfil) {
+        toast({
+          title: 'Perfil no encontrado',
+          description: 'Tu cuenta inició sesión, pero no se encontró el perfil. Contacta al administrador.',
+          variant: 'destructive',
+        });
+        navigate('/', { replace: true });
+        return;
+      }
+
+      if (perfil.activo === false) {
+        toast({
+          title: 'Acceso denegado',
+          description: 'Tu usuario está inactivo. Contacta al administrador.',
+          variant: 'destructive',
+        });
+        navigate('/', { replace: true });
+        return;
+      }
+
+      const redirectPath = getFirstAvailableRoute(perfil);
+      console.log('🔀 Ruta de redirección (post-auth):', redirectPath);
+
+      toast({ title: 'Bienvenido', description: `Has iniciado sesión exitosamente` });
+
+      navigate(from !== '/' ? from : redirectPath, { replace: true });
+    } finally {
+      setPendingRedirect(false);
+      setIsLoading(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRedirect, authLoading, perfil]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-amber-50 flex items-center justify-center p-4">
