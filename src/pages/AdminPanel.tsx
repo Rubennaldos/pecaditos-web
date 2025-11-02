@@ -17,7 +17,6 @@ import {
   Package,
   Truck,
   Factory,
-  Users,
   DollarSign,
   Settings,
   Building,
@@ -43,6 +42,30 @@ const DashboardContent = () => {
   }
 
   const userName = perfil?.nombre || 'Usuario';
+  const userModules = (perfil?.accessModules as string[]) || (perfil?.permissions as string[]) || [];
+
+  const hasAccess = (moduleId: string) => {
+    if (!userModules || userModules.length === 0) return false;
+    // Exact match
+    if (userModules.includes(moduleId)) return true;
+    // Try base before dash: orders-admin -> orders
+    const base = moduleId.split('-')[0];
+    if (userModules.includes(base)) return true;
+    // Common aliases mapping
+    const aliasMap: Record<string, string[]> = {
+      'orders-admin': ['orders', 'pedidos'],
+      'delivery-admin': ['delivery', 'reparto'],
+      'production-admin': ['production', 'produccion'],
+      'billing-admin': ['billing', 'cobranzas'],
+      'customers-admin': ['locations', 'customers', 'ubicaciones'],
+      'catalogs-admin': ['catalogs-admin', 'catalogs', 'catalogo'],
+      'dashboard': ['dashboard', 'admin'],
+      'clients-access': ['clients-access', 'clients', 'clientes', 'clients-access'],
+    };
+    const aliases = aliasMap[moduleId] || [];
+    for (const a of aliases) if (userModules.includes(a)) return true;
+    return false;
+  };
 
   const modules = [
     {
@@ -193,7 +216,7 @@ const DashboardContent = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {modules.map((module) => (
+              {modules.filter((m) => hasAccess(m.id)).map((module) => (
                 <ModuleCard
                   key={module.id}
                   {...module}
@@ -368,7 +391,7 @@ const DashboardContent = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {modules.map((module) => (
+              {modules.filter((m) => hasAccess(m.id)).map((module) => (
                 <ModuleCard
                   key={module.id}
                   {...module}

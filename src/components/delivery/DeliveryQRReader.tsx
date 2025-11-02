@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { QrCode, Camera, CameraOff, Smartphone } from 'lucide-react';
+import { QrCode, Camera } from 'lucide-react';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
 
 interface DeliveryQRReaderProps {

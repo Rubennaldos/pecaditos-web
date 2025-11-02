@@ -1,12 +1,11 @@
 import { useState } from 'react';
-import { Search, ShoppingCart, User, LogOut, X } from 'lucide-react';
+import { Search, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { WholesaleCatalog } from '@/components/wholesale/WholesaleCatalog';
 import { WholesaleStickyCart } from '@/components/wholesale/WholesaleStickyCart';
 import { WholesaleCartProvider } from '@/contexts/WholesaleCartContext';
 import { useWholesaleCategories } from '@/hooks/useWholesaleCategories';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface CatalogModuleContentProps {

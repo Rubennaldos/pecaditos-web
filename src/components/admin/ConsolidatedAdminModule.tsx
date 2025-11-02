@@ -467,7 +467,7 @@ function ProductCard({
         total: b.total,
       })),
     }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [editData.minOrder]);
 
   // info de cada paquete (X unidades por Total Z) -> unitario y % desc. vs base

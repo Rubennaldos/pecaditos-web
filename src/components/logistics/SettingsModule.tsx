@@ -6,8 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, Edit, Trash2, Settings } from 'lucide-react';
-import { useLogistics, Category, Supplier } from '@/contexts/LogisticsContext';
+import { Plus, Edit, Trash2 } from 'lucide-react';
+import { useLogistics } from '@/contexts/LogisticsContext';
 import { toast } from '@/hooks/use-toast';
 
 export const SettingsModule = () => {

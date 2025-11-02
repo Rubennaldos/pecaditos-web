@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { ref, onValue } from "firebase/database";
 import { db } from "@/config/firebase"; // Cambia el path si tu config es otra
 import * as lucide from "lucide-react"; // import all icons
-import { Button } from "@/components/ui/button";
 
 export const Footer = () => {
   const [footerSections, setFooterSections] = useState<any[]>([]);

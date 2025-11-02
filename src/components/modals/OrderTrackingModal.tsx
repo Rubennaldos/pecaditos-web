@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Search, Package, Clock, Truck, CheckCircle } from 'lucide-react';
+import { Search, Package, Clock, Truck, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';

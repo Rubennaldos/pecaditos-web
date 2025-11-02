@@ -11,7 +11,6 @@ import {
   Users, 
   Phone, 
   Calendar, 
-  Bell, 
   MessageCircle, 
   Search,
   Filter,

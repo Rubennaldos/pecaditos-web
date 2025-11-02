@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAdminDelivery } from '@/contexts/AdminDeliveryContext';
-import { MessageSquare, Send, Users, User } from 'lucide-react';
+import { MessageSquare, Send, User } from 'lucide-react';
 
 interface SendMessageModalProps {
   persons: any[];

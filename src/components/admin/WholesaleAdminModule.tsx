@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Edit, Trash2, Plus, Save, X, Upload, Package, Settings, Image, DollarSign, Tag } from 'lucide-react';
+import { Edit, Trash2, Plus, Save, X, Package, Settings, DollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface WholesaleProduct {

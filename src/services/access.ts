@@ -1,6 +1,6 @@
 // src/services/access.ts
 import { db } from "@/config/firebase";               // 👈 OJO: config/firebase, no lib/firebase
-import { ref, set, update, get, child } from "firebase/database";
+import { ref, set, update, get } from "firebase/database";
 
 /**
  * Crea (o actualiza) un registro en /usuarios a partir de un cliente ya creado

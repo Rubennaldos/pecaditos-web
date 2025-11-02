@@ -4,7 +4,6 @@ import {
   Package, 
   Clock, 
   AlertTriangle, 
-  Star, 
   FileText, 
   User, 
   LogOut,

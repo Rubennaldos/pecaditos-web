@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/config/firebase';
-import { ref, onValue, set, remove, update } from 'firebase/database';
+import { ref, onValue, set } from 'firebase/database';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 

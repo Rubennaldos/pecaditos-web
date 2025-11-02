@@ -11,7 +11,6 @@ import { AuthErrorBoundary } from "@/components/auth/AuthErrorBoundary";
 
 import Index from "./pages/Index";
 import Login from "./pages/Login";
-import UserDashboard from "./pages/UserDashboard";
 import Catalog from "./pages/Catalog";
 import WholesalePortal from "./pages/WholesalePortal";
 import AdminPanel from "./pages/AdminPanel";

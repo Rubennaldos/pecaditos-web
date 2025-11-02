@@ -11,13 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import UbigeoSelector from '@/components/UbigeoSelector';
 import { useToast } from '@/hooks/use-toast';
 import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import {
@@ -37,7 +36,6 @@ import {
   MapPin,
   Lock,
   Unlock,
-  UserPlus,
   Users,
   ToggleRight,
   ToggleLeft,
@@ -46,8 +44,6 @@ import {
   Factory,
   BarChart3,
   Package,
-  Copy,
-  RefreshCw,
   Key,
 } from 'lucide-react';
 

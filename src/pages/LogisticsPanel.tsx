@@ -17,7 +17,6 @@ import {
   AlertTriangle,
   Boxes,
   TrendingUp,
-  Users,
   Bell
 } from 'lucide-react';
 // ⬇️ QUITAMOS InventoryModule y usamos el LogisticsModule nuevo

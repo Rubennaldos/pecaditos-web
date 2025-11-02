@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,16 +12,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { 
   Plus, 
   Search, 
-  Filter, 
   Download, 
   AlertTriangle, 
-  CheckCircle, 
   MinusCircle, 
   PlusCircle,
   Trash2,
   Edit,
-  QrCode,
-  Calendar,
   Thermometer
 } from 'lucide-react';
 import { useLogistics, InventoryItem } from '@/contexts/LogisticsContext';

@@ -12,7 +12,6 @@ import {
   Phone, 
   MessageSquare,
   Filter,
-  Calendar,
   QrCode,
   Search
 } from 'lucide-react';

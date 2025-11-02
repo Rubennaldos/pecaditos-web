@@ -1,35 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   Package2,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  CheckCircle,
   Plus,
-  BarChart3,
-  LogOut,
-  Edit3,
-  Eye,
-  EyeOff,
-  ChevronDown,
-  ChevronUp,
-  Edit,
-  History,
-  Trash2
+  LogOut
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAdmin } from '@/contexts/AdminContext';
 import { AdminProductionProvider, useAdminProduction } from '@/contexts/AdminProductionContext';
 import { ProductCard } from '@/components/production/ProductCard';
-import { AlertParametersModal } from '@/components/production/AlertParametersModal';
-import { MovementHistoryModal } from '@/components/production/MovementHistoryModal';
-import { ProductionEditModal } from '@/components/production/ProductionEditModal';
-import { ProductionHistoryModal } from '@/components/production/ProductionHistoryModal';
-import { ProductionDeleteModal } from '@/components/production/ProductionDeleteModal';
 import { Input } from '@/components/ui/input';
 
 // ----------------- AGREGADO: Modal para Agregar Producto -----------------

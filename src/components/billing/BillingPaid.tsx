@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, Filter, Eye, CreditCard, Building, User, Calendar } from 'lucide-react';
+import { CheckCircle, Download, Filter, Eye, CreditCard, Calendar } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 
 export const BillingPaid = () => {

@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { 
   DollarSign, 
   AlertTriangle, 
@@ -10,9 +9,7 @@ import {
   Download,
   BarChart3,
   PieChart,
-  Trophy,
-  CheckCircle,
-  Star
+  Trophy
 } from 'lucide-react';
 import { useBilling } from '@/hooks/useBilling';
 

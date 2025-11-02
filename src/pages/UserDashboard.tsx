@@ -4,14 +4,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { 
-  LayoutDashboard, 
   Package, 
   ShoppingCart, 
   TruckIcon, 
-  Factory, 
-  Wallet, 
-  PackageSearch,
-  Users,
+  Factory,
   MapPin,
   BarChart3,
   DollarSign

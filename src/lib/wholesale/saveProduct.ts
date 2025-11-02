@@ -1,6 +1,6 @@
 // src/lib/wholesale/saveProduct.ts
 import { db } from '@/config/firebase';
-import { ref as dbRef, update, set, remove } from 'firebase/database';
+import { ref as dbRef, set, remove } from 'firebase/database';
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export type QuantityDiscount = { from: number; discountPct: number };

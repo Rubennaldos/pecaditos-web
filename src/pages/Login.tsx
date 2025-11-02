@@ -1,5 +1,5 @@
 // src/pages/Login.tsx
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
 
-import { ref, get } from "firebase/database";
-import { auth, db } from "@/config/firebase";
 import { signInAndEnsureProfile } from "@/services/auth";
 import { useAuth } from '@/hooks/useAuth';
 
