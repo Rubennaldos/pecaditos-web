@@ -32,15 +32,13 @@ export default [
         "warn",
         { allowConstantExport: true },
       ],
-      // Let unused-imports handle removals. Keep typescript rule off to avoid conflicts.
+      // Disable unused-vars rules per request (we'll allow prefixing with _ instead of enforcing removals)
+      "no-unused-vars": "off",
       "@typescript-eslint/no-unused-vars": "off",
       "unused-imports/no-unused-imports": "error",
-      "unused-imports/no-unused-vars": [
-        "error",
-        { "vars": "all", "varsIgnorePattern": "^_", "args": "after-used", "argsIgnorePattern": "^_" }
-      ],
-      // The environment this repo runs in is not Next.js build here; temporarily disable Next.js-specific rules
-      "@next/next/no-img-element": "off",
+      // Turn off unused-imports/no-unused-vars to silence unused-var errors globally as requested
+      "unused-imports/no-unused-vars": "off",
+  // Next.js-specific rules removed because this project is not a Next.js app
     },
   },
 ];

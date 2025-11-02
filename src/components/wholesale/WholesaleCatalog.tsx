@@ -263,7 +263,7 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
               <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition-all duration-200 bg-card">
                 <div className="w-full h-64 mb-4 bg-muted rounded-lg overflow-hidden">
                   {p.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
+                    // eslint-disable-next-line
                     <img
                       src={p.imageUrl}
                       alt={p.name}

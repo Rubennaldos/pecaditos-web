@@ -122,7 +122,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
   return (
     <Card className="w-full max-w-xs bg-white border shadow-sm hover:shadow-md transition-all duration-200 mx-auto">
       <div className="h-48 relative overflow-hidden rounded-t-lg">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
+  {/* eslint-disable-next-line */}
         <img
           src={imgSrc}
           alt={product.name}

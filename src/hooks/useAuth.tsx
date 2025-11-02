@@ -88,7 +88,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
         // Limpia listener anterior si existía
         if (detachRTDB) {
-          try { detachRTDB(); } catch {}
+          try { detachRTDB(); } catch { /* no-op */ }
           detachRTDB = null;
         }
 
@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       setMounted(false);
       unsubscribe();
       if (detachRTDB) {
-        try { detachRTDB(); } catch {}
+        try { detachRTDB(); } catch { /* no-op */ }
       }
     };
   }, []);

@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import type { JSX } from 'react';
 
 type CompanyInfo = {
   logo?: string;

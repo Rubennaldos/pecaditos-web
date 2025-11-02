@@ -138,7 +138,7 @@ const OrdersPanel = () => {
       backfilledRef.current.add(o.id);
       try {
         await ensureOrderNumber(o.id);
-      } catch {}
+  } catch { /* no-op */ }
     });
   }, [orders]);
 
@@ -280,7 +280,7 @@ const OrdersPanel = () => {
     try {
       await logout();
       navigate('/');
-    } catch {}
+  } catch { /* no-op */ }
   };
 
   const handleEditOrder = (order: OrderRT) => {

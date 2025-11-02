@@ -99,7 +99,7 @@ export const BillingClients = () => {
     });
 
     return () => {
-      try { unsubUsers(); } catch {}
+      try { unsubUsers(); } catch { /* no-op */ }
     };
   }, []);
 

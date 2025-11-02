@@ -520,7 +520,7 @@ function ProductCard({
             <Label>Imagen del producto</Label>
             <div className="flex items-center gap-3">
               <div className="w-16 h-16 rounded bg-stone-100 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
+                {/* eslint-disable-next-line */}
                 <img
                   src={editData.image || '/placeholder.svg'}
                   alt="preview"

@@ -1,5 +1,5 @@
 // src/components/admin/MessagesModule.tsx
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ref, push, onValue, update } from "firebase/database";
 import { db } from "@/config/firebase";
 import {
@@ -319,7 +319,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
               <DialogDescription>Mensaje importante del sistema</DialogDescription>
             </DialogHeader>
             {activePopupMessage.image && (
-              // eslint-disable-next-line @next/next/no-img-element
+              // eslint-disable-next-line
               <img src={activePopupMessage.image} alt="" className="w-full rounded-xl mb-3" />
             )}
             <p className="text-stone-700">{activePopupMessage.content}</p>
@@ -385,7 +385,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
                     fr.readAsDataURL(f);
                   }}/>
                 {newMessage.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
+                  // eslint-disable-next-line
                   <img src={newMessage.image} alt="" className="w-24 h-24 mt-2 rounded border object-cover" />
                 )}
               </div>
@@ -518,7 +518,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
                 </div>
 
                 {m.image && (
-                  // eslint-disable-next-line @next/next/no-img-element
+                  // eslint-disable-next-line
                   <img src={m.image} alt="" className="w-full max-w-xs rounded-lg mb-4 border object-contain" />
                 )}
 
@@ -548,7 +548,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
             <div className="space-y-4">
               {selectedMessage.image && (
                 <div className="flex justify-center mb-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {/* eslint-disable-next-line */}
                   <img src={selectedMessage.image} alt="" className="max-w-sm max-h-64 rounded-lg object-contain"/>
                 </div>
               )}

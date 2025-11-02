@@ -83,7 +83,7 @@ export function useWholesaleCustomer(customPaths?: string[]) {
           unsubs.forEach((fn) => {
             try {
               fn();
-            } catch {}
+            } catch { /* no-op */ }
           });
         },
         () => {
@@ -95,10 +95,10 @@ export function useWholesaleCustomer(customPaths?: string[]) {
       unsubs.push(() => {
         try {
           off(r);
-        } catch {}
+  } catch { /* no-op */ }
         try {
           unsub();
-        } catch {}
+  } catch { /* no-op */ }
       });
     });
 
@@ -112,7 +112,7 @@ export function useWholesaleCustomer(customPaths?: string[]) {
       unsubs.forEach((fn) => {
         try {
           fn();
-        } catch {}
+  } catch { /* no-op */ }
       });
     };
   }, [user, customPaths]);
