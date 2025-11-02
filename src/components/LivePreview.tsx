@@ -1,6 +1,21 @@
-import { useState } from "react";
+import React, { useState } from "react";
 
-export default function LivePreview({ companyInfo }) {
+type CompanyInfo = {
+  logo?: string;
+  name?: string;
+  slogan?: string;
+  description?: string;
+  fiscalAddress?: string;
+  phone?: string;
+  email?: string;
+  facebook?: string;
+  instagram?: string;
+  whatsapp?: string;
+  tiktok?: string;
+  youtube?: string;
+};
+
+export default function LivePreview({ companyInfo }: { companyInfo?: CompanyInfo }): JSX.Element {
   const [device, setDevice] = useState("mobile");
   const [show, setShow] = useState(false);
 

@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 
 // Mapeo de módulos a rutas
 const MODULE_TO_ROUTE: Record<string, string> = {
-  "dashboard": "/admin",
+  "dashboard": "/panel-control",
   "catalog": "/catalogo",
   "orders": "/pedidos",
   "tracking": "/seguimiento",
@@ -13,7 +13,7 @@ const MODULE_TO_ROUTE: Record<string, string> = {
   "billing": "/cobranzas",
   "logistics": "/logistica",
   "locations": "/donde-nos-ubicamos",
-  "reports": "/admin",
+  "reports": "/reportes",
   "wholesale": "/mayorista",
 };
 

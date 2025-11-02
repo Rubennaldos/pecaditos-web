@@ -14,31 +14,16 @@ import { useAuth } from '@/hooks/useAuth';
 
 // Helper: detecta la ruta de dashboard para usuarios con módulos
 function getFirstAvailableRoute(perfil: any): string {
-  // Redirección 100% basada en módulos de perfil
+  // Simplificado: si el usuario tiene CUALQUIER módulo → /panel-control
   const userModules: string[] = perfil?.accessModules || perfil?.permissions || [];
   console.log('[Login] getFirstAvailableRoute => userModules:', userModules);
 
-  // Prioridad 1: si tiene el módulo 'dashboard' => panel admin
-  if (userModules.includes('dashboard')) {
-    console.log('[Login] tiene módulo dashboard → /admin');
-    return '/admin';
-  }
-
-  // Prioridad 2: si tiene el módulo del catálogo principal => /catalogo
-  // En la app el módulo que carga el catálogo público/cliente se llama 'catalog' y la ruta es '/catalogo'
-  if (userModules.includes('catalog') || userModules.includes('catalogo') || userModules.includes('catalogo_productos')) {
-    console.log('[Login] tiene módulo catálogo → /catalogo');
-    return '/catalogo';
-  }
-
-  // Prioridad 3: otros módulos disponibles → dashboard de usuario
   if (userModules.length > 0) {
-    console.log('[Login] tiene otros módulos → /dashboard');
-    return '/dashboard';
+    console.log('[Login] usuario con módulos → /panel-control');
+    return '/panel-control';
   }
 
-  // Último recurso: sin módulos → home
-  console.warn('[Login] Sin módulos ni permisos → /');
+  console.log('[Login] usuario sin módulos → /');
   return '/';
 }
 

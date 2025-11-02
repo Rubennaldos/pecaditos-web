@@ -47,15 +47,7 @@ const App = () => (
                     {/* LOGIN UNIFICADO - Detecta automáticamente el perfil del usuario */}
                     <Route path="/login" element={<Login />} />
 
-                    {/* DASHBOARD DE USUARIO - Muestra módulos habilitados */}
-                    <Route
-                      path="/dashboard"
-                      element={
-                        <ProtectedRoute>
-                          <UserDashboard />
-                        </ProtectedRoute>
-                      }
-                    />
+                    {/* (Eliminada) antigua ruta /dashboard — ahora usamos un único panel de control */}
 
                     {/* CATÁLOGO MINORISTA */}
                     <Route
@@ -75,11 +67,11 @@ const App = () => (
                       }
                     />
 
-                    {/* PANEL DE ADMINISTRACIÓN GENERAL */}
+                    {/* PANEL DE CONTROL UNIFICADO */}
                     <Route
-                      path="/admin"
+                      path="/panel-control"
                       element={
-                        <ProtectedRoute module="dashboard">
+                        <ProtectedRoute>
                           <AdminPanel />
                         </ProtectedRoute>
                       }

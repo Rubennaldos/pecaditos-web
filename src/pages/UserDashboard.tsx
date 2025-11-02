@@ -24,7 +24,7 @@ const AVAILABLE_MODULES = [
     name: 'Dashboard Global',
     description: 'Vista completa del sistema',
     icon: BarChart3,
-    route: '/admin',
+  route: '/panel-control',
     color: 'purple'
   },
   {

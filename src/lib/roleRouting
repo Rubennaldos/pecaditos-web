@@ -19,7 +19,7 @@ export function roleToPath(role?: string): string {
   const r = normalizeRole(role);
   if (!r) return "/";
   switch (r) {
-    case "admin":       return "/admin";
+  case "admin":       return "/panel-control";
     case "pedidos":     return "/pedidos";
     case "reparto":     return "/reparto";
     case "produccion":  return "/produccion";
