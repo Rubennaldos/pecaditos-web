@@ -13,30 +13,32 @@ import { signInAndEnsureProfile } from "@/services/auth";
 
 // Helper: detecta la ruta de dashboard para usuarios con módulos
 function getFirstAvailableRoute(perfil: any): string {
-  console.log("[Login] getFirstAvailableRoute => perfil:", perfil);
+  // Redirección 100% basada en módulos de perfil
+  const userModules: string[] = perfil?.accessModules || perfil?.permissions || [];
+  console.log('[Login] getFirstAvailableRoute => userModules:', userModules);
 
-  // Si es admin (nuevo o antiguo), redirigir a /admin
-  if (
-    perfil?.isAdmin || 
-    perfil?.rol === "admin" || 
-    perfil?.rol === "adminGeneral"
-  ) {
-    console.log("[Login] Usuario admin detectado → /admin");
-    return "/admin";
+  // Prioridad 1: si tiene el módulo 'dashboard' => panel admin
+  if (userModules.includes('dashboard')) {
+    console.log('[Login] tiene módulo dashboard → /admin');
+    return '/admin';
   }
 
-  // Si tiene módulos habilitados, redirigir al dashboard de usuario
-  const userModules = perfil?.accessModules || perfil?.permissions || [];
-  console.log("[Login] Módulos del usuario:", userModules);
+  // Prioridad 2: si tiene el módulo del catálogo principal => /catalogo
+  // En la app el módulo que carga el catálogo público/cliente se llama 'catalog' y la ruta es '/catalogo'
+  if (userModules.includes('catalog') || userModules.includes('catalogo') || userModules.includes('catalogo_productos')) {
+    console.log('[Login] tiene módulo catálogo → /catalogo');
+    return '/catalogo';
+  }
 
+  // Prioridad 3: otros módulos disponibles → dashboard de usuario
   if (userModules.length > 0) {
-    console.log("[Login] Usuario con módulos → /dashboard");
-    return "/dashboard";
+    console.log('[Login] tiene otros módulos → /dashboard');
+    return '/dashboard';
   }
 
-  // Sin módulos ni admin → home
-  console.warn("[Login] Sin módulos ni permisos → /");
-  return "/";
+  // Último recurso: sin módulos → home
+  console.warn('[Login] Sin módulos ni permisos → /');
+  return '/';
 }
 
 const Login = () => {

@@ -48,6 +48,40 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setMounted(true);
     let detachRTDB: (() => void) | null = null;
 
+    // Helper: si el perfil indica isAdmin o rol === 'admin' pero no contiene
+    // el módulo 'dashboard' en accessModules/permissions, lo añadimos para
+    // mantener compatibilidad hacia atrás con admins antiguos.
+    const ensureDashboardForAdmin = (p: any) => {
+      if (!p) return p;
+      const isAdminFlag =
+        p.isAdmin === true ||
+        p.rol === 'admin' ||
+        p.rol === 'adminGeneral' ||
+        p.role === 'admin';
+      if (!isAdminFlag) return p;
+
+      // clonamos para no mutar el objeto original
+      const copy = { ...p };
+
+      const hasAccessModules = Array.isArray(copy.accessModules);
+      const hasPermissions = Array.isArray(copy.permissions);
+
+      if (hasAccessModules) {
+        if (!copy.accessModules.includes('dashboard')) copy.accessModules = [...copy.accessModules, 'dashboard'];
+      }
+
+      if (hasPermissions) {
+        if (!copy.permissions.includes('dashboard')) copy.permissions = [...copy.permissions, 'dashboard'];
+      }
+
+      // Si no hay ninguno de los arrays, creamos accessModules con dashboard
+      if (!hasAccessModules && !hasPermissions) {
+        copy.accessModules = ['dashboard'];
+      }
+
+      return copy;
+    };
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       try {
         setUser(firebaseUser);
@@ -82,7 +116,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             (typeof (dataFromService as any).rol === 'string' || typeof (dataFromService as any).role === 'string');
 
           if (serviceHasRole) {
-            setPerfil(dataFromService as any);
+            setPerfil(ensureDashboardForAdmin(dataFromService as any));
             setLoading(false);
             return;
           }
@@ -100,10 +134,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             const snap = await get(r);
             if (snap.exists()) {
               foundPath = path;
-              setPerfil(snap.val() || null);
+              // Aplicar compatibilidad hacia atrás para admins antiguos
+              const raw = snap.val() || null;
+              const adjusted = ensureDashboardForAdmin(raw);
+              setPerfil(adjusted);
 
               // Suscripción en tiempo real — guardamos el callback para unmount correcto
-              const cb = (s: DataSnapshot) => setPerfil(s.val() || null);
+              const cb = (s: DataSnapshot) => setPerfil(ensureDashboardForAdmin(s.val() || null));
               onValue(r, cb);
               detachRTDB = () => off(r, 'value', cb);
 

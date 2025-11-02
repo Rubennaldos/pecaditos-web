@@ -61,11 +61,8 @@ export function ProtectedRoute({
   }
 
   // Admin tiene acceso a todo (nuevo sistema o roles antiguos)
-  const rol = perfil?.rol || perfil?.role;
-  if (perfil?.isAdmin || rol === "admin" || rol === "adminGeneral") {
-    console.log("Acceso autorizado: admin");
-    return <>{children}</>;
-  }
+  // Nota: ya no otorgamos acceso por rol/isAdmin.
+  // El acceso se decide exclusivamente por los módulos listados en el perfil.
 
   // Verificar si tiene acceso al módulo
   const userModules = perfil?.accessModules || perfil?.permissions || [];
