@@ -8,7 +8,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 import { AdminProductionProvider, useAdminProduction } from '@/contexts/AdminProductionContext';
 import { ProductCard } from '@/components/production/ProductCard';
 import { Input } from '@/components/ui/input';
@@ -104,7 +104,7 @@ const AddProductModal = ({ open, onClose, onAdd, productOptions }: any) => {
 
 const ProductionPanelContent = () => {
   const navigate = useNavigate();
-  const { logout, user } = useAdmin();
+  const { logout } = useAuth();
   const { isAdminMode } = useAdminProduction();
   // ------------------ FIREBASE: Productos del catálogo ------------------
   // Supón que tienes una función useCatalogProducts() que trae el catálogo de productos creados
