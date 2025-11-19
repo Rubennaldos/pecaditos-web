@@ -32,6 +32,7 @@ import { OrderEditModal } from '@/components/orders/OrderEditModal';
 import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
 import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
+import AIImportOrderModal from '@/components/orders/AIImportOrderModal';
 import { db } from '@/config/firebase';
 import { ref, onValue, update, push, runTransaction } from 'firebase/database';
 
@@ -105,6 +106,7 @@ const OrdersPanel = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
+  const [showAIImport, setShowAIImport] = useState(false);
 
   // Evitar backfill duplicado
   const backfilledRef = useRef<Set<string>>(new Set());
@@ -534,6 +536,9 @@ const OrdersPanel = () => {
                 <QrCode className="h-4 w-4 mr-2" />
                 Leer QR
               </Button>
+              <Button onClick={() => setShowAIImport(true)} className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white">
+                ✨ Importar Pedido IA
+              </Button>
               <Button variant="outline" onClick={handleLogout} className="text-brown-700 border-sand-300 hover:bg-sand-50">
                 <LogOut className="h-4 w-4 mr-2" />
                 Cerrar Sesión
@@ -648,6 +653,7 @@ const OrdersPanel = () => {
         }}
       />
       <QRReaderModal isOpen={showQRReader} onClose={() => setShowQRReader(false)} onQRRead={handleQRRead} />
+      <AIImportOrderModal isOpen={showAIImport} onClose={() => setShowAIImport(false)} />
       {qrScannedOrder && (
         <QROrderDetailModal
           order={qrScannedOrder}
