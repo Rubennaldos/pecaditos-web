@@ -45,6 +45,13 @@ const DashboardContent = () => {
   const userModules = (perfil?.accessModules as string[]) || (perfil?.permissions as string[]) || [];
 
   const hasAccess = (moduleId: string) => {
+    // Los usuarios con rol admin o adminGeneral ven todos los módulos del panel
+    const isAdminRole =
+      perfil?.rol === 'admin' ||
+      perfil?.rol === 'adminGeneral' ||
+      perfil?.role === 'admin';
+    if (isAdminRole) return true;
+
     if (!userModules || userModules.length === 0) return false;
     // Exact match
     if (userModules.includes(moduleId)) return true;
