@@ -48,36 +48,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setMounted(true);
     let detachRTDB: (() => void) | null = null;
 
-    // Helper: si el perfil indica isAdmin o rol === 'admin' pero no contiene
-    // el módulo 'dashboard' en accessModules/permissions, lo añadimos para
-    // mantener compatibilidad hacia atrás con admins antiguos.
-    const ensureDashboardForAdmin = (p: any) => {
+    // Helper: usuarios con rol admin tienen acceso a TODOS los módulos automáticamente
+    const ensureAllModulesForAdmin = (p: any) => {
       if (!p) return p;
-      const isAdminFlag =
-        p.isAdmin === true ||
+      const isAdminRole =
         p.rol === 'admin' ||
         p.rol === 'adminGeneral' ||
         p.role === 'admin';
-      if (!isAdminFlag) return p;
+      
+      if (!isAdminRole) return p;
 
       // clonamos para no mutar el objeto original
       const copy = { ...p };
 
-      const hasAccessModules = Array.isArray(copy.accessModules);
-      const hasPermissions = Array.isArray(copy.permissions);
+      // Lista completa de módulos disponibles en el sistema
+      const allModules = [
+        'dashboard',
+        'catalog',
+        'catalogs-admin',
+        'orders',
+        'tracking',
+        'delivery',
+        'production',
+        'billing',
+        'logistics',
+        'locations',
+        'reports',
+        'wholesale'
+      ];
 
-      if (hasAccessModules) {
-        if (!copy.accessModules.includes('dashboard')) copy.accessModules = [...copy.accessModules, 'dashboard'];
-      }
-
-      if (hasPermissions) {
-        if (!copy.permissions.includes('dashboard')) copy.permissions = [...copy.permissions, 'dashboard'];
-      }
-
-      // Si no hay ninguno de los arrays, creamos accessModules con dashboard
-      if (!hasAccessModules && !hasPermissions) {
-        copy.accessModules = ['dashboard'];
-      }
+      // Asignar todos los módulos a usuarios admin
+      copy.accessModules = allModules;
+      copy.permissions = allModules;
 
       return copy;
     };
@@ -116,7 +118,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             (typeof (dataFromService as any).rol === 'string' || typeof (dataFromService as any).role === 'string');
 
           if (serviceHasRole) {
-            setPerfil(ensureDashboardForAdmin(dataFromService as any));
+            setPerfil(ensureAllModulesForAdmin(dataFromService as any));
             setLoading(false);
             return;
           }
@@ -134,13 +136,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
             const snap = await get(r);
             if (snap.exists()) {
               foundPath = path;
-              // Aplicar compatibilidad hacia atrás para admins antiguos
+              // Aplicar acceso completo para admins
               const raw = snap.val() || null;
-              const adjusted = ensureDashboardForAdmin(raw);
+              const adjusted = ensureAllModulesForAdmin(raw);
               setPerfil(adjusted);
 
               // Suscripción en tiempo real — guardamos el callback para unmount correcto
-              const cb = (s: DataSnapshot) => setPerfil(ensureDashboardForAdmin(s.val() || null));
+              const cb = (s: DataSnapshot) => setPerfil(ensureAllModulesForAdmin(s.val() || null));
               onValue(r, cb);
               detachRTDB = () => off(r, 'value', cb);
 

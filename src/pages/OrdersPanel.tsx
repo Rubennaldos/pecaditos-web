@@ -22,7 +22,7 @@ import {
   IdCard,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 import OrdersDashboard from '@/components/orders/OrdersDashboard';
 import QRReaderModal from '@/components/orders/QRReaderModal';
 import QROrderDetailModal from '@/components/orders/QROrderDetailModal';
@@ -90,7 +90,7 @@ const ensureOrderNumber = async (orderId: string) => {
 
 const OrdersPanel = () => {
   const navigate = useNavigate();
-  const { logout } = useAdmin();
+  const { logout } = useAuth();
   const { isAdminMode, changeOrderStatus } = useAdminOrders();
 
   const [selectedTab, setSelectedTab] = useState<
