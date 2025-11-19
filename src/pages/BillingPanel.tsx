@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import type { JSX } from 'react';
 import { useNavigate } from "react-router-dom";
-import { useAdmin } from "@/contexts/AdminContext";
+import { useAuth } from "@/hooks/useAuth";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -25,7 +25,7 @@ import type { Section } from "@/components/billing/types";
  */
 const BillingPanel = () => {
   const navigate = useNavigate();
-  const { logout } = useAdmin();
+  const { logout } = useAuth();
 
   // Sección activa del módulo
   const [activeSection, setActiveSection] = useState<Section>("dashboard");

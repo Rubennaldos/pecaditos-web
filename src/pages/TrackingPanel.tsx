@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
@@ -39,7 +39,7 @@ import {
  */
 
 const TrackingPanel = () => {
-  const { user, logout } = useAdmin();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('todos');
@@ -190,7 +190,7 @@ const TrackingPanel = () => {
             <div className="flex items-center space-x-2 px-3 py-1 bg-amber-100 rounded-full">
               <User className="h-4 w-4 text-amber-600" />
               <span className="text-sm font-medium text-amber-800">
-                {user?.name || 'Usuario Seguimiento'}
+                Usuario Seguimiento
               </span>
             </div>
             <Button variant="ghost" onClick={handleLogout}>

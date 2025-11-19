@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAdmin } from '@/contexts/AdminContext';
+import { useAuth } from '@/hooks/useAuth';
 import { AdminDeliveryProvider, useAdminDelivery } from '@/contexts/AdminDeliveryContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,7 +31,7 @@ import { SendMessageModal } from '@/components/delivery/SendMessageModal';
 
 const DeliveryPanelContent = () => {
   const navigate = useNavigate();
-  const { logout } = useAdmin();
+  const { logout } = useAuth();
   const { isAdminMode } = useAdminDelivery();
   const [currentUser, setCurrentUser] = useState<string>('');
   const [showLogin, setShowLogin] = useState(true);
