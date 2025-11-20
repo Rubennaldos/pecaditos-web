@@ -29,6 +29,23 @@ type Props = {
 
 export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData }: Props) => {
   const [copied, setCopied] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState(false);
+
+  const whatsappMessage = `¡Pedido Registrado Exitosamente! 🎉
+
+Estimado(a) ${orderData.clientName},
+
+Muchas gracias por confiar en nosotros. Tu pedido ha sido registrado correctamente.
+
+Tu número de orden es: ${orderNumber}
+
+Resumen del pedido:
+${orderData.items.map((item, idx) => `${idx + 1}. ${item.productName} - ${item.quantity} ${item.unit} × S/ ${item.price.toFixed(2)}`).join('\n')}
+
+Total: S/ ${orderData.total.toFixed(2)}
+
+¡Gracias por tu preferencia!
+PECADITOS INTEGRALES S.A.C.`;
 
   const handleCopyOrderNumber = () => {
     navigator.clipboard.writeText(orderNumber);
@@ -40,9 +57,20 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyMessage = () => {
+    navigator.clipboard.writeText(whatsappMessage);
+    setCopiedMessage(true);
+    toast({
+      title: '¡Mensaje copiado!',
+      description: 'El mensaje completo ha sido copiado al portapapeles',
+    });
+    setTimeout(() => setCopiedMessage(false), 2000);
+  };
+
   const generatePDF = () => {
     const doc = new jsPDF('p', 'mm', 'a4');
     const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     const margin = 20;
     let yPos = 20;
 
@@ -57,9 +85,11 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
     doc.text('RUC: 20550404517', margin, yPos);
     
     yPos += 5;
-    doc.text('AV. ALAMEDA DEL CORREGIDOR NRO. M-2 LT.32B, LIMA - LIMA', margin, yPos);
+    const addressText = 'AV. ALAMEDA DEL CORREGIDOR NRO. M-2 LT.32B, LIMA - LIMA';
+    const addressLines = doc.splitTextToSize(addressText, pageWidth - margin * 2);
+    doc.text(addressLines, margin, yPos);
+    yPos += 5 * addressLines.length;
     
-    yPos += 5;
     doc.text('Email: pecaditosintegrales@hotmail.com', margin, yPos);
 
     // Línea separadora
@@ -71,8 +101,8 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
     yPos += 10;
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(37, 99, 235); // azul
-    doc.text('FACTURA ELECTRÓNICA', pageWidth / 2, yPos, { align: 'center' });
+    doc.setTextColor(37, 99, 235);
+    doc.text('ORDEN DE PEDIDO', pageWidth / 2, yPos, { align: 'center' });
     
     yPos += 7;
     doc.setFontSize(12);
@@ -85,13 +115,12 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
     doc.setTextColor(0, 0, 0);
     doc.text('FECHA DE EMISIÓN:', margin, yPos);
     doc.setFont('helvetica', 'normal');
-    doc.text(new Date(orderData.createdAt).toLocaleDateString('es-PE'), margin + 50, yPos);
-
-    yPos += 6;
-    doc.setFont('helvetica', 'bold');
-    doc.text('FECHA DE VENCIMIENTO:', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text(new Date(orderData.createdAt).toLocaleDateString('es-PE'), margin + 50, yPos);
+    const dateStr = new Date(orderData.createdAt).toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    doc.text(dateStr, margin + 50, yPos);
 
     // Información del cliente
     yPos += 10;
@@ -122,8 +151,23 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
       yPos += 5 * addressLines.length;
     }
 
+    if (orderData.phone) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('TELÉFONO:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(orderData.phone, margin + 30, yPos);
+      yPos += 5;
+    }
+
     // Tabla de productos
     yPos += 10;
+    
+    // Verificar si necesitamos una nueva página
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
     doc.setFont('helvetica', 'bold');
     doc.setFillColor(37, 99, 235);
     doc.setTextColor(255, 255, 255);
@@ -132,29 +176,34 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
     doc.text('CANT.', margin + 2, yPos);
     doc.text('UNIDAD', margin + 20, yPos);
     doc.text('DESCRIPCIÓN', margin + 45, yPos);
-    doc.text('P.UNIT', pageWidth - margin - 40, yPos);
-    doc.text('DTO.', pageWidth - margin - 25, yPos);
+    doc.text('P.UNIT', pageWidth - margin - 35, yPos);
     doc.text('TOTAL', pageWidth - margin - 10, yPos, { align: 'right' });
 
     yPos += 8;
     doc.setTextColor(0, 0, 0);
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
 
     // Items
     orderData.items.forEach((item) => {
+      // Verificar si necesitamos una nueva página
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = 20;
+      }
+
       const total = item.quantity * item.price;
       
       doc.text(String(item.quantity), margin + 2, yPos);
       doc.text(item.unit.toUpperCase(), margin + 20, yPos);
       
-      const descLines = doc.splitTextToSize(item.productName, 80);
+      const descLines = doc.splitTextToSize(item.productName, 90);
       doc.text(descLines, margin + 45, yPos);
       
-      doc.text(item.price.toFixed(2), pageWidth - margin - 40, yPos);
-      doc.text('0', pageWidth - margin - 25, yPos);
+      doc.text(item.price.toFixed(2), pageWidth - margin - 35, yPos);
       doc.text(total.toFixed(2), pageWidth - margin - 10, yPos, { align: 'right' });
       
-      yPos += 6 * descLines.length;
+      yPos += 5 * Math.max(1, descLines.length);
     });
 
     // Línea separadora antes de totales
@@ -164,51 +213,32 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
 
     // Totales
     yPos += 8;
+    doc.setFontSize(10);
     doc.setFont('helvetica', 'bold');
-    doc.text('OP. GRAVADAS: S/', pageWidth - margin - 50, yPos);
-    doc.text(orderData.total.toFixed(2), pageWidth - margin - 10, yPos, { align: 'right' });
+    
+    // Verificar espacio para totales
+    if (yPos > pageHeight - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
 
-    yPos += 6;
-    doc.text('IGV: S/', pageWidth - margin - 50, yPos);
-    doc.text('0.00', pageWidth - margin - 10, yPos, { align: 'right' });
+    doc.text('SUBTOTAL:', pageWidth - margin - 50, yPos);
+    doc.text(`S/ ${orderData.total.toFixed(2)}`, pageWidth - margin - 10, yPos, { align: 'right' });
 
-    yPos += 6;
+    yPos += 8;
     doc.setFontSize(12);
-    doc.text('TOTAL A PAGAR: S/', pageWidth - margin - 50, yPos);
-    doc.text(orderData.total.toFixed(2), pageWidth - margin - 10, yPos, { align: 'right' });
+    doc.text('TOTAL:', pageWidth - margin - 50, yPos);
+    doc.setTextColor(37, 99, 235);
+    doc.text(`S/ ${orderData.total.toFixed(2)}`, pageWidth - margin - 10, yPos, { align: 'right' });
 
     // Nota al pie
     yPos += 15;
-    doc.setFontSize(9);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'italic');
     doc.setTextColor(100, 100, 100);
-    const note = 'Para consultar el Comprobante ingresar a https://pecaditos.sv4.insap.pe/buscar';
-    doc.text(note, pageWidth / 2, yPos, { align: 'center' });
-
-    // Información adicional
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
-    doc.text('Información adicional', margin, yPos);
-    
-    yPos += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text('PD-2542', margin, yPos);
-
-    // Bancos
-    yPos += 8;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.text('BANCO DE CREDITO DEL PERU (BCP) ', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Soles Nº: 191-18409948-0-05', margin + 70, yPos);
-
-    yPos += 4;
-    doc.setFont('helvetica', 'bold');
-    doc.text('BANCO INTERAMERICANO DE FINANZAS (BANBIF) ', margin, yPos);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Soles Nº: 002-191-11840994800556', margin + 70, yPos);
+    const note = 'Gracias por su preferencia. Para cualquier consulta contactar a pecaditosintegrales@hotmail.com';
+    const noteLines = doc.splitTextToSize(note, pageWidth - margin * 2);
+    doc.text(noteLines, pageWidth / 2, yPos, { align: 'center' });
 
     // Guardar PDF
     doc.save(`Pedido-${orderNumber}.pdf`);
@@ -217,6 +247,13 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
       title: 'PDF Descargado',
       description: 'El pedido ha sido descargado exitosamente',
     });
+  };
+
+  const handlePrint = () => {
+    generatePDF();
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   return (
@@ -233,15 +270,15 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
             ¡Pedido Registrado Exitosamente! 🎉
           </h2>
           
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-6">
-            <p className="text-lg text-stone-700 mb-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6 mb-4">
+            <p className="text-lg text-stone-700 mb-2">
               Estimado(a) <span className="font-semibold">{orderData.clientName}</span>,
             </p>
             <p className="text-stone-600 mb-4">
               Muchas gracias por confiar en nosotros. Tu pedido ha sido registrado correctamente.
             </p>
             
-            <div className="bg-white rounded-lg p-4 shadow-sm">
+            <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
               <p className="text-sm text-stone-500 mb-2">Tu número de orden es:</p>
               <div className="flex items-center justify-center gap-3">
                 <span className="text-3xl font-bold text-blue-600">{orderNumber}</span>
@@ -265,6 +302,25 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
                 </Button>
               </div>
             </div>
+
+            {/* Botón para copiar mensaje completo */}
+            <Button
+              onClick={handleCopyMessage}
+              variant="outline"
+              className="w-full border-blue-300 hover:bg-blue-50 text-blue-700"
+            >
+              {copiedMessage ? (
+                <>
+                  <Check className="h-4 w-4 mr-2 text-green-600" />
+                  <span className="text-green-600">Mensaje copiado para WhatsApp</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copiar mensaje completo para WhatsApp
+                </>
+              )}
+            </Button>
           </div>
 
           {/* Resumen del pedido */}
@@ -301,11 +357,9 @@ export const OrderConfirmationModal = ({ isOpen, onClose, orderNumber, orderData
               Descargar PDF
             </Button>
             <Button
-              onClick={() => {
-                generatePDF();
-                window.print();
-              }}
+              onClick={handlePrint}
               variant="outline"
+              className="border-blue-300 hover:bg-blue-50"
             >
               <Printer className="h-4 w-4 mr-2" />
               Imprimir

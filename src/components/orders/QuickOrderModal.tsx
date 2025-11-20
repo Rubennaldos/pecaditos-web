@@ -1,5 +1,5 @@
 // src/components/orders/QuickOrderModal.tsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Plus, Minus, Trash2, ShoppingCart, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -47,6 +47,10 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isEnteringQuantity, setIsEnteringQuantity] = useState(false);
+  const [tempQuantity, setTempQuantity] = useState('');
+  const selectedProductRef = useRef<HTMLDivElement>(null);
 
   // Cargar productos del catálogo
   useEffect(() => {
@@ -68,7 +72,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
           minMultiple: p.minMultiple || 6,
           unit: p.unit || 'und',
           imageUrl: p.imageUrl,
-          stock: p.stock,
+          stoc  k: p.stock,
         }))
         .filter((p) => p.wholesalePrice > 0 && p.name);
 
@@ -81,6 +85,130 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
   const filteredProducts = products.filter((p) =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  // Resetear índice cuando cambian los productos filtrados
+  useEffect(() => {
+    setSelectedIndex(0);
+    setIsEnteringQuantity(false);
+    setTempQuantity('');
+  }, [searchTerm, products]);
+
+  // Scroll automático al producto seleccionado
+  useEffect(() => {
+    if (selectedProductRef.current) {
+      selectedProductRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedIndex]);
+
+  // Manejo de teclas de navegación
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Si estamos ingresando cantidad
+      if (isEnteringQuantity) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          handleConfirmQuantity();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setIsEnteringQuantity(false);
+          setTempQuantity('');
+        } else if (e.key >= '0' && e.key <= '9') {
+          e.preventDefault();
+          setTempQuantity(prev => prev + e.key);
+        } else if (e.key === 'Backspace') {
+          e.preventDefault();
+          setTempQuantity(prev => prev.slice(0, -1));
+        }
+        return;
+      }
+
+      // Navegación con flechas
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 1, filteredProducts.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.min(prev + 2, filteredProducts.length - 1));
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setSelectedIndex(prev => Math.max(prev - 2, 0));
+      } else if (e.key === 'Enter' && filteredProducts.length > 0) {
+        e.preventDefault();
+        const product = filteredProducts[selectedIndex];
+        if (product) {
+          setIsEnteringQuantity(true);
+          setTempQuantity(String(product.minMultiple));
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isEnteringQuantity, selectedIndex, filteredProducts, tempQuantity]);
+
+  const handleConfirmQuantity = () => {
+    const product = filteredProducts[selectedIndex];
+    if (!product) return;
+
+    const qty = parseInt(tempQuantity) || product.minMultiple;
+
+    // Validar múltiplos
+    if (qty < product.minMultiple) {
+      toast({
+        title: 'Cantidad mínima',
+        description: `La cantidad mínima es ${product.minMultiple} unidades`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (qty % product.minMultiple !== 0) {
+      toast({
+        title: 'Múltiplos requeridos',
+        description: `La cantidad debe ser múltiplo de ${product.minMultiple}`,
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Agregar al carrito
+    const existing = orderItems.find((item) => item.productId === product.id);
+    if (existing) {
+      setOrderItems(
+        orderItems.map((item) =>
+          item.productId === product.id ? { ...item, quantity: qty } : item
+        )
+      );
+    } else {
+      setOrderItems([
+        ...orderItems,
+        {
+          productId: product.id,
+          productName: product.name,
+          quantity: qty,
+          price: product.wholesalePrice,
+          unit: product.unit,
+        },
+      ]);
+    }
+
+    toast({
+      title: 'Producto agregado',
+      description: `${qty} ${product.unit} de ${product.name}`,
+    });
+
+    setIsEnteringQuantity(false);
+    setTempQuantity('');
+    setQuantities({ ...quantities, [product.id]: product.minMultiple });
+  };
 
   const handleQuantityChange = (productId: string, value: string, minMultiple: number) => {
     const num = parseInt(value) || 0;
@@ -249,9 +377,56 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
           </DialogTitle>
         </DialogHeader>
 
+        {/* Indicador de ingreso de cantidad */}
+        {isEnteringQuantity && filteredProducts[selectedIndex] && (
+          <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center">
+            <div className="bg-white rounded-lg p-6 shadow-2xl max-w-md w-full mx-4">
+              <h3 className="text-lg font-bold text-stone-800 mb-2">
+                {filteredProducts[selectedIndex].name}
+              </h3>
+              <p className="text-sm text-stone-600 mb-4">
+                Ingresa la cantidad (Mínimo: {filteredProducts[selectedIndex].minMultiple})
+              </p>
+              <div className="flex items-center gap-3 mb-4">
+                <Input
+                  type="text"
+                  value={tempQuantity}
+                  readOnly
+                  className="text-3xl font-bold text-center h-16"
+                  placeholder="0"
+                />
+                <span className="text-lg text-stone-600">
+                  {filteredProducts[selectedIndex].unit}
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleConfirmQuantity}
+                  className="flex-1 bg-green-500 hover:bg-green-600"
+                >
+                  Confirmar (Enter)
+                </Button>
+                <Button
+                  onClick={() => {
+                    setIsEnteringQuantity(false);
+                    setTempQuantity('');
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancelar (Esc)
+                </Button>
+              </div>
+              <p className="text-xs text-stone-500 mt-3 text-center">
+                Usa el teclado numérico para ingresar la cantidad
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex h-[calc(90vh-8rem)]">
           {/* Panel Izquierdo - Productos */}
-          <div className="w-2/3 border-r">
+          <div className="w-2/3 border-r flex flex-col">
             <div className="p-4 border-b bg-stone-50">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
@@ -264,21 +439,54 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
               </div>
             </div>
 
-            <ScrollArea className="h-[calc(90vh-14rem)]">
+            {/* Guía de teclas */}
+            <div className="px-4 py-2 bg-blue-50 border-b border-blue-100">
+              <div className="flex items-center gap-4 text-xs text-blue-700">
+                <span className="flex items-center gap-1">
+                  <kbd className="px-2 py-0.5 bg-white rounded border">↑↓←→</kbd>
+                  Navegar
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-2 py-0.5 bg-white rounded border">Enter</kbd>
+                  Seleccionar
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-2 py-0.5 bg-white rounded border">0-9</kbd>
+                  Cantidad
+                </span>
+                <span className="flex items-center gap-1">
+                  <kbd className="px-2 py-0.5 bg-white rounded border">Esc</kbd>
+                  Cancelar
+                </span>
+              </div>
+            </div>
+
+            <ScrollArea className="h-[calc(90vh-16rem)]">
               <div className="p-4 grid grid-cols-2 gap-3">
-                {filteredProducts.map((product) => {
+                {filteredProducts.map((product, index) => {
                   const qty = quantities[product.id] || product.minMultiple;
+                  const isSelected = index === selectedIndex;
                   
                   return (
                     <div
                       key={product.id}
-                      className="border rounded-lg p-3 bg-white hover:shadow-md transition-shadow"
+                      ref={isSelected ? selectedProductRef : null}
+                      className={`border rounded-lg p-3 bg-white transition-all ${
+                        isSelected
+                          ? 'ring-2 ring-blue-500 shadow-lg scale-105 bg-blue-50'
+                          : 'hover:shadow-md'
+                      }`}
+                      onClick={() => setSelectedIndex(index)}
                     >
-                      <h4 className="font-semibold text-sm text-stone-800 mb-1 line-clamp-2">
+                      <h4 className={`font-semibold text-sm mb-1 line-clamp-2 ${
+                        isSelected ? 'text-blue-700' : 'text-stone-800'
+                      }`}>
                         {product.name}
                       </h4>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-lg font-bold text-blue-600">
+                        <span className={`text-lg font-bold ${
+                          isSelected ? 'text-blue-600' : 'text-blue-600'
+                        }`}>
                           S/ {product.wholesalePrice.toFixed(2)}
                         </span>
                         <Badge variant="secondary" className="text-xs">
@@ -290,7 +498,10 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => adjustQuantity(product.id, -1, product.minMultiple)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            adjustQuantity(product.id, -1, product.minMultiple);
+                          }}
                           className="h-7 w-7 p-0"
                         >
                           <Minus className="h-3 w-3" />
@@ -301,6 +512,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
                           onChange={(e) =>
                             handleQuantityChange(product.id, e.target.value, product.minMultiple)
                           }
+                          onClick={(e) => e.stopPropagation()}
                           className="h-7 text-center w-16 text-sm"
                           min={product.minMultiple}
                           step={product.minMultiple}
@@ -308,7 +520,10 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => adjustQuantity(product.id, 1, product.minMultiple)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            adjustQuantity(product.id, 1, product.minMultiple);
+                          }}
                           className="h-7 w-7 p-0"
                         >
                           <Plus className="h-3 w-3" />
@@ -317,8 +532,15 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
 
                       <Button
                         size="sm"
-                        onClick={() => addToOrder(product)}
-                        className="w-full bg-blue-500 hover:bg-blue-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          addToOrder(product);
+                        }}
+                        className={`w-full ${
+                          isSelected
+                            ? 'bg-blue-600 hover:bg-blue-700'
+                            : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
                       >
                         Agregar
                       </Button>
