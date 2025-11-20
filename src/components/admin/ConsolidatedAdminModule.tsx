@@ -1,6 +1,7 @@
 // src/components/<donde-lo-tengas>/ConsolidatedAdminModule.tsx
 import { useEffect, useState } from 'react';
 import { Settings, Package, Tag, Edit3, Save, Plus, Trash2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, Download } from 'lucide-react'; // nuevos iconos
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,10 +13,11 @@ import { useToast } from '@/hooks/use-toast';
 
 // RTDB (ajusta si usas alias @)
 import { db } from '../../config/firebase';
-import { ref, onValue, set, remove } from 'firebase/database';
+import { ref, onValue, set, remove, get, push } from 'firebase/database'; // ampliar firebase
 
 // Tu pestaña de promociones (ajusta la ruta si cambia)
 import PromotionsTab from './promotions/PromotionsTab';
+import * as XLSX from 'xlsx';
 
 /* ======================== HELPERS DE IMAGEN (compresión ≤ 1.5MB) ======================== */
 
@@ -163,6 +165,7 @@ export default function ConsolidatedAdminModule() {
   const { toast } = useToast();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [isBulkImporting, setIsBulkImporting] = useState(false); // estado nuevo
 
   useEffect(() => {
     const productsRef = ref(db, 'products');
@@ -313,6 +316,141 @@ export default function ConsolidatedAdminModule() {
     });
   };
 
+  // ====== Plantilla productos mayoristas ======
+  const generateProductsTemplate = () => {
+    const wb = XLSX.utils.book_new();
+    const instructions = [
+      ['PLANTILLA IMPORTACIÓN MASIVA PRODUCTOS'],
+      [],
+      ['INSTRUCCIONES:'],
+      ['1. Llene la hoja "Productos". Campos obligatorios: SKU*, Nombre*, Precio Unitario Base*.'],
+      ['2. Puede dejar vacíos los demás campos.'],
+      ['3. Activo (SI/NO). Imágenes se suben manualmente luego.'],
+      ['4. Paquetes opcionales: Cantidad y Total (hasta 3).'],
+      [],
+      ['COLUMNAS:'],
+      ['SKU*','Nombre*','Descripción','Categoría','Subcategoría','Unidad Medida','Precio Unitario Base*','Múltiplo Pedido','Stock','Activo (SI/NO)',
+       'Paquete1 Cantidad','Paquete1 Total','Paquete2 Cantidad','Paquete2 Total','Paquete3 Cantidad','Paquete3 Total']
+    ];
+    const wsI = XLSX.utils.aoa_to_sheet(instructions);
+    XLSX.utils.book_append_sheet(wb, wsI, 'Instrucciones');
+
+    const sample = [
+      ['SKU*','Nombre*','Descripción','Categoría','Subcategoría','Unidad Medida','Precio Unitario Base*','Múltiplo Pedido','Stock','Activo (SI/NO)',
+       'Paquete1 Cantidad','Paquete1 Total','Paquete2 Cantidad','Paquete2 Total','Paquete3 Cantidad','Paquete3 Total'],
+      ['GAL-AV-MZ-12','Galleta avena y manzana','Galleta sin preservantes','Galletas','Avena','Unidad','3.83','6','460','SI','12','46.00','','','','','']
+    ];
+    const wsP = XLSX.utils.aoa_to_sheet(sample);
+    XLSX.utils.book_append_sheet(wb, wsP, 'Productos');
+    XLSX.writeFile(wb, 'Plantilla_Productos_Mayoristas.xlsx');
+  };
+
+  // ====== Exportar productos ======
+  const exportProductsToExcel = async () => {
+    try {
+      const snap = await get(ref(db, 'products'));
+      const data = snap.val() || {};
+      const arr = Object.entries(data).map(([id, p]: any) => {
+        const bundles = (p.bundleDiscounts || []).slice(0, 3);
+        const flat: any = {
+          id,
+          SKU: p.sku || '',
+          Nombre: p.name || '',
+          Descripción: p.description || '',
+          Categoría: p.category || '',
+          Subcategoría: p.subcategory || '',
+          'Unidad Medida': p.unit || p.unidadMedida || '',
+          'Precio Unitario Base': p.wholesalePrice ?? '',
+          'Múltiplo Pedido': p.minOrder ?? '',
+          Stock: p.stock ?? '',
+          Activo: p.isActive ? 'SI' : 'NO'
+        };
+        bundles.forEach((b: any, i: number) => {
+          flat[`Paquete${i+1} Cantidad`] = b.qty || '';
+          flat[`Paquete${i+1} Total`] = b.total || '';
+        });
+        return flat;
+      });
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(arr);
+      XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+      XLSX.writeFile(wb, 'Export_Productos_Mayoristas.xlsx');
+      toast({ title: 'Exportado', description: `${arr.length} productos` });
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo exportar', variant: 'destructive' });
+    }
+  };
+
+  // ====== Importar productos ======
+  const processBulkProductsImport = async (file: File) => {
+    return new Promise<void>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = async e => {
+        try {
+          const data = new Uint8Array(e.target?.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: 'array' });
+          const sheet = wb.Sheets['Productos'];
+          if (!sheet) throw new Error('Hoja "Productos" no encontrada');
+          const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+          let created = 0;
+          for (const r of rows) {
+            const sku = (r['SKU*'] || '').toString().trim();
+            const nombre = (r['Nombre*'] || '').toString().trim();
+            const base = r['Precio Unitario Base*'];
+            if (!sku || !nombre || base === undefined || base === '') continue;
+
+            const bundles: BundleDiscount[] = [];
+            for (let i = 1; i <= 3; i++) {
+              const qty = r[`Paquete${i} Cantidad`];
+              const total = r[`Paquete${i} Total`];
+              if (qty && total) bundles.push({ qty, total });
+            }
+
+            const prodRef = push(ref(db, 'products'));
+            await set(prodRef, {
+              sku,
+              name: nombre,
+              description: r['Descripción'] || '',
+              category: r['Categoría'] || '',
+              subcategory: r['Subcategoría'] || '',
+              unit: r['Unidad Medida'] || '',
+              wholesalePrice: Number(base) || 0,
+              minOrder: Number(r['Múltiplo Pedido']) || 1,
+              stock: r['Stock'] === '' || r['Stock'] === undefined ? 0 : Number(r['Stock']),
+              isActive: (r['Activo (SI/NO)'] || '').toString().toUpperCase() === 'SI',
+              bundleDiscounts: bundles,
+              image: '/placeholder.svg',
+              createdAt: Date.now()
+            });
+            created++;
+          }
+          toast({ title: 'Importación completa', description: `${created} productos creados` });
+          resolve();
+        } catch (err: any) {
+          toast({ title: 'Error importando', description: err.message, variant: 'destructive' });
+          reject(err);
+        }
+      };
+      reader.onerror = () => {
+        toast({ title: 'Error lectura', description: 'No se pudo leer el archivo', variant: 'destructive' });
+        reject(new Error('read error'));
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  };
+
+  const handleProductsFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsBulkImporting(true);
+    try {
+      await processBulkProductsImport(file);
+    } finally {
+      setIsBulkImporting(false);
+      e.target.value = '';
+    }
+  };
+
   /* -------- Config general -------- */
   const [config, setConfig] = useState({
     minOrderAmount: 300,
@@ -345,6 +483,31 @@ export default function ConsolidatedAdminModule() {
 
         {/* -------- CATÁLOGO -------- */}
         <TabsContent value="catalog" className="space-y-4">
+          {/* Botones masivos */}
+          <div className="flex flex-wrap gap-2 justify-end">
+            <Button variant="outline" onClick={generateProductsTemplate}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Plantilla Productos
+            </Button>
+            <Button
+              variant="outline"
+              disabled={isBulkImporting}
+              onClick={() => document.getElementById('bulk-products-input')?.click()}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              {isBulkImporting ? 'Importando...' : 'Importar Productos'}
+            </Button>
+            <input
+              id="bulk-products-input"
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleProductsFileImport}
+              className="hidden"
+            />
+            <Button variant="outline" onClick={exportProductsToExcel}>
+              <Download className="h-4 w-4 mr-2" /> Exportar Productos
+            </Button>
+          </div>
+
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-semibold">Catálogo de Productos Mayoristas</h2>
             <Button onClick={addNewProduct} className="bg-blue-500 hover:bg-blue-600">
@@ -352,6 +515,7 @@ export default function ConsolidatedAdminModule() {
             </Button>
           </div>
 
+          {/* ...existing code listado productos... */}
           <div className="grid gap-4">
             {products.map((product) => (
               <ProductCard
@@ -360,7 +524,7 @@ export default function ConsolidatedAdminModule() {
                 onSave={handleSaveProduct}
                 onDelete={handleDeleteProduct}
                 onEdit={handleEditProduct}
-                onCancel={handleCancelProduct} // <<----
+                onCancel={handleCancelProduct}
               />
             ))}
           </div>
