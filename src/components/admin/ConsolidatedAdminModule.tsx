@@ -1,6 +1,6 @@
 // src/components/<donde-lo-tengas>/ConsolidatedAdminModule.tsx
 import { useEffect, useState } from 'react';
-import { Settings, Package, Tag, Edit3, Save, Plus, Trash2 } from 'lucide-react';
+import { Settings, Package, Tag, Edit3, Save, Plus, Trash2, Eye, EyeOff } from 'lucide-react';
 import { Upload, FileSpreadsheet, Download } from 'lucide-react'; // nuevos iconos
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -166,6 +166,7 @@ export default function ConsolidatedAdminModule() {
 
   const [products, setProducts] = useState<Product[]>([]);
   const [isBulkImporting, setIsBulkImporting] = useState(false); // estado nuevo
+  const [searchTerm, setSearchTerm] = useState(''); // para filtro de búsqueda
 
   useEffect(() => {
     const productsRef = ref(db, 'products');
@@ -296,6 +297,26 @@ export default function ConsolidatedAdminModule() {
       remove(ref(db, `catalog/products/${productId}`)),
     ]);
     toast({ title: 'Producto eliminado' });
+  };
+
+  const handleToggleActive = async (product: Product) => {
+    try {
+      const newIsActive = !product.isActive;
+      await set(ref(db, `products/${product.id}/isActive`), newIsActive);
+      await set(ref(db, `catalog/products/${product.id}/active`), newIsActive);
+      await set(ref(db, `catalog/products/${product.id}/activeWholesale`), newIsActive);
+      toast({ 
+        title: newIsActive ? 'Producto activado' : 'Producto desactivado',
+        description: newIsActive ? 'El producto está visible en el catálogo' : 'El producto está oculto del catálogo'
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: 'Error',
+        description: 'No se pudo cambiar el estado del producto',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleEditProduct = (id: string) => {
@@ -533,6 +554,17 @@ export default function ConsolidatedAdminModule() {
     termsAndConditions: 'Condiciones mayoristas aplicables...',
   });
 
+  // Filtrar productos por término de búsqueda
+  const filteredProducts = products.filter(product => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      product.name.toLowerCase().includes(term) ||
+      product.description?.toLowerCase().includes(term) ||
+      product.category?.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
@@ -579,16 +611,34 @@ export default function ConsolidatedAdminModule() {
             />
           </div>
 
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Catálogo de Productos Mayoristas</h2>
+          <div className="flex justify-between items-center gap-4">
+            <div className="flex-1 max-w-md">
+              <Input
+                type="text"
+                placeholder="🔍 Buscar productos por nombre, descripción o categoría..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+              />
+            </div>
             <Button onClick={addNewProduct} className="bg-blue-500 hover:bg-blue-600">
               <Plus className="h-4 w-4 mr-2" /> Nuevo Producto
             </Button>
           </div>
 
+          {/* Contador de resultados */}
+          {searchTerm && (
+            <p className="text-sm text-stone-600">
+              {filteredProducts.length === 0 
+                ? 'No se encontraron productos que coincidan con tu búsqueda' 
+                : `Se encontraron ${filteredProducts.length} producto${filteredProducts.length !== 1 ? 's' : ''}`
+              }
+            </p>
+          )}
+
           {/* ...existing code listado productos... */}
           <div className="grid gap-4">
-            {products.map((product) => (
+            {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -596,6 +646,7 @@ export default function ConsolidatedAdminModule() {
                 onDelete={handleDeleteProduct}
                 onEdit={handleEditProduct}
                 onCancel={handleCancelProduct}
+                onToggleActive={handleToggleActive}
               />
             ))}
           </div>
@@ -677,12 +728,14 @@ function ProductCard({
   onDelete,
   onEdit,
   onCancel,
+  onToggleActive,
 }: {
   product: Product;
   onSave: (p: Product) => Promise<void> | void;
   onDelete: (id: string) => void;
   onEdit: (id: string) => void;
   onCancel: (p: Product) => void;
+  onToggleActive: (p: Product) => void;
 }) {
   const [editData, setEditData] = useState<Product>(product);
   const [processingImage, setProcessingImage] = useState(false);
@@ -1022,6 +1075,15 @@ function ProductCard({
           </div>
 
           <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => onToggleActive(product)}
+              className={product.isActive ? 'text-green-600 hover:text-green-700' : 'text-gray-500 hover:text-gray-600'}
+              title={product.isActive ? 'Desactivar producto' : 'Activar producto'}
+            >
+              {product.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </Button>
             <Button size="sm" variant="outline" onClick={() => onEdit(product.id)}>
               <Edit3 className="h-4 w-4" />
             </Button>
