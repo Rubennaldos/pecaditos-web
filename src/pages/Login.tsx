@@ -1,4 +1,4 @@
-// src/pages/Login.tsx
+// ...existing code...
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,27 +7,33 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
 
-import { signInAndEnsureProfile } from "@/services/auth";
+import { signInAndEnsureProfile, formatAuthCredentials } from "@/services/auth";
 import { useAuth } from '@/hooks/useAuth';
 
 // Helper: detecta la ruta de dashboard para usuarios con módulos
 function getFirstAvailableRoute(perfil: any): string {
-  // Simplificado: si el usuario tiene CUALQUIER módulo → /panel-control
   const userModules: string[] = perfil?.accessModules || perfil?.permissions || [];
   console.log('[Login] getFirstAvailableRoute => userModules:', userModules);
-
   if (userModules.length > 0) {
     console.log('[Login] usuario con módulos → /panel-control');
     return '/panel-control';
   }
-
   console.log('[Login] usuario sin módulos → /');
   return '/';
 }
 
 const Login = () => {
+  // Modo: 'portal' (Mayorista) | 'admin' (Administrativo)
+  const [mode, setMode] = useState<'portal' | 'admin'>('portal');
+
+  // Estado para modo Administrativo
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Estado para modo Portal Mayorista
+  const [ruc, setRuc] = useState("");
+  const [pin, setPin] = useState("");
+
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -37,88 +43,102 @@ const Login = () => {
   const { perfil, loading: authLoading } = useAuth() as any;
   const [pendingRedirect, setPendingRedirect] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
-      toast({
-        title: "Error",
-        description: "Por favor completa todos los campos",
-        variant: "destructive",
-      });
-      return;
+
+    if (mode === 'portal') {
+      if (!ruc || !pin) {
+        toast({
+          title: "Error",
+            description: "Ingresa RUC y PIN",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (pin.trim().length !== 4) {
+        toast({
+          title: "PIN inválido",
+          description: "El PIN debe tener 4 dígitos",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      if (!email || !password) {
+        toast({
+          title: "Error",
+          description: "Por favor completa todos los campos",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     setIsLoading(true);
     try {
-      // 1) Login + asegurar perfil en RTDB
-      const user = await signInAndEnsureProfile(email, password);
+      let finalEmail: string;
+      let finalPassword: string;
 
-      // Marcamos que, tras el login, esperaremos a que AuthProvider termine de
-      // cargar y parchear el perfil (ensureDashboardForAdmin). La redirección
-      // se hará en el useEffect que escucha authLoading/perfil.
+      if (mode === 'portal') {
+        const creds = formatAuthCredentials(ruc, pin);
+        finalEmail = creds.email;
+        finalPassword = creds.password;
+        console.log('[Login] Credenciales portal normalizadas:', creds);
+      } else {
+        finalEmail = email.trim();
+        finalPassword = password;
+      }
+
+      const user = await signInAndEnsureProfile(finalEmail, finalPassword);
       setPendingRedirect(true);
       console.log('[Login] inicio de sesión correcto, esperando a AuthProvider para redirigir', user.uid);
     } catch (err: any) {
       const code = err?.code || "";
       const msgMap: Record<string, string> = {
-        "auth/invalid-credential": "Correo o contraseña inválidos.",
-        "auth/user-not-found": "El correo no está registrado.",
+        "auth/invalid-credential": "Credenciales inválidas.",
+        "auth/user-not-found": "Usuario no registrado.",
         "auth/wrong-password": "Contraseña incorrecta.",
-        "auth/too-many-requests":
-          "Demasiados intentos. Vuelve a intentar en unos minutos.",
-        "auth/operation-not-allowed":
-          "El método Email/Password está deshabilitado.",
+        "auth/too-many-requests": "Demasiados intentos. Intenta luego.",
+        "auth/operation-not-allowed": "Método deshabilitado.",
         "auth/network-request-failed": "Error de red. Verifica tu conexión.",
       };
       toast({
         title: "Error de autenticación",
-        description: msgMap[code] || err?.message || "Usuario o contraseña incorrectos",
+        description: msgMap[code] || err?.message || "Credenciales incorrectas",
         variant: "destructive",
       });
-    } finally {
-      // No forzamos isLoading=false aquí porque esperamos al redirect flow.
-      // isLoading seguirá activo hasta que la redirección se complete.
+      setIsLoading(false);
     }
   };
 
-  // Effect: cuando hay un pendingRedirect, espera a que authLoading sea false
-  // y luego usa el perfil cargado por AuthProvider para decidir la ruta.
   useEffect(() => {
     if (!pendingRedirect) return;
-
-    // Mientras el provider esté cargando, no hacer nada
     if (authLoading) {
       console.log('[Login] esperando a que useAuth termine de cargar el perfil...');
       return;
     }
-
-    // Ya no está cargando — evaluar perfil
     try {
       if (!perfil) {
         toast({
           title: 'Perfil no encontrado',
-          description: 'Tu cuenta inició sesión, pero no se encontró el perfil. Contacta al administrador.',
+          description: 'Se inició sesión, pero no se encontró el perfil.',
           variant: 'destructive',
         });
         navigate('/', { replace: true });
         return;
       }
-
       if (perfil.activo === false) {
         toast({
           title: 'Acceso denegado',
-          description: 'Tu usuario está inactivo. Contacta al administrador.',
+          description: 'Usuario inactivo. Contacta al administrador.',
           variant: 'destructive',
         });
         navigate('/', { replace: true });
         return;
       }
-
       const redirectPath = getFirstAvailableRoute(perfil);
       console.log('🔀 Ruta de redirección (post-auth):', redirectPath);
-
       toast({ title: 'Bienvenido', description: `Has iniciado sesión exitosamente` });
-
       navigate(from !== '/' ? from : redirectPath, { replace: true });
     } finally {
       setPendingRedirect(false);
@@ -127,57 +147,121 @@ const Login = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRedirect, authLoading, perfil]);
 
+  const renderPortalFields = () => (
+    <div className="space-y-4">
+      <div className="relative">
+        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
+        <Input
+          type="text"
+          placeholder="RUC"
+          value={ruc}
+          onChange={(e) => setRuc(e.target.value)}
+          className="h-12 pl-10 bg-white border-stone-200 focus:border-amber-300"
+          required
+        />
+      </div>
+      <div className="relative">
+        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
+        <Input
+          type="password"
+          placeholder="PIN (4 dígitos)"
+          value={pin}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+            setPin(v);
+          }}
+          className="h-12 pl-10 bg-white border-stone-200 focus:border-amber-300"
+          required
+        />
+      </div>
+    </div>
+  );
+
+  const renderAdminFields = () => (
+    <div className="space-y-4">
+      <div className="relative">
+        <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-stone-400" />
+        <Input
+          type="email"
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="h-12 pl-10 bg-white border-stone-200 focus:border-amber-300"
+          required
+        />
+      </div>
+      <div className="relative">
+        <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-stone-400" />
+        <Input
+          type={showPassword ? "text" : "password"}
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="h-12 pl-10 pr-10 bg-white border-stone-200 focus:border-amber-300"
+          required
+        />
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
+        >
+          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-amber-50 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl border-0">
-        <CardHeader className="text-center pb-6">
+        <CardHeader className="text-center pb-4">
           <div className="mx-auto w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center mb-4">
             <span className="text-white font-bold text-2xl">P</span>
           </div>
           <CardTitle className="text-2xl font-bold text-stone-800">
             Iniciar Sesión
           </CardTitle>
-          <p className="text-stone-600 mt-2">Accede con tus credenciales</p>
+          <p className="text-stone-600 mt-2">
+            {mode === 'portal' ? 'Acceso Portal Mayorista' : 'Acceso Administrativo'}
+          </p>
+          <div className="mt-4 flex gap-2 justify-center">
+            <Button
+              type="button"
+              variant={mode === 'portal' ? 'default' : 'outline'}
+              className={mode === 'portal'
+                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                : 'bg-white text-stone-700 border-stone-300'}
+              onClick={() => setMode('portal')}
+              disabled={isLoading}
+            >
+              Portal Mayorista
+            </Button>
+            <Button
+              type="button"
+              variant={mode === 'admin' ? 'default' : 'outline'}
+              className={mode === 'admin'
+                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                : 'bg-white text-stone-700 border-stone-300'}
+              onClick={() => setMode('admin')}
+              disabled={isLoading}
+            >
+              Administrativo
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-stone-400" />
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-12 pl-10 bg-white border-stone-200 focus:border-amber-300"
-                required
-              />
-            </div>
-
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-stone-400" />
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 pl-10 pr-10 bg-white border-stone-200 focus:border-amber-300"
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-stone-600 transition-colors"
-              >
-                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {mode === 'portal' ? renderPortalFields() : renderAdminFields()}
             <Button
               type="submit"
               className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-medium transition-all duration-200 hover:shadow-lg"
               disabled={isLoading}
             >
-              {isLoading ? "Iniciando sesión..." : "Iniciar Sesión"}
+              {isLoading
+                ? "Iniciando sesión..."
+                : mode === 'portal'
+                  ? "Ingresar al Portal"
+                  : "Iniciar Sesión"}
             </Button>
           </form>
         </CardContent>
@@ -187,3 +271,4 @@ const Login = () => {
 };
 
 export default Login;
+// ...existing code...

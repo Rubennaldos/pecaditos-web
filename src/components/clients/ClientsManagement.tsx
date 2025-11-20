@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '@/config/firebase';
 import { ref, onValue, push, set, update, remove } from "firebase/database";
-import { createUserWithEmailAndPassword, updatePassword, signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { formatAuthCredentials } from '@/services/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,7 +23,6 @@ import {
   DropdownMenuItem,
 } from '@/components/ui/dropdown-menu';
 import UbigeoSelector from '@/components/UbigeoSelector';
-
 import { 
   Search, 
   Plus, 
@@ -46,14 +46,10 @@ import {
   Truck,
   Factory,
   BarChart3,
-  MapPin,
-  Key,
-  Copy,
-  RefreshCw
+  MapPin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// Módulos disponibles para clientes
 const AVAILABLE_MODULES = [
   { id: "dashboard", name: "Dashboard Global", icon: BarChart3, color: "purple" },
   { id: "catalog", name: "Catálogo de Productos", icon: ShoppingCart, color: "blue" },
@@ -66,7 +62,7 @@ const AVAILABLE_MODULES = [
   { id: "logistics", name: "Logística", icon: Truck, color: "indigo" },
   { id: "locations", name: "Ubicaciones", icon: MapPin, color: "indigo" },
   { id: "reports", name: "Reportes", icon: BarChart3, color: "purple" },
-];
+};
 
 interface SedeComment {
   id: string;
@@ -119,41 +115,37 @@ interface Client {
   montoDeuda?: number;
   authUid?: string;
   accessModules?: string[];
+  portalLoginRuc?: string;
+  pin?: string; // temporal para creación
 }
-// --- EXPORTAR PDF DETALLADO ---
-export const generateClientReportPDF = (client) => {
+
+export const generateClientReportPDF = (client: Client) => {
   const doc = new jsPDF();
   doc.setFontSize(16);
   doc.text("Reporte Detallado de Cliente", 14, 16);
-
   doc.setFontSize(12);
   doc.text(`Razón Social: ${client.razonSocial}`, 14, 26);
   doc.text(`RUC/DNI: ${client.rucDni}`, 14, 34);
   doc.text(`Dirección Fiscal: ${client.direccionFiscal}`, 14, 42);
   doc.text(`Estado: ${client.estado}`, 14, 50);
-
   let nextY = 58;
-
-  // Sedes
-if (client.sedes?.length > 0) {
-  doc.text("Sedes:", 14, nextY + 2);
-  autoTable(doc, {
-    startY: nextY + 6,
-    head: [["Nombre", "Dirección", "Responsable", "Teléfono", "Distrito"]],
-    body: client.sedes.map(s => [
-      s.nombre,
-      s.direccion,
-      s.responsable,
-      s.telefono,
-      s.distrito || ""
-    ]),
-  });
-  // 👇 Así accedes correctamente a lastAutoTable sin que TypeScript se queje:
-  nextY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : nextY + 30;
-} else {
-  nextY += 18;
-}
-  // Contactos
+  if (client.sedes?.length > 0) {
+    doc.text("Sedes:", 14, nextY + 2);
+    autoTable(doc, {
+      startY: nextY + 6,
+      head: [["Nombre", "Dirección", "Responsable", "Teléfono", "Distrito"]],
+      body: client.sedes.map(s => [
+        s.nombre,
+        s.direccion,
+        s.responsable,
+        s.telefono,
+        s.distrito || ""
+      ]),
+    });
+    nextY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : nextY + 30;
+  } else {
+    nextY += 18;
+  }
   if (client.contactos?.length > 0) {
     doc.text("Contactos:", 14, nextY + 2);
     autoTable(doc, {
@@ -167,19 +159,16 @@ if (client.sedes?.length > 0) {
         c.correo,
       ]),
     });
- // Observaciones
-if (client.observaciones) {
-  // 👇 Usar 'as any' para que TypeScript no marque error:
-  const lastY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 110;
-  doc.text("Observaciones:", 14, lastY);
-  doc.text(client.observaciones, 14, lastY + 8);
-}
-}
+    if (client.observaciones) {
+      const lastY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 110;
+      doc.text("Observaciones:", 14, lastY);
+      doc.text(client.observaciones, 14, lastY + 8);
+    }
+  }
   doc.save(`Reporte_${client.razonSocial || client.rucDni}.pdf`);
 };
 
-// --- EXPORTAR EXCEL ---
-export const generateClientReportExcel = (client) => {
+export const generateClientReportExcel = (client: Client) => {
   const ws1 = XLSX.utils.json_to_sheet([
     {
       "Razón Social": client.razonSocial,
@@ -191,12 +180,10 @@ export const generateClientReportExcel = (client) => {
   ]);
   const ws2 = XLSX.utils.json_to_sheet(client.sedes || []);
   const ws3 = XLSX.utils.json_to_sheet(client.contactos || []);
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws1, "Cliente");
   XLSX.utils.book_append_sheet(wb, ws2, "Sedes");
   XLSX.utils.book_append_sheet(wb, ws3, "Contactos");
-
   XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
 };
 
@@ -209,16 +196,11 @@ export const ClientsManagement = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // --- Cargar clientes desde Firebase al iniciar
   useEffect(() => {
     const clientsRef = ref(db, 'clients');
     const unsubscribe = onValue(clientsRef, (snapshot) => {
       const data = snapshot.val();
-      if (!data) {
-        setClients([]);
-        return;
-      }
-      // Convertir objeto a array
+      if (!data) { setClients([]); return; }
       const arr: Client[] = Object.entries(data).map(([id, client]: any) => ({
         ...client,
         id,
@@ -226,9 +208,7 @@ export const ClientsManagement = () => {
           ? Object.entries(client.sedes).map(([sid, sede]: any) => ({
               ...sede,
               id: sid,
-              comentarios: sede.comentarios
-                ? Object.values(sede.comentarios)
-                : []
+              comentarios: sede.comentarios ? Object.values(sede.comentarios) : []
             }))
           : [],
       }));
@@ -237,116 +217,91 @@ export const ClientsManagement = () => {
     return () => unsubscribe();
   }, []);
 
-  // --- Guardar cliente (nuevo o edición)
- const saveClient = async (client: Partial<Client>, isEdit?: boolean) => {
-  const clientsRef = ref(db, 'clients');
-  if (isEdit && client.id) {
-    // ACTUALIZA todo el objeto, incluyendo sedes y contactos
-    update(ref(db, `clients/${client.id}`), {
-      ...client
-    });
-    toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
-  } else {
-    try {
-      // Crear usuario en Firebase Authentication
-      if (client.emailFacturacion) {
-        console.log('🔐 [ClientsManagement] Creando usuario con email:', client.emailFacturacion);
-        
-        // Generar contraseña por defecto: RUC/DNI + @Pecaditos
-        const defaultPassword = `${client.rucDni}@Pecaditos`;
-        
+  const saveClient = async (client: Partial<Client>, isEdit?: boolean) => {
+    const clientsRef = ref(db, 'clients');
+
+    if (isEdit && client.id) {
+      // Si se edita y aún no tiene acceso y se asigna PIN válido, crear credenciales
+      if (!client.authUid && client.rucDni && client.pin && client.pin.length === 4) {
         try {
-          const userCredential = await createUserWithEmailAndPassword(
-            auth, 
-            client.emailFacturacion, 
-            defaultPassword
-          );
-          
-          console.log('✅ [ClientsManagement] Usuario creado con UID:', userCredential.user.uid);
-          
-          // Crear perfil en usuarios/{uid}
-          await set(ref(db, `usuarios/${userCredential.user.uid}`), {
+          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
+          const credential = await createUserWithEmailAndPassword(auth, email, password);
+          await set(ref(db, `usuarios/${credential.user.uid}`), {
             nombre: client.razonSocial,
-            correo: client.emailFacturacion,
+            correo: email,
             rol: 'retailUser',
             activo: true,
-            accessModules: client.accessModules || []
+            accessModules: client.accessModules || [],
+            portalLoginRuc: client.rucDni
           });
-          
-          // Guardar cliente con UID del usuario de Authentication
-          const newClientRef = push(clientsRef);
-          const clientData = {
+          await update(ref(db, `clients/${client.id}`), {
             ...client,
-            authUid: userCredential.user.uid,
-            fechaCreacion: Date.now()
-          };
-          
-          console.log('💾 [ClientsManagement] Guardando cliente:', clientData);
-          await set(newClientRef, clientData);
-          
-          toast({ 
-            title: "Cliente creado exitosamente", 
-            description: `Usuario creado en Firebase Auth. Email: ${client.emailFacturacion}, Contraseña: ${defaultPassword}`
+            authUid: credential.user.uid,
+            portalLoginRuc: client.rucDni
           });
+          toast({ title: 'Acceso creado', description: 'Credenciales generadas (RUC + PIN)' });
+        } catch (err: any) {
+          toast({ title: 'Error creando acceso', description: err.message || 'No se pudo crear el usuario', variant: 'destructive' });
+        }
+      } else {
+        await update(ref(db, `clients/${client.id}`), { ...client });
+        toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
+      }
+      return;
+    }
+
+    // Creación nueva
+    try {
+      let authUid: string | undefined;
+      if (client.rucDni && client.pin && client.pin.length === 4) {
+        try {
+          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
+          const credential = await createUserWithEmailAndPassword(auth, email, password);
+          authUid = credential.user.uid;
+          await set(ref(db, `usuarios/${authUid}`), {
+            nombre: client.razonSocial,
+            correo: email,
+            rol: 'retailUser',
+            activo: true,
+            accessModules: client.accessModules || [],
+            portalLoginRuc: client.rucDni
+          });
+          toast({ title: 'Usuario portal creado', description: 'Acceso habilitado (RUC + PIN)' });
         } catch (authError: any) {
-          console.error('❌ [ClientsManagement] Error en Authentication:', authError);
-          
-          // Si el email ya existe, crear el cliente de todos modos
           if (authError.code === 'auth/email-already-in-use') {
-            const newClientRef = push(clientsRef);
-            await set(newClientRef, {
-              ...client,
-              fechaCreacion: Date.now()
-            });
-            toast({ 
-              title: "Cliente creado", 
-              description: "El email ya está registrado en Authentication",
-              variant: "default"
-            });
+            toast({ title: 'Email interno existente', description: 'Se continúa sin crear nuevo usuario', variant: 'default' });
           } else {
             throw authError;
           }
         }
       } else {
-        console.log('⚠️ [ClientsManagement] Sin email de facturación');
-        
-        // Si no tiene email, crear sin usuario de Authentication
-        const newClientRef = push(clientsRef);
-        await set(newClientRef, {
-          ...client,
-          fechaCreacion: Date.now()
-        });
-        toast({ 
-          title: "Cliente creado", 
-          description: "Sin email de facturación, no se creó usuario en Authentication" 
-        });
+        toast({ title: 'Cliente sin acceso', description: 'No se asignó PIN válido' });
       }
-    } catch (error: any) {
-      console.error('❌ [ClientsManagement] Error al crear cliente:', error);
-      toast({ 
-        title: "Error", 
-        description: error.message || "No se pudo crear el cliente",
-        variant: "destructive"
+
+      const newClientRef = push(clientsRef);
+      await set(newClientRef, {
+        ...client,
+        authUid,
+        portalLoginRuc: client.rucDni,
+        fechaCreacion: Date.now()
       });
+      toast({ title: "Cliente creado", description: "Registro almacenado correctamente" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "No se pudo crear el cliente", variant: "destructive" });
     }
-  }
-};
+  };
 
-
-  // --- Eliminar cliente
   const deleteClient = (id: string) => {
     remove(ref(db, `clients/${id}`));
     toast({ title: "Cliente eliminado" });
   };
 
-  // --- Filtrar clientes para buscar
   const filteredClients = clients.filter(client =>
     client.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     client.rucDni?.includes(searchTerm) ||
     client.sedes?.some(sede => sede.nombre?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // --- Mostrar estado
   const getStatusBadge = (estado: string) => {
     switch (estado) {
       case 'activo':
@@ -360,25 +315,14 @@ export const ClientsManagement = () => {
     }
   };
 
-  // --- Generar reporte (mock)
-  const generateClientReport = (client: Client) => {
-    toast({
-      title: "Generando reporte",
-      description: `Creando reporte PDF para ${client.razonSocial}`
-    });
-  };
-
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-stone-800">Gestión de Clientes</h1>
           <p className="text-stone-600 mt-1">Administración completa de clientes y ubicaciones</p>
         </div>
       </div>
-
-      {/* Search and Actions */}
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
@@ -405,7 +349,6 @@ export const ClientsManagement = () => {
         </Dialog>
       </div>
 
-      {/* Clients Table */}
       <Card>
         <CardHeader>
           <CardTitle>Lista de Clientes</CardTitle>
@@ -436,105 +379,94 @@ export const ClientsManagement = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-  {/* Badge de acceso */}
-  {client.authUid ? (
-    <Badge className="bg-green-100 text-green-800 border-green-300">
-      <Lock className="h-3 w-3 mr-1" />
-      Con Acceso
-    </Badge>
-  ) : (
-    <Badge className="bg-amber-100 text-amber-800 border-amber-300">
-      <Unlock className="h-3 w-3 mr-1" />
-      Sin Acceso
-    </Badge>
-  )}
-
-  {/* Ver */}
-  <Dialog open={isViewModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
-    if (!open) setSelectedClient(null);
-    setIsViewModalOpen(open);
-  }}>
-    <DialogTrigger asChild>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setSelectedClient(client)}
-      >
-        <Eye className="h-4 w-4 mr-1" />
-        Ver
-      </Button>
-    </DialogTrigger>
-    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Detalles del Cliente</DialogTitle>
-      </DialogHeader>
-      {selectedClient && <ClientDetails client={selectedClient} />}
-    </DialogContent>
-  </Dialog>
-
-  {/* Editar */}
-  <Dialog open={isEditModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
-    if (!open) setSelectedClient(null);
-    setIsEditModalOpen(open);
-  }}>
-    <DialogTrigger asChild>
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          setSelectedClient(client);
-          setIsEditModalOpen(true);
-        }}
-      >
-        <Edit className="h-4 w-4 mr-1" />
-        Editar
-      </Button>
-    </DialogTrigger>
-    <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Editar Cliente</DialogTitle>
-      </DialogHeader>
-      {selectedClient && (
-        <ClientForm
-          client={selectedClient}
-          onSave={saveClient}
-          onFinish={() => setIsEditModalOpen(false)}
-        />
-      )}
-    </DialogContent>
-  </Dialog>
-
-  {/* Reporte PDF/Excel */}
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button variant="outline" size="sm">
-        <Download className="h-4 w-4 mr-1" />
-        Reporte
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent>
-      <DropdownMenuItem onClick={() => generateClientReportPDF(client)}>
-        PDF
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => generateClientReportExcel(client)}>
-        Excel
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-
-  {/* Eliminar */}
-  <Button
-    variant="outline"
-    size="sm"
-    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-    onClick={() => deleteClient(client.id)}
-  >
-    <Trash2 className="h-4 w-4" />
-    Eliminar
-  </Button>
-</div>
-      
-
+                    {client.authUid ? (
+                      <Badge className="bg-green-100 text-green-800 border-green-300">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Con Acceso
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                        <Unlock className="h-3 w-3 mr-1" />
+                        Sin Acceso
+                      </Badge>
+                    )}
+                    <Dialog open={isViewModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
+                      if (!open) setSelectedClient(null);
+                      setIsViewModalOpen(open);
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedClient(client)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Detalles del Cliente</DialogTitle>
+                        </DialogHeader>
+                        {selectedClient && <ClientDetails client={selectedClient} />}
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog open={isEditModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
+                      if (!open) setSelectedClient(null);
+                      setIsEditModalOpen(open);
+                    }}>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedClient(client);
+                            setIsEditModalOpen(true);
+                          }}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Editar
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Editar Cliente</DialogTitle>
+                        </DialogHeader>
+                        {selectedClient && (
+                          <ClientForm
+                            client={selectedClient}
+                            onSave={saveClient}
+                            onFinish={() => setIsEditModalOpen(false)}
+                          />
+                        )}
+                      </DialogContent>
+                    </Dialog>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 mr-1" />
+                          Reporte
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => generateClientReportPDF(client)}>
+                          PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => generateClientReportExcel(client)}>
+                          Excel
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => deleteClient(client.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -545,8 +477,6 @@ export const ClientsManagement = () => {
   );
 };
 
-
-// --- FORMULARIO DE CLIENTE, AGREGAR/EDITAR, SEDES Y COMENTARIOS ---
 const ClientForm = ({ client, onSave, onFinish }: { 
   client?: Client; 
   onSave: (data: Partial<Client>, isEdit?: boolean) => void; 
@@ -554,6 +484,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
 }) => {
   const { toast } = useToast();
   const [tipoCliente, setTipoCliente] = useState<string>('RUC');
+  const [pin, setPin] = useState(''); // PIN para acceso portal
   const [formData, setFormData] = useState({
     id: client?.id || '',
     razonSocial: client?.razonSocial || '',
@@ -572,31 +503,33 @@ const ClientForm = ({ client, onSave, onFinish }: {
     estado: client?.estado || 'activo'
   });
 
-  // Guardar sedes como objeto para compatibilidad Firebase
   const [sedes, setSedes] = useState<ClientSede[]>(client?.sedes || []);
   const [contactos, setContactos] = useState<ClientContact[]>(client?.contactos || []);
 
-  // --- Guardar en Firebase
   const handleSave = () => {
     if (!formData.razonSocial || !formData.rucDni) {
-      toast({
-        title: "Error",
-        description: "Complete los campos obligatorios",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Complete los campos obligatorios", variant: "destructive" });
       return;
+    }
+    // Validar PIN solo en creación de nuevo acceso (cliente nuevo sin authUid)
+    if (!client && pin && pin.length !== 4) {
+      toast({ title: "PIN inválido", description: "El PIN debe tener 4 dígitos", variant: "destructive" });
+      return;
+    }
+    if (!client && !pin) {
+      toast({ title: "Aviso", description: "Se creará el cliente sin acceso (sin PIN).", variant: "default" });
     }
     const data: Partial<Client> = {
       ...formData,
+      portalLoginRuc: formData.rucDni,
+      pin: pin || undefined,
       sedes: undefined,
       contactos: undefined,
     };
-    // Save main data (resto lo maneja el editor de sedes/contactos, para simplicidad)
     onSave({ ...data, sedes, contactos }, !!client);
     onFinish();
   };
 
-  // --- Agregar Sede
   const addSede = () => {
     setSedes([
       ...sedes,
@@ -614,12 +547,10 @@ const ClientForm = ({ client, onSave, onFinish }: {
     ]);
   };
 
-  // --- Eliminar Sede
   const deleteSede = (id: string) => {
     setSedes(sedes.filter(s => s.id !== id));
   };
 
-  // --- Agregar Contacto
   const addContacto = () => {
     setContactos([
       ...contactos,
@@ -627,7 +558,6 @@ const ClientForm = ({ client, onSave, onFinish }: {
     ]);
   };
 
-  // --- Eliminar Contacto
   const deleteContacto = (idx: number) => {
     setContactos(contactos.filter((_, i) => i !== idx));
   };
@@ -637,20 +567,18 @@ const ClientForm = ({ client, onSave, onFinish }: {
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="sedes">Sedes</TabsTrigger>
-          <TabsTrigger value="contactos">Contactos</TabsTrigger>
-          <TabsTrigger value="comercial">Comercial</TabsTrigger>
-          <TabsTrigger value="access">Accesos</TabsTrigger>
+            <TabsTrigger value="sedes">Sedes</TabsTrigger>
+            <TabsTrigger value="contactos">Contactos</TabsTrigger>
+            <TabsTrigger value="comercial">Comercial</TabsTrigger>
+            <TabsTrigger value="access">Acceso</TabsTrigger>
         </TabsList>
-        {/* General */}
+
         <TabsContent value="general" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="tipoCliente">Tipo de Cliente *</Label>
               <Select value={tipoCliente} onValueChange={setTipoCliente}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Identificacion">Identificación</SelectItem>
                   <SelectItem value="RUC">RUC</SelectItem>
@@ -729,9 +657,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
             <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
               <Select value={formData.estado} onValueChange={(value: any) => setFormData(prev => ({ ...prev, estado: value }))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="activo">Activo</SelectItem>
                   <SelectItem value="suspendido">Suspendido</SelectItem>
@@ -751,7 +677,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
             </div>
           </div>
         </TabsContent>
-        {/* Sedes */}
+
         <TabsContent value="sedes" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Sedes del Cliente</h3>
@@ -864,7 +790,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
             ))}
           </div>
         </TabsContent>
-        {/* Contactos */}
+
         <TabsContent value="contactos" className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold">Contactos Principales</h3>
@@ -888,9 +814,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                           setContactos(newContactos);
                         }}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="pago">Responsable de Pago</SelectItem>
                           <SelectItem value="admin">Administrador de Cuenta</SelectItem>
@@ -959,15 +883,13 @@ const ClientForm = ({ client, onSave, onFinish }: {
             ))}
           </div>
         </TabsContent>
-        {/* Comercial */}
+
         <TabsContent value="comercial" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Lista de Precios</Label>
               <Select value={formData.listaPrecio} onValueChange={(value) => setFormData(prev => ({ ...prev, listaPrecio: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar lista" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleccionar lista" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Mayorista A">Mayorista A</SelectItem>
                   <SelectItem value="Mayorista B">Mayorista B</SelectItem>
@@ -979,9 +901,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
             <div className="space-y-2">
               <Label>Frecuencia de Compras</Label>
               <Select value={formData.frecuenciaCompras} onValueChange={(value) => setFormData(prev => ({ ...prev, frecuenciaCompras: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar frecuencia" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Semanal">Semanal</SelectItem>
                   <SelectItem value="Quincenal">Quincenal</SelectItem>
@@ -994,9 +914,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
             <div className="space-y-2">
               <Label>Condición de Pago</Label>
               <Select value={formData.condicionPago} onValueChange={(value) => setFormData(prev => ({ ...prev, condicionPago: value }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar condición" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Seleccionar condición" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Al contado">Al contado</SelectItem>
                   <SelectItem value="Crédito 15 días">Crédito 15 días</SelectItem>
@@ -1025,25 +943,42 @@ const ClientForm = ({ client, onSave, onFinish }: {
             </div>
           </div>
         </TabsContent>
-        
-        {/* Accesos */}
+
         <TabsContent value="access" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Gestión de Accesos al Sistema
+                Acceso Portal (RUC + PIN)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Estado de acceso */}
-              <div className="flex items-center justify-between p-4 bg-stone-50 rounded-lg">
-                <div>
-                  <h4 className="font-medium text-stone-800">Acceso al Sistema</h4>
-                  <p className="text-sm text-stone-600">
-                    {client?.authUid 
-                      ? `Usuario registrado con email: ${formData.emailFacturacion}` 
-                      : 'Este cliente aún no tiene acceso al sistema'}
+              <div className="space-y-4 p-4 bg-stone-50 rounded-lg">
+                <div className="space-y-2">
+                  <Label>Usuario (RUC)</Label>
+                  <Input
+                    value={formData.rucDni}
+                    disabled
+                    className="bg-stone-100 text-stone-700 font-mono"
+                  />
+                  <p className="text-xs text-stone-500">
+                    Este RUC será el identificador de acceso.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>PIN (4 dígitos)</Label>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="Ej: 1234"
+                    value={pin}
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    maxLength={4}
+                    className="font-mono tracking-widest"
+                    disabled={!!client?.authUid}
+                  />
+                  <p className="text-xs text-stone-500">
+                    El PIN se convertirá internamente en credenciales seguras.
                   </p>
                 </div>
                 {client?.authUid ? (
@@ -1057,210 +992,13 @@ const ClientForm = ({ client, onSave, onFinish }: {
                     Sin Acceso
                   </Badge>
                 )}
+                <p className="text-xs text-amber-600">
+                  El email y password generados no se muestran; se derivan del RUC + PIN con formato interno.
+                </p>
               </div>
-
-              {/* Crear acceso si no existe */}
-              {!client?.authUid && formData.emailFacturacion && (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                  <p className="text-sm text-amber-800 mb-2">
-                    ⚠️ Para habilitar el acceso, primero guarda el cliente. Luego podrás crear sus credenciales de acceso.
-                  </p>
-                </div>
-              )}
-
-              {/* Módulos disponibles */}
               {client?.authUid && (
-                <div>
-                  <h4 className="font-medium text-stone-800 mb-3">Módulos Disponibles</h4>
-                  <p className="text-sm text-stone-600 mb-4">
-                    Selecciona qué módulos puede ver este cliente en el sistema
-                  </p>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {AVAILABLE_MODULES.map((module) => {
-                      const hasAccess = (client?.accessModules || []).includes(module.id);
-                      const ModuleIcon = module.icon;
-                      return (
-                        <button
-                          key={module.id}
-                          onClick={async () => {
-                            const current = client?.accessModules || [];
-                            const next = hasAccess 
-                              ? current.filter(m => m !== module.id)
-                              : [...current, module.id];
-                            
-                            // Actualizar en clients
-                            await update(ref(db, `clients/${client.id}`), { accessModules: next });
-                            
-                            // Sincronizar en usuarios/{authUid}
-                            if (client?.authUid) {
-                              await update(ref(db, `usuarios/${client.authUid}`), { accessModules: next });
-                            }
-                            
-                            toast({
-                              title: hasAccess ? "Acceso removido" : "Acceso otorgado",
-                              description: `Módulo ${module.name} ${hasAccess ? 'deshabilitado' : 'habilitado'}`,
-                            });
-                          }}
-                          className={`relative flex items-center gap-3 p-4 rounded-lg border-2 transition-all text-left ${
-                            hasAccess
-                              ? 'border-green-500 bg-green-50 shadow-sm'
-                              : 'border-stone-200 bg-white hover:border-stone-300 hover:shadow-sm'
-                          }`}
-                        >
-                          <div className={`p-2 rounded-lg ${hasAccess ? 'bg-green-100' : 'bg-stone-100'}`}>
-                            <ModuleIcon className={`h-5 w-5 ${hasAccess ? 'text-green-600' : 'text-stone-500'}`} />
-                          </div>
-                          <div className="flex-1">
-                            <span className={`text-sm font-semibold block ${hasAccess ? 'text-green-900' : 'text-stone-700'}`}>
-                              {module.name}
-                            </span>
-                          </div>
-                          {hasAccess && (
-                            <div className="absolute top-2 right-2">
-                              <CheckCircle className="h-5 w-5 text-green-600 fill-green-100" />
-                            </div>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Información de credenciales */}
-              {client?.authUid && (
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-blue-800 flex items-center gap-2">
-                      <Key className="h-4 w-4" />
-                      Credenciales de Acceso
-                    </h4>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
-                      <div>
-                        <p className="text-xs text-blue-600 font-medium">Email</p>
-                        <p className="text-sm text-blue-900">{formData.emailFacturacion}</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(formData.emailFacturacion);
-                          toast({ title: "Copiado", description: "Email copiado al portapapeles" });
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="flex items-center justify-between p-2 bg-white rounded border border-blue-200">
-                      <div>
-                        <p className="text-xs text-blue-600 font-medium">Contraseña</p>
-                        <p className="text-sm text-blue-900 font-mono">{formData.rucDni}@Pecaditos</p>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          navigator.clipboard.writeText(`${formData.rucDni}@Pecaditos`);
-                          toast({ title: "Copiado", description: "Contraseña copiada al portapapeles" });
-                        }}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="flex-1"
-                      onClick={async () => {
-                        try {
-                          const newPassword = `${formData.rucDni}@Pecaditos`;
-                          
-                          // Necesitamos iniciar sesión temporalmente como el usuario
-                          const currentUser = auth.currentUser;
-                          const userCredential = await signInWithEmailAndPassword(
-                            auth, 
-                            formData.emailFacturacion, 
-                            newPassword
-                          );
-                          
-                          await updatePassword(userCredential.user, newPassword);
-                          
-                          // Volver a iniciar sesión como admin
-                          if (currentUser?.email) {
-                            await signInWithEmailAndPassword(auth, currentUser.email, currentUser.email);
-                          }
-                          
-                          toast({
-                            title: "Contraseña restablecida",
-                            description: "La contraseña se ha restablecido exitosamente"
-                          });
-                        } catch (error: any) {
-                          toast({
-                            title: "Error",
-                            description: "No se pudo restablecer la contraseña. El usuario debe usar la opción de recuperación.",
-                            variant: "destructive"
-                          });
-                        }
-                      }}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      Restablecer Contraseña
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        const credencialesTexto = `
-===========================================
-CREDENCIALES DE ACCESO
-===========================================
-
-Cliente: ${formData.razonSocial}
-RUC/DNI: ${formData.rucDni}
-
-Email: ${formData.emailFacturacion}
-Contraseña: ${formData.rucDni}@Pecaditos
-
-URL de acceso: ${window.location.origin}/login
-
-===========================================
-Nota: El cliente puede cambiar su contraseña
-desde la opción de recuperación en el login.
-===========================================
-                        `.trim();
-                        
-                        const blob = new Blob([credencialesTexto], { type: 'text/plain' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `credenciales-${formData.razonSocial.replace(/\s+/g, '-')}.txt`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        
-                        toast({
-                          title: "Archivo descargado",
-                          description: "Las credenciales se han descargado exitosamente"
-                        });
-                      }}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Descargar Credenciales
-                    </Button>
-                  </div>
-
-                  <p className="text-xs text-blue-600">
-                    💡 El cliente puede cambiar su contraseña desde la opción de recuperación en el login.
-                  </p>
+                <div className="text-xs text-stone-500">
+                  Acceso ya creado. Para nuevos accesos deberá crear otro cliente.
                 </div>
               )}
             </CardContent>
@@ -1268,19 +1006,13 @@ desde la opción de recuperación en el login.
         </TabsContent>
       </Tabs>
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={onFinish}>
-          Cancelar
-        </Button>
-        <Button onClick={handleSave}>
-          {client ? 'Actualizar' : 'Crear'} Cliente
-        </Button>
+        <Button variant="outline" onClick={onFinish}>Cancelar</Button>
+        <Button onClick={handleSave}>{client ? 'Actualizar' : 'Crear'} Cliente</Button>
       </div>
     </div>
   );
 };
 
-
-// --- DETALLES DE CLIENTE, MOSTRAR SEDES, COMENTARIOS ---
 const ClientDetails = ({ client }: { client: Client }) => {
   return (
     <div className="space-y-6">
@@ -1322,7 +1054,6 @@ const ClientDetails = ({ client }: { client: Client }) => {
             </Card>
           </div>
         </TabsContent>
-        {/* SEDES CON COMENTARIOS */}
         <TabsContent value="sedes" className="space-y-4">
           <div className="space-y-6">
             {(client.sedes || []).map((sede) => (
@@ -1413,8 +1144,6 @@ const ClientDetails = ({ client }: { client: Client }) => {
   );
 };
 
-
-// --- COMPONENTE PARA COMENTARIOS DE SEDE ---
 const SedeComments = ({
   sedeId,
   comentarios
@@ -1427,26 +1156,19 @@ const SedeComments = ({
   const [newComment, setNewComment] = useState('');
   const [newRating, setNewRating] = useState(5);
   const [user, setUser] = useState('');
-
-  // Simulación de paginación simple (5 por página)
   const paginated = showAll ? allComments : allComments.slice(0, 5);
 
   useEffect(() => {
-    // Se recomienda leer comentarios desde Firebase para producción, por ahora toma los props
     setAllComments(comentarios.sort((a, b) => b.createdAt - a.createdAt));
   }, [comentarios]);
 
-  // --- Calcular promedio
   const avg =
     allComments.length > 0
       ? (allComments.reduce((acc, c) => acc + c.rating, 0) / allComments.length).toFixed(2)
       : "0";
 
-  // --- Agregar comentario (en Firebase)
   const handleSend = async () => {
     if (!newComment || !user) return;
-    // Encuentra referencia a sede (depende de cómo guardes en Firebase, aquí sería: clients/{clientId}/sedes/{sedeId}/comentarios)
-    // Este demo asume una ruta global: sedesComentarios/{sedeId}
     const comentario: SedeComment = {
       id: Date.now().toString(),
       user,
@@ -1454,7 +1176,6 @@ const SedeComments = ({
       rating: newRating,
       createdAt: Date.now(),
     };
-    // TODO: Puedes hacer el push directo a tu ruta Firebase si tu estructura lo permite
     setAllComments([comentario, ...allComments]);
     setNewComment('');
     setUser('');
@@ -1468,7 +1189,6 @@ const SedeComments = ({
         <span className="font-bold">{avg} / 5</span>
         <span className="text-xs text-stone-500">({allComments.length} calificaciones)</span>
       </div>
-      {/* AGREGAR COMENTARIO */}
       <div className="mb-3 flex flex-col md:flex-row gap-2">
         <Input
           placeholder="Tu nombre"
@@ -1482,9 +1202,7 @@ const SedeComments = ({
           onChange={e => setNewComment(e.target.value)}
         />
         <Select value={String(newRating)} onValueChange={v => setNewRating(Number(v))}>
-          <SelectTrigger>
-            <SelectValue placeholder="Puntaje" />
-          </SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Puntaje" /></SelectTrigger>
           <SelectContent>
             {[5, 4, 3, 2, 1].map(n => (
               <SelectItem key={n} value={String(n)}>{n} estrellas</SelectItem>
@@ -1493,7 +1211,6 @@ const SedeComments = ({
         </Select>
         <Button onClick={handleSend}>Enviar</Button>
       </div>
-      {/* LISTA DE COMENTARIOS */}
       <div className="space-y-2 max-h-64 overflow-y-auto">
         {paginated.map((c) => (
           <div key={c.id} className="border rounded-lg p-2 bg-gray-50">
