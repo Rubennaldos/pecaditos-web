@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Product } from '@/data/mockData';
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
 import { toast } from '@/components/ui/use-toast';
+import { WholesaleProductDetailModal } from './WholesaleProductDetailModal';
 
 // Helpers de precios/cantidades
 import {
@@ -39,6 +40,9 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
 
   // cantidad seleccionada en la card
   const [quantity, setQuantity] = useState<number>(0);
+  
+  // modal de detalles
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   // carrito mayorista
   const { addItem, updateQuantity, removeItem, items } = useWholesaleCart();
@@ -120,8 +124,20 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
     (product as any).imageUrl ||
     '/placeholder.svg';
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('button') && !target.closest('input')) {
+      setIsDetailModalOpen(true);
+    }
+  };
+
   return (
-    <Card className="w-full bg-white border shadow-sm hover:shadow-md transition-all duration-200">
+    <>
+      <Card 
+        className="w-full bg-white border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer"
+        onClick={handleCardClick}
+        title="Toca para ver más detalles"
+      >
       {/* IMAGEN */}
       <div className="relative overflow-hidden rounded-t-lg bg-stone-100 aspect-square">
         {/* eslint-disable-next-line */}
@@ -173,7 +189,10 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
             <Button
               variant="outline"
               size="sm"
-              onClick={dec}
+              onClick={(e) => {
+                e.stopPropagation();
+                dec();
+              }}
               disabled={quantity <= 0}
               className="h-7 w-7 p-0 text-xs"
               aria-label="Disminuir"
@@ -186,6 +205,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
               inputMode="numeric"
               value={quantity}
               onChange={(e) => {
+                e.stopPropagation();
                 const v = e.target.value.trim();
                 if (v === '') {
                   setQuantity(0);
@@ -196,6 +216,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
                 setQuantity(Math.max(0, n));
               }}
               onBlur={(e) => setQtyNormalized(Number(e.target.value || 0))}
+              onClick={(e) => e.stopPropagation()}
               className="flex-1 text-center h-7 text-xs sm:text-sm"
               min={0}
               step={step}
@@ -205,7 +226,10 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
             <Button
               variant="outline"
               size="sm"
-              onClick={inc}
+              onClick={(e) => {
+                e.stopPropagation();
+                inc();
+              }}
               className="h-7 w-7 p-0 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
               aria-label="Aumentar"
             >
@@ -249,5 +273,13 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
         </div>
       </CardContent>
     </Card>
+
+    {/* Modal de detalles */}
+    <WholesaleProductDetailModal
+      product={product}
+      isOpen={isDetailModalOpen}
+      onClose={() => setIsDetailModalOpen(false)}
+    />
+    </>
   );
 };
