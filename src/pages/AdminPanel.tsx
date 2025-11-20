@@ -223,7 +223,7 @@ const DashboardContent = () => {
             </div>
 
             {/* Diseño compacto tipo bolitas */}
-            <div className="flex flex-wrap gap-4 justify-center max-w-5xl mx-auto">
+            <div className="flex flex-wrap gap-6 justify-center max-w-5xl mx-auto">
               {modules.filter((m) => hasAccess(m.id)).map((module) => {
                 const Icon = module.icon;
                 const colorMap: Record<string, string> = {
@@ -239,7 +239,7 @@ const DashboardContent = () => {
                 };
 
                 return (
-                  <div key={module.id} className="group relative">
+                  <div key={module.id} className="group flex flex-col items-center gap-2">
                     <button
                       onClick={() => setActiveSection(module.id)}
                       className={`
@@ -256,18 +256,10 @@ const DashboardContent = () => {
                       <div className="absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/20 transition-all duration-300" />
                     </button>
 
-                    <div className="
-                      absolute -bottom-8 left-1/2 -translate-x-1/2
-                      opacity-0 group-hover:opacity-100
-                      transition-all duration-300
-                      pointer-events-none
-                      whitespace-nowrap
-                      z-10
-                    ">
-                      <div className="bg-stone-800/90 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
-                        {module.name}
-                      </div>
-                    </div>
+                    {/* Nombre siempre visible */}
+                    <p className="text-xs font-medium text-stone-700 text-center max-w-[100px] leading-tight">
+                      {module.name}
+                    </p>
                   </div>
                 );
               })}
@@ -438,7 +430,7 @@ const DashboardContent = () => {
             </div>
 
             {/* Diseño compacto tipo bolitas */}
-            <div className="flex flex-wrap gap-4 justify-center max-w-5xl mx-auto">
+            <div className="flex flex-wrap gap-6 justify-center max-w-5xl mx-auto">
               {modules.filter((m) => hasAccess(m.id)).map((module) => {
                 const Icon = module.icon;
                 const colorMap: Record<string, string> = {
@@ -454,7 +446,7 @@ const DashboardContent = () => {
                 };
 
                 return (
-                  <div key={module.id} className="group relative">
+                  <div key={module.id} className="group flex flex-col items-center gap-2">
                     <button
                       onClick={() => setActiveSection(module.id)}
                       className={`
@@ -471,18 +463,10 @@ const DashboardContent = () => {
                       <div className="absolute inset-0 rounded-full bg-white/0 group-hover:bg-white/20 transition-all duration-300" />
                     </button>
 
-                    <div className="
-                      absolute -bottom-8 left-1/2 -translate-x-1/2
-                      opacity-0 group-hover:opacity-100
-                      transition-all duration-300
-                      pointer-events-none
-                      whitespace-nowrap
-                      z-10
-                    ">
-                      <div className="bg-stone-800/90 text-white text-xs px-3 py-1.5 rounded-full backdrop-blur-sm">
-                        {module.name}
-                      </div>
-                    </div>
+                    {/* Nombre siempre visible */}
+                    <p className="text-xs font-medium text-stone-700 text-center max-w-[100px] leading-tight">
+                      {module.name}
+                    </p>
                   </div>
                 );
               })}
