@@ -56,7 +56,7 @@ import {
   ExternalLink, Shield, Eye, CheckCircle, AlertTriangle,
   XCircle, DollarSign, Package, Star, Lock, Unlock,
   ShoppingCart, Truck, Factory, BarChart3, MapPin, Check,
-  Upload, FileSpreadsheet
+  Upload, FileSpreadsheet, ClipboardCheck, Copy
 } from 'lucide-react';
 
 // ==========================================
@@ -429,6 +429,104 @@ export const ClientsAccessManagement = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
+  const [missingDataNotes, setMissingDataNotes] = useState('');
+
+  // Generate Missing Data Notes
+  const getMissingDataNotes = (client: Client): string => {
+    const missing: string[] = [];
+    
+    // Información básica
+    if (!client.razonSocial || client.razonSocial.trim() === '') missing.push('- Razón Social');
+    if (!client.rucDni || client.rucDni.trim() === '') missing.push('- RUC/DNI');
+    if (!client.direccionFiscal || client.direccionFiscal.trim() === '') missing.push('- Dirección Fiscal');
+    if (!client.departamento || client.departamento.trim() === '') missing.push('- Departamento');
+    if (!client.provincia || client.provincia.trim() === '') missing.push('- Provincia');
+    if (!client.distrito || client.distrito.trim() === '') missing.push('- Distrito');
+    
+    // Sedes
+    if (!client.sedes || client.sedes.length === 0) {
+      missing.push('- Al menos una sede de entrega');
+    } else {
+      client.sedes.forEach((sede, index) => {
+        const sedeIssues: string[] = [];
+        if (!sede.nombre || sede.nombre.trim() === '') sedeIssues.push('nombre');
+        if (!sede.direccion || sede.direccion.trim() === '') sedeIssues.push('dirección');
+        if (!sede.responsable || sede.responsable.trim() === '') sedeIssues.push('responsable');
+        if (!sede.telefono || sede.telefono.trim() === '') sedeIssues.push('teléfono');
+        if (!sede.distrito || sede.distrito.trim() === '') sedeIssues.push('distrito');
+        
+        if (sedeIssues.length > 0) {
+          missing.push(`- Sede ${index + 1} "${sede.nombre || 'Sin nombre'}": falta ${sedeIssues.join(', ')}`);
+        }
+      });
+    }
+    
+    // Contactos
+    if (!client.contactos || client.contactos.length === 0) {
+      missing.push('- Al menos un contacto (Pagos, Admin o Pedidos)');
+    } else {
+      const hasPago = client.contactos.some(c => c.tipo === 'pago');
+      const hasAdmin = client.contactos.some(c => c.tipo === 'admin');
+      const hasPedidos = client.contactos.some(c => c.tipo === 'pedidos');
+      
+      if (!hasPago) missing.push('- Contacto de Pagos');
+      if (!hasAdmin) missing.push('- Contacto Administrador');
+      if (!hasPedidos) missing.push('- Contacto de Pedidos');
+      
+      client.contactos.forEach((contacto, index) => {
+        const contactoIssues: string[] = [];
+        if (!contacto.nombre || contacto.nombre.trim() === '') contactoIssues.push('nombre');
+        if (!contacto.dni || contacto.dni.trim() === '') contactoIssues.push('DNI');
+        if (!contacto.celular || contacto.celular.trim() === '') contactoIssues.push('celular');
+        if (!contacto.correo || contacto.correo.trim() === '') contactoIssues.push('correo');
+        
+        if (contactoIssues.length > 0) {
+          const tipoLabel = contacto.tipo === 'pago' ? 'Pagos' : contacto.tipo === 'admin' ? 'Admin' : 'Pedidos';
+          missing.push(`- Contacto ${tipoLabel} "${contacto.nombre || 'Sin nombre'}": falta ${contactoIssues.join(', ')}`);
+        }
+      });
+    }
+    
+    // Información comercial
+    if (!client.listaPrecio || client.listaPrecio.trim() === '') missing.push('- Lista de Precios');
+    if (!client.frecuenciaCompras || client.frecuenciaCompras.trim() === '') missing.push('- Frecuencia de Compras');
+    if (!client.horarioEntrega || client.horarioEntrega.trim() === '') missing.push('- Horario de Entrega Preferido');
+    if (!client.condicionPago || client.condicionPago.trim() === '') missing.push('- Condición de Pago');
+    if (client.limiteCredito === undefined || client.limiteCredito === null) missing.push('- Límite de Crédito');
+    if (!client.emailFacturacion || client.emailFacturacion.trim() === '') missing.push('- Email de Facturación');
+    
+    // Acceso al portal
+    if (!client.authUid) {
+      missing.push('- Acceso al portal (crear PIN de 4 dígitos)');
+    }
+    
+    // Módulos de acceso
+    if (!client.accessModules || client.accessModules.length === 0) {
+      missing.push('- Módulos de acceso asignados');
+    }
+    
+    if (missing.length === 0) {
+      return `Estimado cliente ${client.razonSocial},\n\n¡Excelente! Su perfil está completo y actualizado. No hay datos faltantes en este momento.\n\n¡Gracias por mantener su información al día!`;
+    }
+    
+    return `Estimado cliente ${client.razonSocial},\n\nPara completar su registro y poder brindarle un mejor servicio, necesitamos que nos proporcione la siguiente información:\n\n${missing.join('\n')}\n\nPor favor, envíenos estos datos a la brevedad posible para actualizar su perfil.\n\n¡Gracias por su colaboración!`;
+  };
+
+  const handleOpenCompleteModal = (client: Client) => {
+    setSelectedClient(client);
+    const notes = getMissingDataNotes(client);
+    setMissingDataNotes(notes);
+    setIsCompleteModalOpen(true);
+  };
+
+  const handleCopyNotes = () => {
+    navigator.clipboard.writeText(missingDataNotes);
+    toast({
+      title: 'Copiado',
+      description: 'Las notas han sido copiadas al portapapeles'
+    });
+  };
 
   // Fetch Clients
   useEffect(() => {
@@ -756,6 +854,37 @@ export const ClientsAccessManagement = () => {
         </div>
       </div>
 
+      {/* Complete Data Modal */}
+      <Dialog open={isCompleteModalOpen} onOpenChange={setIsCompleteModalOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Datos Faltantes - {selectedClient?.razonSocial}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+              <Label className="text-sm font-semibold mb-2 block">Notas para el cliente:</Label>
+              <div className="bg-white p-4 rounded border border-stone-200 whitespace-pre-wrap text-sm text-stone-700 max-h-96 overflow-y-auto">
+                {missingDataNotes}
+              </div>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsCompleteModalOpen(false)}
+              >
+                Cerrar
+              </Button>
+              <Button
+                onClick={handleCopyNotes}
+              >
+                <Copy className="h-4 w-4 mr-2" />
+                Copiar Notas
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Client List */}
       <Card>
         <CardHeader>
@@ -827,6 +956,16 @@ export const ClientsAccessManagement = () => {
                         {selectedClient && <ClientDetails client={selectedClient} />}
                       </DialogContent>
                     </Dialog>
+
+                    {/* Complete Data Button */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOpenCompleteModal(client)}
+                    >
+                      <ClipboardCheck className="h-4 w-4 mr-1" />
+                      Completar
+                    </Button>
 
                     {/* Edit Button */}
                     <Dialog
