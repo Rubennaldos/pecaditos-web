@@ -21,19 +21,19 @@ async function ensureUserProfile(user: User) {
     const snap = await get(profileRef);
     const existingProfile = snap.exists() ? snap.val() : null;
     
-    // Si existe Y tiene rol/módulos, mantenerlo sin cambios
-    if (existingProfile && (existingProfile.rol || (existingProfile.accessModules && existingProfile.accessModules.length > 0))) {
-      console.log('[Auth] Usuario administrativo existente con configuración válida:', user.email);
+    // Si existe Y tiene rol válido, mantenerlo sin cambios (los módulos se completan en useAuth)
+    if (existingProfile && (existingProfile.rol || existingProfile.role)) {
+      console.log('[Auth] Usuario administrativo existente con rol válido:', existingProfile.rol || existingProfile.role, 'email:', user.email);
       return;
     }
     
-    // Si existe pero está corrupto (sin rol ni módulos) O no existe, recrearlo/repararlo
+    // Si existe pero está corrupto (sin rol) O no existe, recrearlo/repararlo
     console.log('[Auth] Recreando/reparando perfil administrativo para:', user.email);
     
     // Intentar encontrar configuración en usuarios administrativos
     const adminUsersRef = ref(db, 'users');
     const adminSnap = await get(adminUsersRef);
-    let adminConfig = null;
+    let adminConfig: any = null;
     
     if (adminSnap.exists()) {
       const users = adminSnap.val();
@@ -41,15 +41,24 @@ async function ensureUserProfile(user: User) {
       console.log('[Auth] Configuración admin encontrada:', adminConfig ? 'sí' : 'no');
     }
     
-    // Crear perfil administrativo (usar config si existe, sino crear básico)
+    // Si no hay config en /users, aplicar fallback por email conocido
+    let fallbackRol: string | null = null;
+    let fallbackIsAdmin = false;
+    if (!adminConfig && user.email === 'albertonaldos@gmail.com') {
+      fallbackRol = 'adminGeneral';
+      fallbackIsAdmin = true;
+      console.log('[Auth] Aplicando rol adminGeneral por email conocido para:', user.email);
+    }
+    
+    // Crear perfil administrativo (usar config si existe, sino fallback básico)
     const adminPayload = {
       nombre: adminConfig?.nombre || user.displayName || user.email?.split("@")[0] || "Usuario",
       correo: user.email ?? null,
-      isAdmin: adminConfig?.isAdmin ?? false,
+      isAdmin: adminConfig?.isAdmin ?? fallbackIsAdmin,
       activo: adminConfig?.activo ?? true,
       accessModules: adminConfig?.accessModules || adminConfig?.permissions || [],
       permissions: adminConfig?.permissions || adminConfig?.accessModules || [],
-      rol: adminConfig?.rol || adminConfig?.role || null,
+      rol: adminConfig?.rol || adminConfig?.role || fallbackRol,
       createdAt: existingProfile?.createdAt || Date.now(),
     };
     
