@@ -165,7 +165,7 @@ const DashboardContent = () => {
     },
     {
       id: 'business-admin',
-      name: 'Gestión Comercial',
+      name: 'Administración de Catálogo al por Mayor',
       icon: Building,
       description: 'Catálogos y promociones',
       color: 'teal',
