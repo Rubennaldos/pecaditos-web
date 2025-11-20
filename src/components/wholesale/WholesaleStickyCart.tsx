@@ -125,24 +125,23 @@ export const WholesaleStickyCart = ({ isCompact = false }: WholesaleStickyCartPr
   const remainingForMinimum = Math.max(0, minimumAmount - finalTotal);
   const progressPercentage = Math.min(100, (finalTotal / minimumAmount) * 100);
 
-  // -------- Header compacto (modal) --------
-  if (isCompact) {
-    return (
-      <>
-        <Button
-          onClick={() => setIsExpanded(true)}
-          variant="outline"
-          size="sm"
-          className="relative bg-white hover:bg-stone-50"
-        >
-          <ShoppingCart className="h-4 w-4" />
-          {itemCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-              {itemCount}
-            </span>
-          )}
-          <span className="ml-2 hidden sm:inline">Carrito</span>
-        </Button>
+  // -------- BOTÓN FLOTANTE COMPACTO (CÍRCULO) - NUEVA VERSIÓN --------
+  return (
+    <>
+      {/* Botón flotante circular */}
+      <button
+        onClick={() => setIsExpanded(true)}
+        className="fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-full shadow-2xl hover:shadow-blue-500/50 transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center group"
+      >
+        <ShoppingCart className="h-7 w-7 text-white" />
+        {itemCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full h-7 w-7 flex items-center justify-center shadow-lg animate-bounce">
+            {itemCount}
+          </span>
+        )}
+        {/* Pulso animado */}
+        <span className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-20"></span>
+      </button>
 
         {isExpanded && (
           <div
