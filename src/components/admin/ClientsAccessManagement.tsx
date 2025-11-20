@@ -118,6 +118,21 @@ interface Client {
   pin?: string;
 }
 
+interface Product {
+  id: string;
+  sku: string;
+  nombre: string;
+  descripcion?: string;
+  categoria?: string;
+  subcategoria?: string;
+  unidadMedida?: string;
+  precioBase: number;
+  precioMayorista?: number;
+  precioDistribuidor?: number;
+  stock?: number;
+  activo: boolean;
+}
+
 // ==========================================
 // 3. CONSTANTS
 // ==========================================
@@ -138,7 +153,7 @@ const AVAILABLE_MODULES = [
 ];
 
 // ==========================================
-// 4. UTILITY FUNCTIONS (Reports)
+// 4. UTILITY FUNCTIONS (Reports + Products)
 // ==========================================
 
 // Reporte PDF
@@ -414,6 +429,130 @@ export const processBulkImport = async (file: File, toast: any) => {
   });
 };
 
+// Plantilla de productos mayoristas
+export const generateProductsTemplate = () => {
+  const wb = XLSX.utils.book_new();
+  const instructions = [
+    ['PLANTILLA DE IMPORTACIÓN MASIVA DE PRODUCTOS MAYORISTAS'],
+    [],
+    ['INSTRUCCIONES:'],
+    ['1. Complete la hoja "Productos". Campos obligatorios marcados con *.'],
+    ['2. Puede dejar celdas vacías si no tiene el dato (excepto SKU, Nombre, Precio Base).'],
+    ['3. Columna Activo (SI/NO) determina si el producto estará visible.'],
+    ['4. Precios numéricos usar punto para decimales (ej: 12.50).'],
+    ['5. No se incluye foto; cargue imágenes manualmente luego.'],
+    [],
+    ['COLUMNAS:'],
+    ['SKU*: Código único.'],
+    ['Nombre*: Nombre comercial.'],
+    ['Descripción: Texto corto.'],
+    ['Categoría / Subcategoría: Clasificación.'],
+    ['Unidad Medida: Ej: Unidad, Caja, Kg.'],
+    ['Precio Base*: Precio lista base.'],
+    ['Precio Mayorista / Distribuidor: Opcionales.'],
+    ['Stock: Cantidad disponible (opcional).'],
+    ['Activo (SI/NO): Estado.']
+  ];
+  const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+  XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instrucciones');
+
+  const sample = [
+    [
+      'SKU*','Nombre*','Descripción','Categoría','Subcategoría','Unidad Medida',
+      'Precio Base*','Precio Mayorista','Precio Distribuidor','Stock','Activo (SI/NO)'
+    ],
+    [
+      'GAL-AV-MZ-12','Galleta avena y manzana','Galleta sin preservantes',
+      'Galletas','Avena','Unidad','3.83','3.60','3.40','460','SI'
+    ],
+    [
+      'BIZ-CHO-24','Bizcocho chocolate 24p','Caja 24 unidades',
+      'Bizcochos','Chocolate','Caja','45.00','42.00','40.00','120','SI'
+    ]
+  ];
+  const wsProducts = XLSX.utils.aoa_to_sheet(sample);
+  XLSX.utils.book_append_sheet(wb, wsProducts, 'Productos');
+  XLSX.writeFile(wb, 'Plantilla_Productos_Mayoristas.xlsx');
+};
+
+// Exportar productos a Excel
+export const exportProductsToExcel = async (toast: any) => {
+  try {
+    const snap = await get(ref(db, 'products'));
+    const data = snap.val() || {};
+    const arr = Object.entries(data).map(([id, p]: any) => ({
+      id,
+      SKU: p.sku || '',
+      Nombre: p.nombre || '',
+      Descripción: p.descripcion || '',
+      Categoría: p.categoria || '',
+      Subcategoría: p.subcategoria || '',
+      'Unidad Medida': p.unidadMedida || '',
+      'Precio Base': p.precioBase ?? '',
+      'Precio Mayorista': p.precioMayorista ?? '',
+      'Precio Distribuidor': p.precioDistribuidor ?? '',
+      Stock: p.stock ?? '',
+      Activo: p.activo ? 'SI' : 'NO'
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(arr);
+    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
+    XLSX.writeFile(wb, 'Export_Productos_Mayoristas.xlsx');
+    toast({ title: 'Exportado', description: `${arr.length} productos exportados` });
+  } catch (e: any) {
+    toast({ title: 'Error', description: 'No se pudo exportar', variant: 'destructive' });
+  }
+};
+
+// Importar productos masivos
+export const processBulkProductsImport = async (file: File, toast: any) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async e => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const wb = XLSX.read(data, { type: 'array' });
+        const sheet = wb.Sheets['Productos'];
+        if (!sheet) throw new Error('Hoja "Productos" no encontrada');
+        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+        let created = 0;
+        for (const r of rows) {
+          const sku = (r['SKU*'] || '').toString().trim();
+            const nombre = (r['Nombre*'] || '').toString().trim();
+          const precioBaseRaw = r['Precio Base*'];
+          if (!sku || !nombre || precioBaseRaw === undefined || precioBaseRaw === '') continue;
+          const prodRef = push(ref(db, 'products'));
+          await set(prodRef, {
+            sku,
+            nombre,
+            descripcion: r['Descripción'] || '',
+            categoria: r['Categoría'] || '',
+            subcategoria: r['Subcategoría'] || '',
+            unidadMedida: r['Unidad Medida'] || '',
+            precioBase: Number(precioBaseRaw) || 0,
+            precioMayorista: Number(r['Precio Mayorista']) || null,
+            precioDistribuidor: Number(r['Precio Distribuidor']) || null,
+            stock: r['Stock'] === undefined || r['Stock'] === '' ? null : Number(r['Stock']),
+            activo: (r['Activo (SI/NO)'] || '').toString().toUpperCase() === 'SI',
+            fechaCreacion: Date.now()
+          });
+          created++;
+        }
+        toast({ title: 'Importación productos', description: `${created} productos creados` });
+        resolve(created);
+      } catch (err: any) {
+        toast({ title: 'Error importando', description: err.message, variant: 'destructive' });
+        reject(err);
+      }
+    };
+    reader.onerror = () => {
+      toast({ title: 'Error lectura archivo', description: 'No se pudo leer', variant: 'destructive' });
+      reject(new Error('read error'));
+    };
+    reader.readAsArrayBuffer(file);
+  });
+};
+
 // ==========================================
 // 5. MAIN COMPONENT
 // ==========================================
@@ -431,6 +570,7 @@ export const ClientsAccessManagement = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [missingDataNotes, setMissingDataNotes] = useState('');
+  const [isProductsImporting, setIsProductsImporting] = useState(false);
 
   // Generate Missing Data Notes
   const getMissingDataNotes = (client: Client): string => {
@@ -754,6 +894,18 @@ export const ClientsAccessManagement = () => {
     }
   };
 
+  const handleProductsFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsProductsImporting(true);
+    try {
+      await processBulkProductsImport(file, toast);
+    } finally {
+      setIsProductsImporting(false);
+      e.target.value = '';
+    }
+  };
+
   // Filter logic
   const filteredClients = clients.filter(
     client =>
@@ -813,6 +965,28 @@ export const ClientsAccessManagement = () => {
         </div>
         
         <div className="flex gap-2 flex-wrap">
+          {/* Botones productos mayoristas */}
+          <Button variant="outline" onClick={generateProductsTemplate}>
+            Plantilla Productos
+          </Button>
+          <Button
+            variant="outline"
+            disabled={isProductsImporting}
+            onClick={() => document.getElementById('products-import')?.click()}
+          >
+            {isProductsImporting ? 'Importando Productos...' : 'Importar Productos'}
+          </Button>
+          <input
+            id="products-import"
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleProductsFileImport}
+            className="hidden"
+          />
+          <Button variant="outline" onClick={() => exportProductsToExcel(toast)}>
+            Exportar Productos
+          </Button>
+          
           <Button
             variant="outline"
             onClick={generateBulkImportTemplate}
@@ -1702,7 +1876,7 @@ const ClientForm = ({
                             }
                           />
                           <span className="font-medium">{m.name}</span>
-                          {active && (
+                                                   {active && (
                             <Check className="absolute top-1 right-1 h-4 w-4 text-white" />
                           )}
                         </button>
