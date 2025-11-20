@@ -14,12 +14,11 @@ export async function signInAndEnsureProfile(email: string, password: string) {
 async function ensureUserProfile(user: User) {
   const profileRef = ref(db, `usuarios/${user.uid}`);
   const snap = await get(profileRef);
-  if (snap.exists()) {
-    console.log('[Auth] Perfil ya existe para uid:', user.uid);
-    return;
-  }
+  const existingPerfil = snap.exists() ? (snap.val() as any) : null;
 
-  console.log('[Auth] Creando perfil para uid:', user.uid);
+  if (existingPerfil) {
+    console.log('[Auth] Perfil ya existe para uid:', user.uid, 'accessModules:', existingPerfil.accessModules || []);
+  }
 
   // Intenta completar datos desde /clients por authUid
   const byUid = query(ref(db, "clients"), orderByChild("authUid"), equalTo(user.uid));
