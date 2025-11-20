@@ -123,12 +123,12 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
   return (
     <Card className="w-full bg-white border shadow-sm hover:shadow-md transition-all duration-200">
       {/* IMAGEN */}
-      <div className="h-28 sm:h-36 relative overflow-hidden rounded-t-lg">
+      <div className="relative overflow-hidden rounded-t-lg bg-stone-100 aspect-square">
         {/* eslint-disable-next-line */}
         <img
           src={imgSrc}
           alt={product.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           onError={(e) => {
             (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
           }}
