@@ -1,6 +1,6 @@
 // src/components/orders/QuickOrderButton.tsx
-import { useState } from 'react';
-import { Zap, Search } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Zap, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +18,8 @@ type ClientData = {
   phone?: string;
 };
 
+const STORAGE_KEY = 'quickOrderState';
+
 export const QuickOrderButton = () => {
   const [showRucInput, setShowRucInput] = useState(false);
   const [rucInput, setRucInput] = useState('');
@@ -30,6 +32,33 @@ export const QuickOrderButton = () => {
     orderNumber: string;
     orderData: any;
   } | null>(null);
+
+  // Cargar estado persistido al montar
+  useEffect(() => {
+    try {
+      const savedState = localStorage.getItem(STORAGE_KEY);
+      if (savedState) {
+        const parsed = JSON.parse(savedState);
+        if (parsed.clientData && parsed.timestamp) {
+          // Verificar que no haya pasado más de 24 horas
+          const hoursSince = (Date.now() - parsed.timestamp) / (1000 * 60 * 60);
+          if (hoursSince < 24) {
+            setClientData(parsed.clientData);
+            setRucInput(parsed.clientData.ruc || '');
+            toast({
+              title: 'Sesión recuperada',
+              description: `Continuando pedido de ${parsed.clientData.commercialName || parsed.clientData.legalName}`,
+            });
+          } else {
+            // Limpiar estado antiguo
+            localStorage.removeItem(STORAGE_KEY);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando estado persistido:', error);
+    }
+  }, []);
 
   const searchClientByRuc = async (ruc: string) => {
     setLoading(true);
@@ -128,6 +157,11 @@ export const QuickOrderButton = () => {
     });
 
     setClientData(client);
+    // Guardar estado en localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      clientData: client,
+      timestamp: Date.now()
+    }));
     setShowRucInput(false);
     setShowOrderModal(true);
   };
@@ -163,17 +197,55 @@ export const QuickOrderButton = () => {
     setOrderInfo(null);
     setClientData(null);
     setRucInput('');
+    // Limpiar localStorage cuando se confirma el pedido exitosamente
+    localStorage.removeItem(STORAGE_KEY);
+  };
+
+  const handleQuickOrderClick = () => {
+    // Si ya hay un cliente seleccionado, abrir directamente el modal de pedido
+    if (clientData) {
+      setShowOrderModal(true);
+    } else {
+      setShowRucInput(true);
+    }
+  };
+
+  const handleCancelSession = () => {
+    setClientData(null);
+    setRucInput('');
+    localStorage.removeItem(STORAGE_KEY);
+    if (clientData?.ruc) {
+      localStorage.removeItem(`quickOrderCart_${clientData.ruc}`);
+    }
+    toast({
+      title: 'Sesión cancelada',
+      description: 'Puedes iniciar un nuevo pedido rápido',
+    });
   };
 
   return (
     <>
-      <Button
-        onClick={() => setShowRucInput(true)}
-        className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white shadow-lg hover:shadow-xl transition-all"
-      >
-        <Zap className="h-4 w-4 mr-2" />
-        Pedido Rápido
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={handleQuickOrderClick}
+          className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white shadow-lg hover:shadow-xl transition-all"
+        >
+          <Zap className="h-4 w-4 mr-2" />
+          {clientData ? 'Continuar pedido' : 'Pedido Rápido'}
+        </Button>
+        
+        {clientData && (
+          <Button
+            onClick={handleCancelSession}
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            title="Cancelar pedido y empezar de nuevo"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
 
       {/* Modal de entrada de RUC */}
       <Dialog open={showRucInput} onOpenChange={setShowRucInput}>
@@ -225,8 +297,11 @@ export const QuickOrderButton = () => {
           isOpen={showOrderModal}
           onClose={() => {
             setShowOrderModal(false);
-            setClientData(null);
-            setRucInput('');
+            // NO limpiar clientData para mantener la sesión
+            toast({
+              title: 'Pedido pausado',
+              description: 'Puedes continuar más tarde presionando "Pedido Rápido"',
+            });
           }}
           clientData={clientData}
           onOrderCreated={handleOrderCreated}

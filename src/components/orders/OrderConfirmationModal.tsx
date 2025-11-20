@@ -250,10 +250,193 @@ PECADITOS INTEGRALES S.A.C.`;
   };
 
   const handlePrint = () => {
-    generatePDF();
-    setTimeout(() => {
-      window.print();
-    }, 500);
+    const doc = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 20;
+    let yPos = 20;
+
+    // Encabezado de la empresa
+    doc.setFontSize(16);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PECADITOS INTEGRALES S.A.C.', margin, yPos);
+    
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('RUC: 20550404517', margin, yPos);
+    
+    yPos += 5;
+    const addressText = 'AV. ALAMEDA DEL CORREGIDOR NRO. M-2 LT.32B, LIMA - LIMA';
+    const addressLines = doc.splitTextToSize(addressText, pageWidth - margin * 2);
+    doc.text(addressLines, margin, yPos);
+    yPos += 5 * addressLines.length;
+    
+    doc.text('Email: pecaditosintegrales@hotmail.com', margin, yPos);
+
+    // Línea separadora
+    yPos += 8;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+
+    // Título del documento
+    yPos += 10;
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(37, 99, 235);
+    doc.text('ORDEN DE PEDIDO', pageWidth / 2, yPos, { align: 'center' });
+    
+    yPos += 7;
+    doc.setFontSize(12);
+    doc.text(orderNumber, pageWidth / 2, yPos, { align: 'center' });
+
+    // Información del pedido
+    yPos += 12;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    doc.text('FECHA DE EMISIÓN:', margin, yPos);
+    doc.setFont('helvetica', 'normal');
+    const dateStr = new Date(orderData.createdAt).toLocaleDateString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+    doc.text(dateStr, margin + 50, yPos);
+
+    // Información del cliente
+    yPos += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('CLIENTE:', margin, yPos);
+
+    yPos += 6;
+    doc.setFont('helvetica', 'normal');
+    if (orderData.legalName) {
+      doc.text(orderData.legalName, margin, yPos);
+      yPos += 5;
+    }
+    
+    if (orderData.ruc) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('RUC:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(orderData.ruc, margin + 15, yPos);
+      yPos += 5;
+    }
+
+    if (orderData.address) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('DIRECCIÓN:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      const addressLines = doc.splitTextToSize(orderData.address, pageWidth - margin * 2 - 30);
+      doc.text(addressLines, margin + 30, yPos);
+      yPos += 5 * addressLines.length;
+    }
+
+    if (orderData.phone) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('TELÉFONO:', margin, yPos);
+      doc.setFont('helvetica', 'normal');
+      doc.text(orderData.phone, margin + 30, yPos);
+      yPos += 5;
+    }
+
+    // Tabla de productos
+    yPos += 10;
+    
+    // Verificar si necesitamos una nueva página
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFillColor(37, 99, 235);
+    doc.setTextColor(255, 255, 255);
+    doc.rect(margin, yPos - 5, pageWidth - margin * 2, 8, 'F');
+    
+    doc.text('CANT.', margin + 2, yPos);
+    doc.text('UNIDAD', margin + 20, yPos);
+    doc.text('DESCRIPCIÓN', margin + 45, yPos);
+    doc.text('P.UNIT', pageWidth - margin - 35, yPos);
+    doc.text('TOTAL', pageWidth - margin - 10, yPos, { align: 'right' });
+
+    yPos += 8;
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+
+    // Items
+    orderData.items.forEach((item) => {
+      // Verificar si necesitamos una nueva página
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      const total = item.quantity * item.price;
+      
+      doc.text(String(item.quantity), margin + 2, yPos);
+      doc.text(item.unit.toUpperCase(), margin + 20, yPos);
+      
+      const descLines = doc.splitTextToSize(item.productName, 90);
+      doc.text(descLines, margin + 45, yPos);
+      
+      doc.text(item.price.toFixed(2), pageWidth - margin - 35, yPos);
+      doc.text(total.toFixed(2), pageWidth - margin - 10, yPos, { align: 'right' });
+      
+      yPos += 5 * Math.max(1, descLines.length);
+    });
+
+    // Línea separadora antes de totales
+    yPos += 5;
+    doc.setDrawColor(200, 200, 200);
+    doc.line(margin, yPos, pageWidth - margin, yPos);
+
+    // Totales
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    
+    // Verificar espacio para totales
+    if (yPos > pageHeight - 40) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.text('SUBTOTAL:', pageWidth - margin - 50, yPos);
+    doc.text(`S/ ${orderData.total.toFixed(2)}`, pageWidth - margin - 10, yPos, { align: 'right' });
+
+    yPos += 8;
+    doc.setFontSize(12);
+    doc.text('TOTAL:', pageWidth - margin - 50, yPos);
+    doc.setTextColor(37, 99, 235);
+    doc.text(`S/ ${orderData.total.toFixed(2)}`, pageWidth - margin - 10, yPos, { align: 'right' });
+
+    // Nota al pie
+    yPos += 15;
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(100, 100, 100);
+    const note = 'Gracias por su preferencia. Para cualquier consulta contactar a pecaditosintegrales@hotmail.com';
+    const noteLines = doc.splitTextToSize(note, pageWidth - margin * 2);
+    doc.text(noteLines, pageWidth / 2, yPos, { align: 'center' });
+
+    // Abrir ventana de impresión del PDF
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    const printWindow = window.open(pdfUrl);
+    
+    if (printWindow) {
+      printWindow.onload = () => {
+        printWindow.print();
+      };
+    }
+    
+    toast({
+      title: 'Abriendo impresión',
+      description: 'Se abrirá el diálogo de impresión',
+    });
   };
 
   return (

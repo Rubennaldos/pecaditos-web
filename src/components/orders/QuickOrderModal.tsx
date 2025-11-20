@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { ref, onValue, push, set, update } from 'firebase/database';
 import { db } from '@/config/firebase';
+import { computeLine, type QtyDiscount } from '@/lib/wholesale/pricing';
 
 type Product = {
   id: string;
@@ -18,6 +19,7 @@ type Product = {
   unit: string;
   imageUrl?: string;
   stock?: number;
+  qtyDiscounts?: QtyDiscount[];
 };
 
 type OrderItem = {
@@ -41,6 +43,8 @@ type Props = {
   onOrderCreated: (orderId: string, orderNumber: string) => void;
 };
 
+const CART_STORAGE_KEY = 'quickOrderCart';
+
 export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }: Props) => {
   const [products, setProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,6 +55,41 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
   const [isEnteringQuantity, setIsEnteringQuantity] = useState(false);
   const [tempQuantity, setTempQuantity] = useState('');
   const selectedProductRef = useRef<HTMLDivElement>(null);
+
+  // Cargar carrito persistido al abrir el modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    try {
+      const savedCart = localStorage.getItem(`${CART_STORAGE_KEY}_${clientData.ruc}`);
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
+          setOrderItems(parsed.items);
+          toast({
+            title: 'Carrito recuperado',
+            description: `${parsed.items.length} producto(s) en tu carrito`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando carrito:', error);
+    }
+  }, [isOpen, clientData.ruc]);
+
+  // Guardar carrito cuando cambia
+  useEffect(() => {
+    if (orderItems.length > 0 && clientData.ruc) {
+      try {
+        localStorage.setItem(`${CART_STORAGE_KEY}_${clientData.ruc}`, JSON.stringify({
+          items: orderItems,
+          timestamp: Date.now()
+        }));
+      } catch (error) {
+        console.error('Error guardando carrito:', error);
+      }
+    }
+  }, [orderItems, clientData.ruc]);
 
   // Cargar productos del catálogo
   useEffect(() => {
@@ -73,6 +112,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
           unit: p.unit || 'und',
           imageUrl: p.imageUrl,
           stock: p.stock,
+          qtyDiscounts: Array.isArray(p.qtyDiscounts) ? p.qtyDiscounts : [],
         }))
         .filter((p) => p.wholesalePrice > 0 && p.name);
 
@@ -179,12 +219,20 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
       return;
     }
 
-    // Agregar al carrito
+    // Agregar al carrito con precio calculado según cantidad
+    const { unit: calculatedPrice } = computeLine(
+      product.wholesalePrice,
+      product.qtyDiscounts || [],
+      qty
+    );
+
     const existing = orderItems.find((item) => item.productId === product.id);
     if (existing) {
       setOrderItems(
         orderItems.map((item) =>
-          item.productId === product.id ? { ...item, quantity: qty } : item
+          item.productId === product.id
+            ? { ...item, quantity: qty, price: calculatedPrice }
+            : item
         )
       );
     } else {
@@ -194,7 +242,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
           productId: product.id,
           productName: product.name,
           quantity: qty,
-          price: product.wholesalePrice,
+          price: calculatedPrice,
           unit: product.unit,
         },
       ]);
@@ -263,12 +311,21 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
       return;
     }
 
+    // Calcular precio con descuentos por cantidad
+    const { unit: calculatedPrice } = computeLine(
+      product.wholesalePrice,
+      product.qtyDiscounts || [],
+      qty
+    );
+
     // Verificar si ya existe
     const existing = orderItems.find((item) => item.productId === product.id);
     if (existing) {
       setOrderItems(
         orderItems.map((item) =>
-          item.productId === product.id ? { ...item, quantity: qty } : item
+          item.productId === product.id
+            ? { ...item, quantity: qty, price: calculatedPrice }
+            : item
         )
       );
     } else {
@@ -278,7 +335,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
           productId: product.id,
           productName: product.name,
           quantity: qty,
-          price: product.wholesalePrice,
+          price: calculatedPrice,
           unit: product.unit,
         },
       ]);
@@ -347,6 +404,11 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
         title: '¡Pedido creado!',
         description: `Orden ${orderNumber} registrada exitosamente`,
       });
+
+      // Limpiar carrito del localStorage
+      if (clientData.ruc) {
+        localStorage.removeItem(`${CART_STORAGE_KEY}_${clientData.ruc}`);
+      }
 
       onOrderCreated(newOrderRef.key!, orderNumber);
       
@@ -467,6 +529,13 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
                   const qty = quantities[product.id] || product.minMultiple;
                   const isSelected = index === selectedIndex;
                   
+                  // Calcular precio con descuentos
+                  const { unit: pricePerUnit, discountPct } = computeLine(
+                    product.wholesalePrice,
+                    product.qtyDiscounts || [],
+                    qty
+                  );
+                  
                   return (
                     <div
                       key={product.id}
@@ -484,11 +553,18 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
                         {product.name}
                       </h4>
                       <div className="flex items-center justify-between mb-2">
-                        <span className={`text-lg font-bold ${
-                          isSelected ? 'text-blue-600' : 'text-blue-600'
-                        }`}>
-                          S/ {product.wholesalePrice.toFixed(2)}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className={`text-lg font-bold ${
+                            isSelected ? 'text-blue-600' : 'text-blue-600'
+                          }`}>
+                            S/ {pricePerUnit.toFixed(2)}
+                          </span>
+                          {discountPct > 0 && (
+                            <span className="text-xs text-green-600 font-semibold">
+                              {discountPct}% desc.
+                            </span>
+                          )}
+                        </div>
                         <Badge variant="secondary" className="text-xs">
                           Mín: {product.minMultiple}
                         </Badge>
