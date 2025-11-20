@@ -72,7 +72,7 @@ const AVAILABLE_MODULES = [
   { id: 'billing-admin', name: 'Módulo Cobranzas', icon: DollarSign, color: 'red' },
   { id: 'customers-admin', name: 'Módulo Clientes', icon: Shield, color: 'blue' },
   { id: 'catalogs-admin', name: 'Catálogos por Cliente', icon: Package, color: 'emerald' },
-  { id: 'business-admin', name: 'Gestión Comercial', icon: Building2, color: 'teal' },
+  { id: 'business-admin', name: 'Administrador de Catálogo Mayorista', icon: Building2, color: 'teal' },
   { id: 'logistics', name: 'Módulo Logística', icon: Truck, color: 'indigo' },
   { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'indigo' },
 ];
