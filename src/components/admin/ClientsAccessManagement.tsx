@@ -122,6 +122,7 @@ interface Client {
 // ==========================================
 
 // Módulos disponibles (id, nombre, icono, color base)
+// IMPORTANTE: Los IDs deben coincidir con los módulos usados en ProtectedRoute (App.tsx)
 const AVAILABLE_MODULES = [
   { id: 'dashboard', name: 'Dashboard', icon: BarChart3, color: 'purple' },
   { id: 'catalog', name: 'Catálogo', icon: ShoppingCart, color: 'blue' },
