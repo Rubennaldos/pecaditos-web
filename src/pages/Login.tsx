@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/use-toast";
 import { Eye, EyeOff, User, Lock } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 import { signInAndEnsureProfile, formatAuthCredentials } from "@/services/auth";
 import { useAuth } from '@/hooks/useAuth';
@@ -166,19 +167,26 @@ const Login = () => {
           required
         />
       </div>
-      <div className="relative">
-        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-stone-400" />
-        <Input
-          type="password"
-          placeholder="PIN (4 dígitos)"
-          value={pin}
-          onChange={(e) => {
-            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
-            setPin(v);
-          }}
-          className="h-12 pl-10 bg-white border-stone-200 focus:border-amber-300"
-          required
-        />
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-stone-600 text-sm">
+          <Lock className="h-4 w-4" />
+          <span>PIN (4 dígitos)</span>
+        </div>
+        <div className="flex justify-center">
+          <InputOTP
+            maxLength={4}
+            value={pin}
+            onChange={(value) => setPin(value)}
+            pattern="[0-9]*"
+          >
+            <InputOTPGroup>
+              <InputOTPSlot index={0} />
+              <InputOTPSlot index={1} />
+              <InputOTPSlot index={2} />
+              <InputOTPSlot index={3} />
+            </InputOTPGroup>
+          </InputOTP>
+        </div>
       </div>
     </div>
   );
