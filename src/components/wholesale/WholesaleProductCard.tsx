@@ -22,7 +22,8 @@ interface WholesaleProductCardProps {
     qtyDiscounts?: QtyDiscount[];
     wholesalePrice?: number;
     description?: string;
-    imageUrl?: string; // por si tu objeto trae imageUrl en vez de image
+    imageUrl?: string;
+    stock?: number;
   };
 }
 
@@ -241,22 +242,6 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
               ) : (
                 <p className="text-xs font-medium text-amber-800 leading-tight">
                   Total: {money(line.total)}
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-                    </span>
-                    <span className="text-green-700">{money(line.total)}</span>
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm font-medium text-amber-800">
-                  Subtotal: {money(baseUnit * quantity)}
                 </p>
               )}
             </div>
