@@ -154,6 +154,16 @@ const Login = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingRedirect, authLoading, perfil]);
 
+  const handleNumpadClick = (num: string) => {
+    if (pin.length < 4) {
+      setPin(pin + num);
+    }
+  };
+
+  const handleNumpadDelete = () => {
+    setPin(pin.slice(0, -1));
+  };
+
   const renderPortalFields = () => (
     <div className="space-y-4">
       <div className="relative">
@@ -167,7 +177,7 @@ const Login = () => {
           required
         />
       </div>
-      <div className="space-y-2">
+      <div className="space-y-3">
         <div className="flex items-center gap-2 text-stone-600 text-sm">
           <Lock className="h-4 w-4" />
           <span>PIN (4 dígitos)</span>
@@ -186,6 +196,49 @@ const Login = () => {
               <InputOTPSlot index={3} />
             </InputOTPGroup>
           </InputOTP>
+        </div>
+        
+        {/* Teclado numérico */}
+        <div className="grid grid-cols-3 gap-2 max-w-xs mx-auto">
+          {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+            <button
+              key={num}
+              type="button"
+              onClick={() => handleNumpadClick(num.toString())}
+              className="h-14 bg-white border-2 border-stone-200 hover:border-amber-400 hover:bg-amber-50 rounded-lg text-xl font-semibold text-stone-700 transition-all active:scale-95"
+              disabled={isLoading}
+            >
+              {num}
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={handleNumpadDelete}
+            className="h-14 bg-white border-2 border-stone-200 hover:border-red-400 hover:bg-red-50 rounded-lg text-stone-700 transition-all active:scale-95 flex items-center justify-center"
+            disabled={isLoading}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 4H8l-7 8 7 8h13a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"/>
+              <line x1="18" y1="9" x2="12" y2="15"/>
+              <line x1="12" y1="9" x2="18" y2="15"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleNumpadClick('0')}
+            className="h-14 bg-white border-2 border-stone-200 hover:border-amber-400 hover:bg-amber-50 rounded-lg text-xl font-semibold text-stone-700 transition-all active:scale-95"
+            disabled={isLoading}
+          >
+            0
+          </button>
+          <button
+            type="button"
+            onClick={() => setPin('')}
+            className="h-14 bg-white border-2 border-stone-200 hover:border-red-400 hover:bg-red-50 rounded-lg text-sm font-medium text-stone-700 transition-all active:scale-95"
+            disabled={isLoading}
+          >
+            Limpiar
+          </button>
         </div>
       </div>
     </div>
