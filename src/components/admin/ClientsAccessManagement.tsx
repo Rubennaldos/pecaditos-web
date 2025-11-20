@@ -223,63 +223,185 @@ export const generateClientReportExcel = (client: Client) => {
   XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
 };
 
-// Generar plantilla de importación masiva
+// Generar plantilla de importación masiva de clientes
 export const generateBulkImportTemplate = () => {
-  const workbook = XLSX.utils.book_new();
+  const wb = XLSX.utils.book_new();
 
-  // Instrucciones
+  // =============== HOJA: INSTRUCCIONES ===============
   const instructions = [
     ['PLANTILLA DE IMPORTACIÓN MASIVA DE CLIENTES'],
     [],
-    ['INSTRUCCIONES:'],
-    ['1. Complete los datos en la hoja "Clientes" (campos obligatorios marcados con *)'],
-    ['2. Complete las sedes en la hoja "Sedes" (vincular por RUC/DNI del cliente)'],
-    ['3. Complete los contactos en la hoja "Contactos" (vincular por RUC/DNI del cliente)'],
-    ['4. Los módulos de acceso deben separarse por punto y coma (;)'],
-    ['5. Módulos disponibles: dashboard;catalog;orders;tracking;delivery;production;billing;logistics;locations;reports'],
-    ['6. Guarde el archivo y use el botón "Importar Clientes" para subirlo'],
+    ['INSTRUCCIONES GENERALES:'],
+    ['1. Complete las 5 hojas: Clientes, Sedes, Contactos, Comercial y Permisos'],
+    ['2. Campos marcados con * son obligatorios'],
+    ['3. Respete los formatos exactos de las columnas'],
+    ['4. Use los valores exactos indicados para campos con opciones'],
+    ['5. Las hojas están relacionadas por RUC/DNI del cliente'],
     [],
-    ['NOTAS IMPORTANTES:'],
-    ['- El RUC/DNI debe ser único para cada cliente'],
-    ['- El estado puede ser: activo, suspendido, moroso'],
-    ['- Si desea crear acceso al portal, ingrese un PIN de 4 dígitos'],
-    ['- Para marcar una sede como principal, use "SI" o "NO"'],
-    ['- Los tipos de contacto pueden ser: pago, admin, pedidos']
+    ['HOJA "CLIENTES" - Información General:'],
+    ['- Tipo Cliente*: Identificacion, RUC, DNI, CE, PASAPORTE, DOC.TRI.NO.DISP.SIN.RUC'],
+    ['- RUC/DNI*: Número de documento único del cliente'],
+    ['- Razón Social*: Nombre completo de la empresa o persona'],
+    ['- Departamento, Provincia, Distrito: Ubicación según UBIGEO Perú'],
+    ['- Dirección Fiscal: Dirección específica completa'],
+    ['- Email Facturación: Correo para envío de comprobantes'],
+    ['- Estado*: activo, suspendido, moroso'],
+    ['- PIN (4 dígitos)*: Contraseña numérica para acceso al portal'],
+    ['- Observaciones: Notas internas sobre el cliente'],
+    [],
+    ['HOJA "SEDES" - Puntos de Entrega:'],
+    ['- RUC/DNI Cliente*: Debe coincidir con hoja Clientes'],
+    ['- Nombre Sede*: Identificador de la sede (Ej: Sede Principal)'],
+    ['- Dirección Sede*: Dirección completa de entrega'],
+    ['- Responsable*: Nombre del encargado de recibir pedidos'],
+    ['- Teléfono*: Número de contacto de la sede'],
+    ['- Distrito*: Distrito de la sede'],
+    ['- Google Maps URL: Link de ubicación (opcional)'],
+    ['- Principal: SI/NO (solo una sede debe ser SI)'],
+    [],
+    ['HOJA "CONTACTOS" - Personas de Contacto:'],
+    ['- RUC/DNI Cliente*: Debe coincidir con hoja Clientes'],
+    ['- Tipo Contacto*: pago, admin, pedidos'],
+    ['  · pago: Responsable de Pago'],
+    ['  · admin: Administrador de Cuenta'],
+    ['  · pedidos: Responsable de Pedidos'],
+    ['- Nombre*: Nombre completo del contacto'],
+    ['- DNI*: Documento de identidad'],
+    ['- Celular*: Número de teléfono móvil'],
+    ['- Correo*: Email del contacto'],
+    [],
+    ['HOJA "COMERCIAL" - Información Comercial:'],
+    ['- RUC/DNI Cliente*: Debe coincidir con hoja Clientes'],
+    ['- Lista Precios: Mayorista A, Mayorista B, Distribuidor, Retail'],
+    ['- Frecuencia Compras: Semanal, Quincenal, Mensual, Eventual, Otro'],
+    ['- Condición Pago: Al contado, Crédito 15 días, Crédito 30 días, Crédito 45 días, Contraentrega'],
+    ['- Límite Crédito: Monto numérico (Ej: 5000.00)'],
+    ['- Horario Entrega: Texto libre (Ej: Lunes a Viernes 8:00-17:00)'],
+    [],
+    ['HOJA "PERMISOS" - Módulos de Acceso al Portal:'],
+    ['- RUC/DNI Cliente*: Debe coincidir con hoja Clientes'],
+    ['- Módulos disponibles (marcar SI o NO para cada uno):'],
+    ['  · Dashboard: Vista general del sistema'],
+    ['  · Catalog: Administrador de Catálogo Mayorista'],
+    ['  · Orders: Gestión de pedidos'],
+    ['  · Tracking: Seguimiento de entregas'],
+    ['  · Delivery: Módulo de reparto'],
+    ['  · Production: Control de producción'],
+    ['  · Billing: Gestión de cobranzas'],
+    ['  · Logistics: Administración logística'],
+    ['  · Locations: Gestión de ubicaciones'],
+    ['  · Reports: Reportes y estadísticas'],
+    [],
+    ['IMPORTANTE - ACCESO AL PORTAL:'],
+    ['- El PIN de 4 dígitos se usa junto con el RUC para crear el acceso'],
+    ['- Usuario: RUC/DNI del cliente'],
+    ['- Contraseña: PIN de 4 dígitos'],
+    ['- Los permisos determinan qué módulos verá el cliente al ingresar'],
+    [],
+    ['NOTAS FINALES:'],
+    ['- Puede importar múltiples clientes a la vez'],
+    ['- Cada cliente puede tener múltiples sedes y contactos'],
+    ['- Verifique que todos los RUC/DNI coincidan entre hojas'],
+    ['- Revise los datos antes de importar para evitar errores']
   ];
-
   const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
-  XLSX.utils.book_append_sheet(workbook, wsInstructions, 'Instrucciones');
+  XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instrucciones');
 
-  // Hoja de Clientes
-  const clientsData = [
-    ['RUC/DNI*', 'Razón Social*', 'Dirección Fiscal*', 'Departamento', 'Provincia', 'Distrito', 'Email Facturación*', 'Estado*', 'Lista de Precio', 'Frecuencia Compras', 'Horario Entrega', 'Condición Pago', 'Límite Crédito', 'Observaciones', 'PIN (4 dígitos)', 'Módulos de Acceso'],
-    ['20123456789', 'Ejemplo SAC', 'Av. Principal 123', 'Lima', 'Lima', 'Miraflores', 'facturacion@ejemplo.com', 'activo', 'Lista A', 'Semanal', '8am - 12pm', 'Crédito 30 días', '10000', 'Cliente de ejemplo', '1234', 'catalog;orders;tracking']
+  // =============== HOJA: CLIENTES ===============
+  const clientsHeader = [
+    'Tipo Cliente*', 'RUC/DNI*', 'Razón Social*', 'Departamento', 'Provincia',
+    'Distrito', 'Dirección Fiscal', 'Email Facturación', 'Estado*', 'PIN (4 dígitos)*', 'Observaciones'
   ];
-
-  const wsClients = XLSX.utils.aoa_to_sheet(clientsData);
-  XLSX.utils.book_append_sheet(workbook, wsClients, 'Clientes');
-
-  // Hoja de Sedes
-  const sedesData = [
-    ['RUC/DNI Cliente*', 'Nombre Sede*', 'Dirección*', 'Distrito', 'Responsable*', 'Teléfono*', 'Principal (SI/NO)*', 'Google Maps URL'],
-    ['20123456789', 'Sede Central', 'Av. Principal 123', 'Miraflores', 'Juan Pérez', '987654321', 'SI', ''],
-    ['20123456789', 'Sede Callao', 'Av. Colonial 456', 'Callao', 'María García', '987654322', 'NO', '']
+  const clientsSample = [
+    clientsHeader,
+    [
+      'RUC', '20123456789', 'DISTRIBUIDORA LIMA SRL', 'Lima', 'Lima',
+      'Miraflores', 'Av. Larco 1234', 'facturacion@distrilima.com', 'activo', '1234', 'Cliente frecuente'
+    ],
+    [
+      'RUC', '20987654321', 'COMERCIAL SAN JUAN SAC', 'Cusco', 'Cusco',
+      'Cusco', 'Jr. Comercio 567', 'ventas@sanjuan.com', 'activo', '5678', ''
+    ],
+    [
+      'DNI', '45678901', 'María González Torres', 'Arequipa', 'Arequipa',
+      'Arequipa', 'Calle Principal 890', 'maria.gonzalez@email.com', 'activo', '9012', 'Cliente retail'
+    ]
   ];
+  const wsClientes = XLSX.utils.aoa_to_sheet(clientsSample);
+  XLSX.utils.book_append_sheet(wb, wsClientes, 'Clientes');
 
-  const wsSedes = XLSX.utils.aoa_to_sheet(sedesData);
-  XLSX.utils.book_append_sheet(workbook, wsSedes, 'Sedes');
-
-  // Hoja de Contactos
-  const contactosData = [
-    ['RUC/DNI Cliente*', 'Tipo (pago/admin/pedidos)*', 'Nombre*', 'DNI*', 'Celular*', 'Correo*'],
-    ['20123456789', 'pago', 'Juan Pérez', '12345678', '987654321', 'juan.perez@ejemplo.com'],
-    ['20123456789', 'pedidos', 'María García', '87654321', '987654322', 'maria.garcia@ejemplo.com']
+  // =============== HOJA: SEDES ===============
+  const sedesHeader = [
+    'RUC/DNI Cliente*', 'Nombre Sede*', 'Dirección Sede*', 'Responsable*',
+    'Teléfono*', 'Distrito*', 'Google Maps URL', 'Principal'
   ];
+  const sedesSample = [
+    sedesHeader,
+    [
+      '20123456789', 'Sede Principal', 'Av. Larco 1234, Miraflores', 'Carlos Pérez',
+      '987654321', 'Miraflores', 'https://maps.google.com/?q=-12.123,-77.456', 'SI'
+    ],
+    [
+      '20123456789', 'Sede San Isidro', 'Calle Los Conquistadores 789', 'Ana López',
+      '987654322', 'San Isidro', '', 'NO'
+    ],
+    [
+      '20987654321', 'Almacén Central', 'Jr. Comercio 567', 'Roberto Mamani',
+      '984123456', 'Cusco', '', 'SI'
+    ],
+    [
+      '45678901', 'Tienda', 'Calle Principal 890', 'María González',
+      '965432109', 'Arequipa', '', 'SI'
+    ]
+  ];
+  const wsSedes = XLSX.utils.aoa_to_sheet(sedesSample);
+  XLSX.utils.book_append_sheet(wb, wsSedes, 'Sedes');
 
-  const wsContactos = XLSX.utils.aoa_to_sheet(contactosData);
-  XLSX.utils.book_append_sheet(workbook, wsContactos, 'Contactos');
+  // =============== HOJA: CONTACTOS ===============
+  const contactosHeader = [
+    'RUC/DNI Cliente*', 'Tipo Contacto*', 'Nombre*', 'DNI*', 'Celular*', 'Correo*'
+  ];
+  const contactosSample = [
+    contactosHeader,
+    ['20123456789', 'admin', 'Carlos Pérez Rodríguez', '12345678', '987654321', 'cperez@distrilima.com'],
+    ['20123456789', 'pedidos', 'Ana López García', '23456789', '987654322', 'alopez@distrilima.com'],
+    ['20123456789', 'pago', 'Luis Ramírez Silva', '34567890', '987654323', 'lramirez@distrilima.com'],
+    ['20987654321', 'admin', 'Roberto Mamani Quispe', '45678902', '984123456', 'rmamani@sanjuan.com'],
+    ['20987654321', 'pedidos', 'Julia Condori Huamán', '56789012', '984123457', 'jcondori@sanjuan.com'],
+    ['45678901', 'admin', 'María González Torres', '45678901', '965432109', 'maria.gonzalez@email.com']
+  ];
+  const wsContactos = XLSX.utils.aoa_to_sheet(contactosSample);
+  XLSX.utils.book_append_sheet(wb, wsContactos, 'Contactos');
 
-  XLSX.writeFile(workbook, 'Plantilla_Importacion_Clientes.xlsx');
+  // =============== HOJA: COMERCIAL ===============
+  const comercialHeader = [
+    'RUC/DNI Cliente*', 'Lista Precios', 'Frecuencia Compras', 'Condición Pago',
+    'Límite Crédito', 'Horario Entrega'
+  ];
+  const comercialSample = [
+    comercialHeader,
+    ['20123456789', 'Mayorista A', 'Semanal', 'Crédito 30 días', '10000', 'Lunes a Viernes 8:00-17:00'],
+    ['20987654321', 'Mayorista B', 'Quincenal', 'Crédito 15 días', '5000', 'Martes y Jueves 9:00-16:00'],
+    ['45678901', 'Retail', 'Mensual', 'Al contado', '0', 'Lunes a Sábado 10:00-18:00']
+  ];
+  const wsComercial = XLSX.utils.aoa_to_sheet(comercialSample);
+  XLSX.utils.book_append_sheet(wb, wsComercial, 'Comercial');
+
+  // =============== HOJA: PERMISOS ===============
+  const permisosHeader = [
+    'RUC/DNI Cliente*', 'Dashboard', 'Catalog', 'Orders', 'Tracking', 'Delivery',
+    'Production', 'Billing', 'Logistics', 'Locations', 'Reports'
+  ];
+  const permisosSample = [
+    permisosHeader,
+    ['20123456789', 'SI', 'SI', 'SI', 'SI', 'NO', 'NO', 'SI', 'NO', 'NO', 'SI'],
+    ['20987654321', 'SI', 'SI', 'SI', 'SI', 'NO', 'NO', 'NO', 'NO', 'NO', 'NO'],
+    ['45678901', 'SI', 'SI', 'SI', 'NO', 'NO', 'NO', 'NO', 'NO', 'NO', 'NO']
+  ];
+  const wsPermisos = XLSX.utils.aoa_to_sheet(permisosSample);
+  XLSX.utils.book_append_sheet(wb, wsPermisos, 'Permisos');
+
+  XLSX.writeFile(wb, 'Plantilla_Importacion_Clientes.xlsx');
 };
 
 // Procesar importación masiva
@@ -292,6 +414,7 @@ export const processBulkImport = async (file: File, toast: any) => {
         const data = new Uint8Array(e.target?.result as ArrayBuffer);
         const workbook = XLSX.read(data, { type: 'array' });
 
+        // Leer todas las hojas
         const clientsSheet = workbook.Sheets['Clientes'];
         if (!clientsSheet) {
           throw new Error('No se encontró la hoja "Clientes"');
@@ -304,6 +427,12 @@ export const processBulkImport = async (file: File, toast: any) => {
         const contactosSheet = workbook.Sheets['Contactos'];
         const contactosData: any[] = contactosSheet ? XLSX.utils.sheet_to_json(contactosSheet) : [];
 
+        const comercialSheet = workbook.Sheets['Comercial'];
+        const comercialData: any[] = comercialSheet ? XLSX.utils.sheet_to_json(comercialSheet) : [];
+
+        const permisosSheet = workbook.Sheets['Permisos'];
+        const permisosData: any[] = permisosSheet ? XLSX.utils.sheet_to_json(permisosSheet) : [];
+
         const clientsRef = ref(db, 'clients');
         let createdCount = 0;
         let errorCount = 0;
@@ -311,63 +440,85 @@ export const processBulkImport = async (file: File, toast: any) => {
         for (const row of clientsData) {
           try {
             const rucDni = row['RUC/DNI*']?.toString().trim();
-            if (!rucDni) continue;
+            if (!rucDni || !row['Razón Social*']) continue;
 
+            // Procesar Sedes
             const clientSedes = sedesData
               .filter(s => s['RUC/DNI Cliente*']?.toString().trim() === rucDni)
               .map((s, idx) => ({
                 id: `sede_${Date.now()}_${idx}`,
                 nombre: s['Nombre Sede*'] || '',
-                direccion: s['Dirección*'] || '',
-                distrito: s['Distrito'] || '',
+                direccion: s['Dirección Sede*'] || '',
+                distrito: s['Distrito*'] || '',
                 responsable: s['Responsable*'] || '',
                 telefono: s['Teléfono*']?.toString() || '',
-                principal: s['Principal (SI/NO)*']?.toString().toUpperCase() === 'SI',
-                googleMapsUrl: s['Google Maps URL'] || ''
+                principal: s['Principal']?.toString().toUpperCase() === 'SI',
+                googleMapsUrl: s['Google Maps URL'] || '',
+                comentarios: []
               }));
 
+            // Procesar Contactos
             const clientContactos = contactosData
               .filter(c => c['RUC/DNI Cliente*']?.toString().trim() === rucDni)
               .map(c => ({
-                tipo: c['Tipo (pago/admin/pedidos)*'] || 'pedidos',
+                tipo: c['Tipo Contacto*'] || 'pedidos',
                 nombre: c['Nombre*'] || '',
                 dni: c['DNI*']?.toString() || '',
                 celular: c['Celular*']?.toString() || '',
                 correo: c['Correo*'] || ''
               }));
 
-            const modulesStr = row['Módulos de Acceso']?.toString() || '';
-            const accessModules = modulesStr
-              .split(';')
-              .map(m => m.trim())
-              .filter(m => m);
+            // Procesar Datos Comerciales
+            const comercialRow = comercialData.find(
+              c => c['RUC/DNI Cliente*']?.toString().trim() === rucDni
+            );
+
+            // Procesar Permisos de Módulos
+            const permisosRow = permisosData.find(
+              p => p['RUC/DNI Cliente*']?.toString().trim() === rucDni
+            );
+
+            const accessModules: string[] = [];
+            if (permisosRow) {
+              const moduleKeys = ['Dashboard', 'Catalog', 'Orders', 'Tracking', 'Delivery', 
+                                 'Production', 'Billing', 'Logistics', 'Locations', 'Reports'];
+              const moduleIds = ['dashboard', 'catalog', 'orders', 'tracking', 'delivery', 
+                                'production', 'billing', 'logistics', 'locations', 'reports'];
+              
+              moduleKeys.forEach((key, index) => {
+                if (permisosRow[key]?.toString().toUpperCase() === 'SI') {
+                  accessModules.push(moduleIds[index]);
+                }
+              });
+            }
 
             const newClient = {
               rucDni,
               razonSocial: row['Razón Social*'] || '',
-              direccionFiscal: row['Dirección Fiscal*'] || '',
+              direccionFiscal: row['Dirección Fiscal'] || '',
               departamento: row['Departamento'] || '',
               provincia: row['Provincia'] || '',
               distrito: row['Distrito'] || '',
-              emailFacturacion: row['Email Facturación*'] || '',
+              emailFacturacion: row['Email Facturación'] || '',
               estado: (row['Estado*'] || 'activo').toLowerCase(),
-              listaPrecio: row['Lista de Precio'] || 'Lista A',
-              frecuenciaCompras: row['Frecuencia Compras'] || '',
-              horarioEntrega: row['Horario Entrega'] || '',
-              condicionPago: row['Condición Pago'] || '',
-              limiteCredito: parseFloat(row['Límite Crédito'] || '0'),
               observaciones: row['Observaciones'] || '',
-              fechaCreacion: new Date().toLocaleDateString('es-PE'),
+              listaPrecio: comercialRow?.['Lista Precios'] || '',
+              frecuenciaCompras: comercialRow?.['Frecuencia Compras'] || '',
+              condicionPago: comercialRow?.['Condición Pago'] || '',
+              limiteCredito: parseFloat(comercialRow?.['Límite Crédito'] || '0'),
+              horarioEntrega: comercialRow?.['Horario Entrega'] || '',
+              fechaCreacion: Date.now(),
               montoDeuda: 0,
               sedes: clientSedes,
               contactos: clientContactos,
               accessModules,
-              pin: row['PIN (4 dígitos)']?.toString() || '',
+              pin: row['PIN (4 dígitos)*']?.toString() || null,
               portalLoginRuc: rucDni
             };
 
             const newClientRef = push(clientsRef);
             
+            // Crear acceso al portal si se proporcionó PIN
             if (newClient.pin && newClient.pin.length === 4) {
               try {
                 const { email, password } = formatAuthCredentials(rucDni, newClient.pin);
@@ -387,7 +538,26 @@ export const processBulkImport = async (file: File, toast: any) => {
                   authUid: credential.user.uid
                 });
               } catch (authError: any) {
-                await set(newClientRef, newClient);
+                if (authError.code === 'auth/email-already-in-use') {
+                  // Si ya existe, vincular sin crear nuevo usuario
+                  const qByRuc = query(ref(db, 'usuarios'), orderByChild('portalLoginRuc'), equalTo(rucDni));
+                  const snapRuc = await get(qByRuc);
+                  let foundUid: string | undefined;
+                  
+                  if (snapRuc.exists()) {
+                    foundUid = Object.keys(snapRuc.val())[0];
+                    await update(ref(db, `usuarios/${foundUid}`), {
+                      accessModules: newClient.accessModules
+                    });
+                  }
+                  
+                  await set(newClientRef, {
+                    ...newClient,
+                    authUid: foundUid || null
+                  });
+                } else {
+                  await set(newClientRef, newClient);
+                }
               }
             } else {
               await set(newClientRef, newClient);
@@ -429,130 +599,6 @@ export const processBulkImport = async (file: File, toast: any) => {
   });
 };
 
-// Plantilla de productos mayoristas
-export const generateProductsTemplate = () => {
-  const wb = XLSX.utils.book_new();
-  const instructions = [
-    ['PLANTILLA DE IMPORTACIÓN MASIVA DE PRODUCTOS MAYORISTAS'],
-    [],
-    ['INSTRUCCIONES:'],
-    ['1. Complete la hoja "Productos". Campos obligatorios marcados con *.'],
-    ['2. Puede dejar celdas vacías si no tiene el dato (excepto SKU, Nombre, Precio Base).'],
-    ['3. Columna Activo (SI/NO) determina si el producto estará visible.'],
-    ['4. Precios numéricos usar punto para decimales (ej: 12.50).'],
-    ['5. No se incluye foto; cargue imágenes manualmente luego.'],
-    [],
-    ['COLUMNAS:'],
-    ['SKU*: Código único.'],
-    ['Nombre*: Nombre comercial.'],
-    ['Descripción: Texto corto.'],
-    ['Categoría / Subcategoría: Clasificación.'],
-    ['Unidad Medida: Ej: Unidad, Caja, Kg.'],
-    ['Precio Base*: Precio lista base.'],
-    ['Precio Mayorista / Distribuidor: Opcionales.'],
-    ['Stock: Cantidad disponible (opcional).'],
-    ['Activo (SI/NO): Estado.']
-  ];
-  const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
-  XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instrucciones');
-
-  const sample = [
-    [
-      'SKU*','Nombre*','Descripción','Categoría','Subcategoría','Unidad Medida',
-      'Precio Base*','Precio Mayorista','Precio Distribuidor','Stock','Activo (SI/NO)'
-    ],
-    [
-      'GAL-AV-MZ-12','Galleta avena y manzana','Galleta sin preservantes',
-      'Galletas','Avena','Unidad','3.83','3.60','3.40','460','SI'
-    ],
-    [
-      'BIZ-CHO-24','Bizcocho chocolate 24p','Caja 24 unidades',
-      'Bizcochos','Chocolate','Caja','45.00','42.00','40.00','120','SI'
-    ]
-  ];
-  const wsProducts = XLSX.utils.aoa_to_sheet(sample);
-  XLSX.utils.book_append_sheet(wb, wsProducts, 'Productos');
-  XLSX.writeFile(wb, 'Plantilla_Productos_Mayoristas.xlsx');
-};
-
-// Exportar productos a Excel
-export const exportProductsToExcel = async (toast: any) => {
-  try {
-    const snap = await get(ref(db, 'products'));
-    const data = snap.val() || {};
-    const arr = Object.entries(data).map(([id, p]: any) => ({
-      id,
-      SKU: p.sku || '',
-      Nombre: p.nombre || '',
-      Descripción: p.descripcion || '',
-      Categoría: p.categoria || '',
-      Subcategoría: p.subcategoria || '',
-      'Unidad Medida': p.unidadMedida || '',
-      'Precio Base': p.precioBase ?? '',
-      'Precio Mayorista': p.precioMayorista ?? '',
-      'Precio Distribuidor': p.precioDistribuidor ?? '',
-      Stock: p.stock ?? '',
-      Activo: p.activo ? 'SI' : 'NO'
-    }));
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(arr);
-    XLSX.utils.book_append_sheet(wb, ws, 'Productos');
-    XLSX.writeFile(wb, 'Export_Productos_Mayoristas.xlsx');
-    toast({ title: 'Exportado', description: `${arr.length} productos exportados` });
-  } catch (e: any) {
-    toast({ title: 'Error', description: 'No se pudo exportar', variant: 'destructive' });
-  }
-};
-
-// Importar productos masivos
-export const processBulkProductsImport = async (file: File, toast: any) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async e => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const wb = XLSX.read(data, { type: 'array' });
-        const sheet = wb.Sheets['Productos'];
-        if (!sheet) throw new Error('Hoja "Productos" no encontrada');
-        const rows: any[] = XLSX.utils.sheet_to_json(sheet);
-        let created = 0;
-        for (const r of rows) {
-          const sku = (r['SKU*'] || '').toString().trim();
-            const nombre = (r['Nombre*'] || '').toString().trim();
-          const precioBaseRaw = r['Precio Base*'];
-          if (!sku || !nombre || precioBaseRaw === undefined || precioBaseRaw === '') continue;
-          const prodRef = push(ref(db, 'products'));
-          await set(prodRef, {
-            sku,
-            nombre,
-            descripcion: r['Descripción'] || '',
-            categoria: r['Categoría'] || '',
-            subcategoria: r['Subcategoría'] || '',
-            unidadMedida: r['Unidad Medida'] || '',
-            precioBase: Number(precioBaseRaw) || 0,
-            precioMayorista: Number(r['Precio Mayorista']) || null,
-            precioDistribuidor: Number(r['Precio Distribuidor']) || null,
-            stock: r['Stock'] === undefined || r['Stock'] === '' ? null : Number(r['Stock']),
-            activo: (r['Activo (SI/NO)'] || '').toString().toUpperCase() === 'SI',
-            fechaCreacion: Date.now()
-          });
-          created++;
-        }
-        toast({ title: 'Importación productos', description: `${created} productos creados` });
-        resolve(created);
-      } catch (err: any) {
-        toast({ title: 'Error importando', description: err.message, variant: 'destructive' });
-        reject(err);
-      }
-    };
-    reader.onerror = () => {
-      toast({ title: 'Error lectura archivo', description: 'No se pudo leer', variant: 'destructive' });
-      reject(new Error('read error'));
-    };
-    reader.readAsArrayBuffer(file);
-  });
-};
-
 // ==========================================
 // 5. MAIN COMPONENT
 // ==========================================
@@ -570,7 +616,6 @@ export const ClientsAccessManagement = () => {
   const [isImporting, setIsImporting] = useState(false);
   const [isCompleteModalOpen, setIsCompleteModalOpen] = useState(false);
   const [missingDataNotes, setMissingDataNotes] = useState('');
-  const [isProductsImporting, setIsProductsImporting] = useState(false);
 
   // Generate Missing Data Notes
   const getMissingDataNotes = (client: Client): string => {
@@ -894,18 +939,6 @@ export const ClientsAccessManagement = () => {
     }
   };
 
-  const handleProductsFileImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setIsProductsImporting(true);
-    try {
-      await processBulkProductsImport(file, toast);
-    } finally {
-      setIsProductsImporting(false);
-      e.target.value = '';
-    }
-  };
-
   // Filter logic
   const filteredClients = clients.filter(
     client =>
@@ -965,13 +998,6 @@ export const ClientsAccessManagement = () => {
         </div>
         
         <div className="flex gap-2 flex-wrap">
-          <Button variant="outline" onClick={generateProductsTemplate}>Plantilla Productos</Button>
-          <Button variant="outline" disabled={isProductsImporting} onClick={() => document.getElementById('products-import')?.click()}>
-            {isProductsImporting ? 'Importando Productos...' : 'Importar Productos'}
-          </Button>
-          <input id="products-import" type="file" accept=".xlsx,.xls" onChange={handleProductsFileImport} className="hidden" />
-          <Button variant="outline" onClick={() => exportProductsToExcel(toast)}>Exportar Productos</Button>
-          
           <Button
             variant="outline"
             onClick={generateBulkImportTemplate}
