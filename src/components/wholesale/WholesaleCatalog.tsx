@@ -227,11 +227,11 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
 
   /* -------------------- UI -------------------- */
   return (
-    <section className="px-2 sm:px-4 py-3 max-w-[1600px] mx-auto">
+    <section className="w-full max-w-7xl mx-auto px-4 py-3">
       {loading ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="border rounded-lg p-2 shadow-sm bg-white">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 justify-items-center">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="w-full border rounded-lg p-2 shadow-sm bg-white">
               <div className="w-full h-32 bg-stone-200 animate-pulse rounded mb-2" />
               <div className="h-4 w-3/4 bg-stone-200 animate-pulse rounded mb-2" />
               <div className="h-3 w-1/2 bg-stone-200 animate-pulse rounded mb-2" />
@@ -240,13 +240,13 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center text-stone-600 py-12">
-          <div className="text-4xl mb-3">🛒</div>
-          <h3 className="text-base font-semibold mb-1">No hay productos</h3>
-          <p className="text-xs text-stone-500">Intenta cambiar los filtros</p>
+        <div className="text-center text-stone-600 py-16">
+          <div className="text-5xl mb-4">🛒</div>
+          <h3 className="text-lg font-semibold mb-2">No hay productos</h3>
+          <p className="text-sm text-stone-500">Intenta cambiar los filtros o búsqueda</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 justify-items-center">
           {filtered.map((p) => {
             const step = stepFor(p);
             const qty = qtyById[p.id] ?? step;

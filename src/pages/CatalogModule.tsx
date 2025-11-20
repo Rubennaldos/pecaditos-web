@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, ShoppingCart } from 'lucide-react';
+import { Search, ShoppingCart, Cookie, Cake, Wheat, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { WholesaleCatalog } from '@/components/wholesale/WholesaleCatalog';
@@ -73,43 +73,56 @@ const CatalogModuleContent = ({ onBack }: CatalogModuleContentProps) => {
         {/* Category Selector */}
         <div className="mb-6">
           {categoriesLoading ? (
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
               {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-10 w-24 rounded-full flex-shrink-0" />
+                <Skeleton key={i} className="h-12 w-32 rounded-xl flex-shrink-0" />
               ))}
             </div>
           ) : (
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {categories.map((cat) => (
-                <Button
-                  key={cat.id}
-                  variant={selectedCategory === cat.id ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setSelectedCategory(cat.id)}
-                  className="whitespace-nowrap rounded-full"
-                >
-                  {cat.name}
-                </Button>
-              ))}
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {categories.map((cat) => {
+                const getCategoryIcon = (name: string) => {
+                  const lower = name.toLowerCase();
+                  if (lower.includes('brownie') || lower.includes('postre')) return Cookie;
+                  if (lower.includes('galleta')) return Cookie;
+                  if (lower.includes('cereal') || lower.includes('granola')) return Wheat;
+                  if (lower.includes('torta') || lower.includes('cake')) return Cake;
+                  return Sparkles;
+                };
+                const Icon = getCategoryIcon(cat.name);
+                const isSelected = selectedCategory === cat.id;
+                
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`
+                      flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-sm
+                      transition-all duration-200 flex-shrink-0 shadow-sm
+                      ${
+                        isSelected
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-blue-200'
+                          : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200'
+                      }
+                    `}
+                  >
+                    <Icon className={`h-4 w-4 ${isSelected ? 'text-white' : 'text-blue-500'}`} />
+                    {cat.name}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Main Content Area */}
-        <div className="flex gap-6">
-          {/* Catalog */}
-          <div className="flex-1">
+        <div className="w-full">
+          {/* Catalog - Centered */}
+          <div className="mx-auto">
             <WholesaleCatalog
               selectedCategory={selectedCategory}
               searchQuery={searchQuery}
             />
-          </div>
-
-          {/* Sticky Cart - Desktop */}
-          <div className="hidden lg:block w-96 flex-shrink-0">
-            <div className="sticky top-24">
-              <WholesaleStickyCart />
-            </div>
           </div>
         </div>
       </div>
