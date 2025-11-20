@@ -1,11 +1,12 @@
 
 import { useState } from 'react';
-import { Plus, Minus, ShoppingCart } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Product, discountRules } from '@/data/mockData';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from '@/components/ui/use-toast';
+import { ProductDetailModal } from './ProductDetailModal';
 
 /**
  * TARJETA DE PRODUCTO
@@ -17,6 +18,7 @@ import { toast } from '@/components/ui/use-toast';
  * - Selector de cantidad
  * - Descuentos automáticos
  * - Botón agregar al carrito
+ * - Modal de detalles al hacer clic
  * 
  * PARA PERSONALIZAR:
  * - Modificar diseño de la card
@@ -31,6 +33,7 @@ interface ProductCardProps {
 
 export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const { addItem } = useCart();
 
   // Calcular precio con descuento por cantidad
@@ -74,12 +77,25 @@ export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) =
   const increaseQuantity = () => setQuantity(prev => prev + 1);
   const decreaseQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Solo abrir modal si no se hace clic en botones interactivos
+    const target = e.target as HTMLElement;
+    if (!target.closest('button') && !target.closest('input')) {
+      setIsDetailModalOpen(true);
+    }
+  };
+
   return (
-    <Card className={`
-      group overflow-hidden transition-all duration-300 hover:shadow-xl
-      ${isPromoted ? 'ring-2 ring-amber-300 shadow-lg' : 'hover:shadow-lg'}
-      ${!product.available ? 'opacity-60' : ''}
-    `}>
+    <>
+      <Card 
+        className={`
+          group overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer
+          ${isPromoted ? 'ring-2 ring-amber-300 shadow-lg' : 'hover:shadow-lg'}
+          ${!product.available ? 'opacity-60' : ''}
+        `}
+        onClick={handleCardClick}
+        title="Haz clic para ver más detalles"
+      >
       <CardContent className="p-0">
         {/* Imagen del producto */}
         <div className="relative overflow-hidden bg-stone-100 aspect-square">
@@ -112,9 +128,23 @@ export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) =
 
         {/* Información del producto */}
         <div className="p-4">
-          <h3 className="font-semibold text-stone-800 mb-2 group-hover:text-amber-600 transition-colors">
-            {product.name}
-          </h3>
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="font-semibold text-stone-800 group-hover:text-amber-600 transition-colors flex-1">
+              {product.name}
+            </h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-stone-400 hover:text-amber-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsDetailModalOpen(true);
+              }}
+              title="Ver detalles del producto"
+            >
+              <Info className="h-4 w-4" />
+            </Button>
+          </div>
           
           <p className="text-sm text-stone-600 mb-3 line-clamp-2">
             {product.description}
@@ -221,5 +251,13 @@ export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) =
         </div>
       </CardContent>
     </Card>
+
+    {/* Modal de detalles del producto */}
+    <ProductDetailModal
+      product={product}
+      isOpen={isDetailModalOpen}
+      onClose={() => setIsDetailModalOpen(false)}
+    />
+    </>
   );
 };
