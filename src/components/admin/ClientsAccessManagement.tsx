@@ -1,68 +1,75 @@
-import { useState, useEffect, useMemo } from 'react';
-import { db, functions } from '@/config/firebase';
-import { ref, onValue, push, set, update, remove, get } from 'firebase/database';
-import { httpsCallable } from 'firebase/functions';
+import React, { useState, useEffect } from 'react';
+
+// ==========================================
+// 1. IMPORTS & CONFIG
+// ==========================================
+
+// Firebase
+import { db, auth } from '@/config/firebase';
+import {
+  ref,
+  onValue,
+  push,
+  set,
+  update,
+  remove,
+  get,
+  query,
+  orderByChild,
+  equalTo
+} from 'firebase/database';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+
+// Services & Hooks
+import { formatAuthCredentials } from '@/services/auth';
+import { useToast } from '@/hooks/use-toast';
+
+// External Libraries
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
+// UI Components (Shadcn/ui)
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
-import UbigeoSelector from '@/components/UbigeoSelector';
-import { useToast } from '@/hooks/use-toast';
-import jsPDF from 'jspdf';
-import * as XLSX from 'xlsx';
-
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Building,
-  FileText,
-  Download,
-  Eye,
-  EyeOff,
-  CheckCircle,
-  AlertTriangle,
-  XCircle,
-  DollarSign,
-  MapPin,
-  Lock,
-  Unlock,
-  Users,
-  ToggleRight,
-  ToggleLeft,
-  ShoppingCart,
-  Truck,
-  Factory,
-  BarChart3,
-  Package,
-  Key,
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem
+} from '@/components/ui/dropdown-menu';
+
+// Custom Components
+import UbigeoSelector from '@/components/UbigeoSelector';
+
+// Icons
+import {
+  Search, Plus, Edit, Trash2, Building, FileText, Download,
+  ExternalLink, Shield, Eye, CheckCircle, AlertTriangle,
+  XCircle, DollarSign, Package, Star, Lock, Unlock,
+  ShoppingCart, Truck, Factory, BarChart3, MapPin, Check
 } from 'lucide-react';
 
-// Módulos disponibles
-const AVAILABLE_MODULES = [
-  { id: 'dashboard', name: 'Dashboard Global', icon: BarChart3, color: 'purple' },
-  { id: 'catalog', name: 'Catálogo de Productos', icon: ShoppingCart, color: 'blue' },
-  { id: 'catalogs-admin', name: 'Catálogo por Cliente', icon: ShoppingCart, color: 'emerald' },
-  { id: 'orders', name: 'Pedidos', icon: Package, color: 'blue' },
-  { id: 'tracking', name: 'Seguimiento', icon: Truck, color: 'amber' },
-  { id: 'delivery', name: 'Reparto', icon: Truck, color: 'green' },
-  { id: 'production', name: 'Producción', icon: Factory, color: 'amber' },
-  { id: 'billing', name: 'Cobranzas', icon: DollarSign, color: 'red' },
-  { id: 'logistics', name: 'Logística', icon: Truck, color: 'indigo' },
-  { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'indigo' },
-  { id: 'reports', name: 'Reportes', icon: BarChart3, color: 'purple' },
-];
+// ==========================================
+// 2. INTERFACES & TYPES
+// ==========================================
 
-// Tipos
+interface SedeComment {
+  id: string;
+  user: string;
+  comment: string;
+  rating: number;
+  createdAt: number;
+}
+
 interface ClientSede {
   id: string;
   nombre: string;
@@ -72,6 +79,7 @@ interface ClientSede {
   principal: boolean;
   googleMapsUrl?: string;
   distrito?: string;
+  comentarios?: SedeComment[];
 }
 
 interface ClientContact {
@@ -101,43 +109,122 @@ interface Client {
   observaciones: string;
   estado: 'activo' | 'suspendido' | 'moroso';
   fechaCreacion: string;
+  ultimaCompra?: string;
+  montoDeuda?: number;
   authUid?: string;
   accessModules?: string[];
-  montoDeuda?: number;
+  portalLoginRuc?: string;
+  pin?: string;
 }
 
-type UserRecord = {
-  id: string;
-  nombre: string;
-  correo: string;
-  rol: string;
-  activo: boolean;
-  createdAt?: string | number | null;
-  permissions?: string[];
+// ==========================================
+// 3. CONSTANTS
+// ==========================================
+
+// Módulos disponibles (id, nombre, icono, color base)
+const AVAILABLE_MODULES = [
+  { id: 'dashboard', name: 'Dashboard', icon: BarChart3, color: 'purple' },
+  { id: 'catalog', name: 'Catálogo', icon: ShoppingCart, color: 'blue' },
+  { id: 'orders', name: 'Pedidos', icon: Package, color: 'indigo' },
+  { id: 'tracking', name: 'Seguimiento', icon: Truck, color: 'amber' },
+  { id: 'delivery', name: 'Reparto', icon: Truck, color: 'green' },
+  { id: 'production', name: 'Producción', icon: Factory, color: 'orange' },
+  { id: 'billing', name: 'Cobranzas', icon: DollarSign, color: 'red' },
+  { id: 'logistics', name: 'Logística', icon: Truck, color: 'cyan' },
+  { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'teal' },
+  { id: 'reports', name: 'Reportes', icon: BarChart3, color: 'violet' }
+];
+
+// ==========================================
+// 4. UTILITY FUNCTIONS (Reports)
+// ==========================================
+
+// Reporte PDF
+export const generateClientReportPDF = (client: Client) => {
+  const doc = new jsPDF();
+  doc.setFontSize(16);
+  doc.text('Reporte Detallado de Cliente', 14, 16);
+  doc.setFontSize(12);
+  doc.text(`Razón Social: ${client.razonSocial}`, 14, 26);
+  doc.text(`RUC/DNI: ${client.rucDni}`, 14, 34);
+  doc.text(`Dirección Fiscal: ${client.direccionFiscal}`, 14, 42);
+  doc.text(`Estado: ${client.estado}`, 14, 50);
+
+  let nextY = 58;
+
+  // Tabla de Sedes
+  if (client.sedes?.length > 0) {
+    doc.text('Sedes:', 14, nextY + 2);
+    autoTable(doc, {
+      startY: nextY + 6,
+      head: [['Nombre', 'Dirección', 'Responsable', 'Teléfono', 'Distrito']],
+      body: client.sedes.map(s => [
+        s.nombre,
+        s.direccion,
+        s.responsable,
+        s.telefono,
+        s.distrito || ''
+      ])
+    });
+    nextY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : nextY + 30;
+  } else nextY += 18;
+
+  // Tabla de Contactos
+  if (client.contactos?.length > 0) {
+    doc.text('Contactos:', 14, nextY + 2);
+    autoTable(doc, {
+      startY: nextY + 6,
+      head: [['Tipo', 'Nombre', 'DNI', 'Celular', 'Correo']],
+      body: client.contactos.map(c => [c.tipo, c.nombre, c.dni, c.celular, c.correo])
+    });
+    if (client.observaciones) {
+      const lastY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 110;
+      doc.text('Observaciones:', 14, lastY);
+      doc.text(client.observaciones, 14, lastY + 8);
+    }
+  }
+  doc.save(`Reporte_${client.razonSocial || client.rucDni}.pdf`);
 };
+
+// Reporte Excel
+export const generateClientReportExcel = (client: Client) => {
+  const ws1 = XLSX.utils.json_to_sheet([
+    {
+      'Razón Social': client.razonSocial,
+      'RUC/DNI': client.rucDni,
+      'Dirección Fiscal': client.direccionFiscal,
+      Estado: client.estado,
+      Observaciones: client.observaciones
+    }
+  ]);
+  const ws2 = XLSX.utils.json_to_sheet(client.sedes || []);
+  const ws3 = XLSX.utils.json_to_sheet(client.contactos || []);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws1, 'Cliente');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Sedes');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Contactos');
+  XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
+};
+
+// ==========================================
+// 5. MAIN COMPONENT
+// ==========================================
 
 export const ClientsAccessManagement = () => {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('clients');
-  
-  // Estados para Clientes
   const [clients, setClients] = useState<Client[]>([]);
-  const [searchClients, setSearchClients] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [isClientModalOpen, setIsClientModalOpen] = useState(false);
-  const [isEditingClient, setIsEditingClient] = useState(false);
+  
+  // Modal States
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
-  // Estados para Usuarios
-  const [users, setUsers] = useState<UserRecord[]>([]);
-  const [searchUsers, setSearchUsers] = useState('');
-  const [selectedUser, setSelectedUser] = useState<UserRecord | null>(null);
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isEditingUser, setIsEditingUser] = useState(false);
-
-  // Cargar clientes
+  // Fetch Clients
   useEffect(() => {
     const clientsRef = ref(db, 'clients');
-    const unsubscribe = onValue(clientsRef, (snapshot) => {
+    const unsubscribe = onValue(clientsRef, snapshot => {
       const data = snapshot.val();
       if (!data) {
         setClients([]);
@@ -150,87 +237,240 @@ export const ClientsAccessManagement = () => {
           ? Object.entries(client.sedes).map(([sid, sede]: any) => ({
               ...sede,
               id: sid,
+              comentarios: sede.comentarios ? Object.values(sede.comentarios) : []
             }))
-          : [],
+          : []
       }));
       setClients(arr);
     });
     return () => unsubscribe();
   }, []);
 
-  // Cargar usuarios
-  useEffect(() => {
-    const r = ref(db, 'usuarios');
-    const off = onValue(r, (snap) => {
-      const val = snap.val() || {};
-      const list: UserRecord[] = Object.entries(val).map(([id, u]: any) => ({
-        id,
-        nombre: u.nombre || '',
-        correo: u.correo || '',
-        rol: u.rol || 'usuario',
-        activo: u.activo !== false,
-        createdAt: u.createdAt ?? null,
-        permissions: u.permissions || [],
-      }));
-      list.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      setUsers(list);
-    });
-    return () => off();
-  }, []);
+  // Logic: Save Client (Create or Edit)
+const saveClient = async (client: Partial<Client>, isEdit?: boolean): Promise<boolean> => {
+  const clientsRef = ref(db, 'clients');
+  const cleanClientData = {
+    ...client,
+    pin: client.pin || null,
+    portalLoginRuc: client.rucDni || null,
+    sedes: client.sedes || null,
+    contactos: client.contactos || null,
+    accessModules: client.accessModules || []
+  };
 
-  const filteredClients = useMemo(() => {
-    const q = searchClients.trim().toLowerCase();
-    if (!q) return clients;
-    return clients.filter(
-      (c) =>
-        c.razonSocial?.toLowerCase().includes(q) ||
-        c.rucDni?.includes(q) ||
-        c.emailFacturacion?.toLowerCase().includes(q)
-    );
-  }, [clients, searchClients]);
+  try {
+    // EDITAR
+    if (isEdit && client.id) {
+      if (!client.authUid && client.rucDni && client.pin && client.pin.length === 4) {
+        try {
+          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
+          const credential = await createUserWithEmailAndPassword(auth, email, password);
 
-  const filteredUsers = useMemo(() => {
-    const q = searchUsers.trim().toLowerCase();
-    if (!q) return users;
-    return users.filter(
-      (u) =>
-        u.nombre.toLowerCase().includes(q) ||
-        u.correo.toLowerCase().includes(q) ||
-        u.rol.toLowerCase().includes(q)
-    );
-  }, [users, searchUsers]);
+            await set(ref(db, `usuarios/${credential.user.uid}`), {
+              nombre: client.razonSocial,
+              correo: email,
+              rol: 'retailUser',
+              activo: true,
+              accessModules: cleanClientData.accessModules,
+              portalLoginRuc: client.rucDni
+            });
 
-  const deleteClient = async (id: string, authUid?: string) => {
-    if (!confirm('¿Eliminar este cliente?')) return;
-    try {
-      // Si tiene authUid, también eliminar el usuario
-      if (authUid) {
-        await remove(ref(db, `usuarios/${authUid}`));
+            await update(ref(db, `clients/${client.id}`), {
+              ...cleanClientData,
+              authUid: credential.user.uid
+            });
+
+            // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
+            console.log("Sincronizando permisos para usuario (creado en edición):", credential.user.uid, cleanClientData.accessModules);
+            await update(ref(db, `usuarios/${credential.user.uid}`), {
+              accessModules: cleanClientData.accessModules
+            });
+
+            toast({ title: 'Acceso creado', description: 'Credenciales generadas (RUC + PIN)' });
+        } catch (authError: any) {
+          if (authError.code === 'auth/email-already-in-use') {
+            let foundUid: string | undefined;
+            try {
+              const qByRuc = query(ref(db, 'usuarios'), orderByChild('portalLoginRuc'), equalTo(client.rucDni!));
+              const snapRuc = await get(qByRuc);
+              if (snapRuc.exists()) {
+                foundUid = Object.keys(snapRuc.val())[0];
+              } else {
+                const { email } = formatAuthCredentials(client.rucDni!, client.pin!);
+                const qByEmail = query(ref(db, 'usuarios'), orderByChild('correo'), equalTo(email));
+                const snapEmail = await get(qByEmail);
+                if (snapEmail.exists()) {
+                  foundUid = Object.keys(snapEmail.val())[0];
+                }
+              }
+              if (foundUid) {
+                await update(ref(db, `usuarios/${foundUid}`), {
+                  accessModules: cleanClientData.accessModules,
+                  portalLoginRuc: client.rucDni
+                });
+                await update(ref(db, `clients/${client.id}`), {
+                  ...cleanClientData,
+                  authUid: foundUid
+                });
+
+                // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
+                console.log("Sincronizando permisos para usuario (vinculado existente en edición):", foundUid, cleanClientData.accessModules);
+                await update(ref(db, `usuarios/${foundUid}`), {
+                  accessModules: cleanClientData.accessModules
+                });
+
+                toast({
+                  title: 'Acceso vinculado',
+                  description: 'Usuario existente vinculado y permisos actualizados.'
+                });
+              } else {
+                toast({
+                  title: 'Aviso',
+                  description: 'El acceso ya existía pero no se pudo vincular automáticamente.',
+                  variant: 'destructive'
+                });
+              }
+            } catch {
+              toast({
+                title: 'Error',
+                description: 'No se pudo vincular el acceso existente.',
+                variant: 'destructive'
+              });
+            }
+          } else {
+            throw authError;
+          }
+        }
+      } else {
+        await update(ref(db, `clients/${client.id}`), cleanClientData);
+
+        // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
+        if (client.authUid) {
+          console.log("Sincronizando permisos para usuario (solo edición de datos):", client.authUid, cleanClientData.accessModules);
+          await update(ref(db, `usuarios/${client.authUid}`), {
+            accessModules: cleanClientData.accessModules
+          });
+        }
+
+        toast({ title: 'Cliente actualizado', description: 'Actualizado correctamente' });
       }
-      await remove(ref(db, `clients/${id}`));
-      toast({ title: 'Cliente eliminado' });
-    } catch (error) {
-      toast({ title: 'Error', description: 'No se pudo eliminar', variant: 'destructive' });
+      return true;
     }
+
+    // CREAR
+    let authUid: string | undefined;
+    if (client.rucDni && client.pin && client.pin.length === 4) {
+      try {
+        const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
+        const credential = await createUserWithEmailAndPassword(auth, email, password);
+        authUid = credential.user.uid;
+
+        await set(ref(db, `usuarios/${authUid}`), {
+          nombre: client.razonSocial,
+          correo: email,
+          rol: 'retailUser',
+          activo: true,
+          accessModules: cleanClientData.accessModules,
+          portalLoginRuc: client.rucDni
+        });
+
+        // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
+        console.log("Sincronizando permisos para usuario (creado):", authUid, cleanClientData.accessModules);
+        await update(ref(db, `usuarios/${authUid}`), {
+          accessModules: cleanClientData.accessModules
+        });
+
+        toast({ title: 'Usuario portal creado', description: 'Acceso habilitado (RUC + PIN)' });
+      } catch (authError: any) {
+        if (authError.code === 'auth/email-already-in-use') {
+          let foundUid: string | undefined;
+          try {
+            const qByRuc = query(ref(db, 'usuarios'), orderByChild('portalLoginRuc'), equalTo(client.rucDni!));
+            const snapRuc = await get(qByRuc);
+            if (snapRuc.exists()) {
+              foundUid = Object.keys(snapRuc.val())[0];
+            } else {
+              const { email } = formatAuthCredentials(client.rucDni!, client.pin!);
+              const qByEmail = query(ref(db, 'usuarios'), orderByChild('correo'), equalTo(email));
+              const snapEmail = await get(qByEmail);
+              if (snapEmail.exists()) {
+                foundUid = Object.keys(snapEmail.val())[0];
+              }
+            }
+            if (foundUid) {
+              authUid = foundUid;
+              await update(ref(db, `usuarios/${authUid}`), {
+                accessModules: cleanClientData.accessModules
+              });
+
+              // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
+              console.log("Sincronizando permisos para usuario (vinculado existente en creación):", authUid, cleanClientData.accessModules);
+              await update(ref(db, `usuarios/${authUid}`), {
+                accessModules: cleanClientData.accessModules
+              });
+
+              toast({
+                title: 'Acceso existente',
+                description: 'Vinculado y permisos actualizados.'
+              });
+            } else {
+              toast({
+                title: 'Aviso',
+                description: 'El acceso ya existía. Se podrá vincular manualmente.',
+                variant: 'default'
+              });
+            }
+          } catch {
+            toast({
+              title: 'Error',
+              description: 'No se pudo vincular acceso existente.',
+              variant: 'destructive'
+            });
+          }
+        } else {
+          throw authError;
+        }
+      }
+    }
+
+    const newClientRef = push(clientsRef);
+    await set(newClientRef, {
+      ...cleanClientData,
+      authUid: authUid || null,
+      fechaCreacion: Date.now()
+    });
+
+    // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
+    if (authUid) {
+      console.log("Sincronizando permisos para usuario (post creación cliente):", authUid, cleanClientData.accessModules);
+      await update(ref(db, `usuarios/${authUid}`), {
+        accessModules: cleanClientData.accessModules
+      });
+    }
+
+    toast({ title: 'Cliente creado', description: 'Registro almacenado correctamente' });
+    return true;
+  } catch (error: any) {
+    let errorMsg = 'No se pudo guardar el cliente.';
+    if (error.code === 'auth/invalid-email') errorMsg = 'Email interno inválido.';
+    toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+    return false;
+  }
+};
+
+  const deleteClient = (id: string) => {
+    remove(ref(db, `clients/${id}`));
+    // Nota: si se desea también limpiar permisos en usuarios/{authUid}, podría leerse y borrarse.
+    toast({ title: 'Cliente eliminado' });
   };
 
-  const deleteUser = async (u: UserRecord) => {
-    if (!confirm(`¿Eliminar a ${u.nombre}?`)) return;
-    try {
-      await remove(ref(db, `usuarios/${u.id}`));
-      toast({ title: 'Usuario eliminado' });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo eliminar', variant: 'destructive' });
-    }
-  };
-
-  const toggleUserActive = async (u: UserRecord) => {
-    try {
-      await update(ref(db, `usuarios/${u.id}`), { activo: !u.activo });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo cambiar el estado', variant: 'destructive' });
-    }
-  };
+  // Filter logic
+  const filteredClients = clients.filter(
+    client =>
+      client.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.rucDni?.includes(searchTerm) ||
+      client.sedes?.some(sede => sede.nombre?.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {
@@ -260,498 +500,303 @@ export const ClientsAccessManagement = () => {
     }
   };
 
-  const generateClientReportPDF = (client: Client) => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text('Reporte de Cliente', 14, 16);
-    doc.setFontSize(12);
-    doc.text(`Razón Social: ${client.razonSocial}`, 14, 26);
-    doc.text(`RUC/DNI: ${client.rucDni}`, 14, 34);
-    doc.text(`Estado: ${client.estado}`, 14, 42);
-    doc.save(`Reporte_${client.razonSocial || client.rucDni}.pdf`);
-  };
-
-  const generateClientReportExcel = (client: Client) => {
-    const ws = XLSX.utils.json_to_sheet([
-      {
-        'Razón Social': client.razonSocial,
-        'RUC/DNI': client.rucDni,
-        Estado: client.estado,
-        Email: client.emailFacturacion,
-      },
-    ]);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Cliente');
-    XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
-  };
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-stone-800">Clientes y Accesos</h1>
-        <p className="text-stone-600 mt-1">Gestión de clientes con usuarios y permisos de acceso a módulos</p>
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-stone-800">Gestión de Clientes</h1>
+          <p className="text-stone-600 mt-1">Administración completa de clientes y ubicaciones</p>
+        </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="clients">
-            <Building className="h-4 w-4 mr-2" />
-            Clientes
-          </TabsTrigger>
-          <TabsTrigger value="users">
-            <Users className="h-4 w-4 mr-2" />
-            Usuarios
-          </TabsTrigger>
-        </TabsList>
+      {/* Actions Bar */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
+          <Input
+            placeholder="Buscar por razón social, RUC, sede..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Nuevo Cliente
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Crear Nuevo Cliente</DialogTitle>
+            </DialogHeader>
+            <ClientForm onSave={saveClient} onFinish={() => setIsCreateModalOpen(false)} />
+          </DialogContent>
+        </Dialog>
+      </div>
 
-        {/* TAB: CLIENTES */}
-        <TabsContent value="clients" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Gestión de Clientes</span>
-                <Dialog open={isClientModalOpen} onOpenChange={setIsClientModalOpen}>
-                  <DialogTrigger asChild>
-                    <Button
-                      onClick={() => {
-                        setSelectedClient(null);
-                        setIsEditingClient(false);
-                        setIsClientModalOpen(true);
+      {/* Client List */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Lista de Clientes</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {filteredClients.map(client => (
+              <div
+                key={client.id}
+                className="border rounded-lg p-4 hover:bg-stone-50 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-semibold text-stone-800">{client.razonSocial}</h3>
+                      {getStatusBadge(client.estado)}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-stone-600">
+                      <div className="flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        RUC: {client.rucDni}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Building className="h-3 w-3" />
+                        {client.sedes.length} sede(s)
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <DollarSign className="h-3 w-3" />
+                        Deuda: S/. {client.montoDeuda?.toFixed(2) || '0.00'}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {client.authUid ? (
+                      <Badge className="bg-green-100 text-green-800 border-green-300">
+                        <Lock className="h-3 w-3 mr-1" />
+                        Con Acceso
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                        <Unlock className="h-3 w-3 mr-1" />
+                        Sin Acceso
+                      </Badge>
+                    )}
+
+                    {/* View Details Button */}
+                    <Dialog
+                      open={isViewModalOpen && selectedClient?.id === client.id}
+                      onOpenChange={open => {
+                        if (!open) setSelectedClient(null);
+                        setIsViewModalOpen(open);
                       }}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nuevo Cliente
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>{isEditingClient ? 'Editar Cliente' : 'Crear Cliente'}</DialogTitle>
-                    </DialogHeader>
-                    <ClientForm
-                      client={isEditingClient ? selectedClient || undefined : undefined}
-                      onFinish={() => setIsClientModalOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </CardTitle>
-              <CardDescription>Clientes con acceso al sistema mediante usuario y contraseña</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
-                  <Input
-                    placeholder="Buscar por razón social, RUC o email..."
-                    value={searchClients}
-                    onChange={(e) => setSearchClients(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
+                      <DialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedClient(client)}
+                        >
+                          <Eye className="h-4 w-4 mr-1" />
+                          Ver
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Detalles del Cliente</DialogTitle>
+                        </DialogHeader>
+                        {selectedClient && <ClientDetails client={selectedClient} />}
+                      </DialogContent>
+                    </Dialog>
 
-              <div className="space-y-4">
-                {filteredClients.map((client) => (
-                  <div key={client.id} className="border rounded-lg p-4 hover:bg-stone-50 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-stone-800">{client.razonSocial}</h3>
-                          {getStatusBadge(client.estado)}
-                          {client.authUid ? (
-                            <Badge className="bg-green-100 text-green-800 border-green-300">
-                              <Lock className="h-3 w-3 mr-1" />
-                              Con Acceso
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-amber-100 text-amber-800 border-amber-300">
-                              <Unlock className="h-3 w-3 mr-1" />
-                              Sin Acceso
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-stone-600">
-                          <div className="flex items-center gap-1">
-                            <FileText className="h-3 w-3" />
-                            RUC: {client.rucDni}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Building className="h-3 w-3" />
-                            {client.sedes.length} sede(s)
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <DollarSign className="h-3 w-3" />
-                            Deuda: S/. {client.montoDeuda?.toFixed(2) || '0.00'}
-                          </div>
-                        </div>
-                        {client.accessModules && client.accessModules.length > 0 && (
-                          <div className="mt-2 flex gap-1 flex-wrap">
-                            {client.accessModules.map((modId) => {
-                              const mod = AVAILABLE_MODULES.find((m) => m.id === modId);
-                              return mod ? (
-                                <Badge key={modId} variant="outline" className="text-xs">
-                                  {mod.name}
-                                </Badge>
-                              ) : null;
-                            })}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
+                    {/* Edit Button */}
+                    <Dialog
+                      open={isEditModalOpen && selectedClient?.id === client.id}
+                      onOpenChange={open => {
+                        if (!open) setSelectedClient(null);
+                        setIsEditModalOpen(open);
+                      }}
+                    >
+                      <DialogTrigger asChild>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
                             setSelectedClient(client);
-                            setIsEditingClient(true);
-                            setIsClientModalOpen(true);
+                            setIsEditModalOpen(true);
                           }}
                         >
                           <Edit className="h-4 w-4 mr-1" />
                           Editar
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => generateClientReportPDF(client)}
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                          onClick={() => deleteClient(client.id, client.authUid)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Editar Cliente</DialogTitle>
+                        </DialogHeader>
+                        {selectedClient && (
+                          <ClientForm
+                            client={selectedClient}
+                            onSave={saveClient}
+                            onFinish={() => setIsEditModalOpen(false)}
+                          />
+                        )}
+                      </DialogContent>
+                    </Dialog>
 
-              {filteredClients.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Building className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No se encontraron clientes.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+                    {/* Reports Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Download className="h-4 w-4 mr-1" />
+                          Reporte
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuItem onClick={() => generateClientReportPDF(client)}>
+                          PDF
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => generateClientReportExcel(client)}>
+                          Excel
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
 
-        {/* TAB: USUARIOS */}
-        <TabsContent value="users" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Gestión de Usuarios</span>
-                <Dialog open={isUserModalOpen} onOpenChange={setIsUserModalOpen}>
-                  <DialogTrigger asChild>
+                    {/* Delete Button */}
                     <Button
-                      onClick={() => {
-                        setSelectedUser(null);
-                        setIsEditingUser(false);
-                        setIsUserModalOpen(true);
-                      }}
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                      onClick={() => deleteClient(client.id)}
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nuevo Usuario
+                      <Trash2 className="h-4 w-4" />
+                      Eliminar
                     </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
-                      <DialogTitle>{isEditingUser ? 'Editar Usuario' : 'Crear Usuario'}</DialogTitle>
-                      <DialogDescription>
-                        {isEditingUser
-                          ? 'Modifica los datos del usuario'
-                          : 'Usuarios con acceso a módulos específicos (no son clientes)'}
-                      </DialogDescription>
-                    </DialogHeader>
-                    <UserForm
-                      user={isEditingUser ? selectedUser || undefined : undefined}
-                      onFinish={() => setIsUserModalOpen(false)}
-                    />
-                  </DialogContent>
-                </Dialog>
-              </CardTitle>
-              <CardDescription>Usuarios internos con acceso a módulos del sistema</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Input
-                  placeholder="Buscar por nombre, email o rol..."
-                  value={searchUsers}
-                  onChange={(e) => setSearchUsers(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
-
-              <div className="border rounded-lg">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Usuario</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Rol</TableHead>
-                      <TableHead>Módulos</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Acciones</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((u) => (
-                      <TableRow key={u.id}>
-                        <TableCell className="font-medium">{u.nombre}</TableCell>
-                        <TableCell>{u.correo}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{u.rol}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-1 flex-wrap max-w-xs">
-                            {u.permissions && u.permissions.length > 0 ? (
-                              u.permissions.slice(0, 2).map((modId) => {
-                                const mod = AVAILABLE_MODULES.find((m) => m.id === modId);
-                                return mod ? (
-                                  <Badge key={modId} variant="secondary" className="text-xs">
-                                    {mod.name}
-                                  </Badge>
-                                ) : null;
-                              })
-                            ) : (
-                              <span className="text-xs text-muted-foreground">Sin módulos</span>
-                            )}
-                            {u.permissions && u.permissions.length > 2 && (
-                              <Badge variant="secondary" className="text-xs">
-                                +{u.permissions.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={u.activo ? 'default' : 'secondary'}>
-                            {u.activo ? 'Activo' : 'Inactivo'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="space-x-2">
-                          <Button variant="outline" size="sm" onClick={() => toggleUserActive(u)}>
-                            {u.activo ? <ToggleRight className="h-4 w-4" /> : <ToggleLeft className="h-4 w-4" />}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedUser(u);
-                              setIsEditingUser(true);
-                              setIsUserModalOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-                            onClick={() => deleteUser(u)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {filteredUsers.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No se encontraron usuarios.</p>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
 
-// ========== FORMULARIO DE CLIENTE ==========
-const ClientForm = ({ client, onFinish }: { client?: Client; onFinish: () => void }) => {
+// ==========================================
+// 6. SUB-COMPONENTS (Forms & Details)
+// ==========================================
+
+const ClientForm = ({
+  client,
+  onSave,
+  onFinish
+}: {
+  client?: Client;
+  onSave: (data: Partial<Client>, isEdit?: boolean) => Promise<boolean>;
+  onFinish: () => void;
+}) => {
   const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
+  const [tipoCliente, setTipoCliente] = useState<string>('RUC');
+  const [pin, setPin] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [accessModules, setAccessModules] = useState<string[]>(client?.accessModules || []);
   const [formData, setFormData] = useState({
+    id: client?.id || '',
     razonSocial: client?.razonSocial || '',
     rucDni: client?.rucDni || '',
     direccionFiscal: client?.direccionFiscal || '',
     departamento: client?.departamento || '',
     provincia: client?.provincia || '',
     distrito: client?.distrito || '',
-    emailFacturacion: client?.emailFacturacion || '',
-    observaciones: client?.observaciones || '',
-    estado: client?.estado || 'activo',
     listaPrecio: client?.listaPrecio || '',
     frecuenciaCompras: client?.frecuenciaCompras || '',
     horarioEntrega: client?.horarioEntrega || '',
     condicionPago: client?.condicionPago || '',
     limiteCredito: client?.limiteCredito || 0,
+    emailFacturacion: client?.emailFacturacion || '',
+    observaciones: client?.observaciones || '',
+    estado: client?.estado || 'activo'
   });
+
   const [sedes, setSedes] = useState<ClientSede[]>(client?.sedes || []);
   const [contactos, setContactos] = useState<ClientContact[]>(client?.contactos || []);
-  const [accessModules, setAccessModules] = useState<string[]>(client?.accessModules || []);
-  
-  // Credenciales
-  const [email, setEmail] = useState(client?.emailFacturacion || '');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [generatedCredentials, setGeneratedCredentials] = useState<{ email: string; password: string } | null>(null);
 
-  const generatePassword = () => {
-    const pwd = `${formData.rucDni}@Pecaditos`;
-    setPassword(pwd);
-    setShowPassword(true);
-  };
-
-  const toggleModule = (moduleId: string) => {
-    setAccessModules((prev) =>
-      prev.includes(moduleId) ? prev.filter((m) => m !== moduleId) : [...prev, moduleId]
+  const toggleModule = (id: string) => {
+    setAccessModules(prev =>
+      prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
     );
   };
 
-  const addSede = () => {
-    const newSede: ClientSede = {
-      id: `sede-${Date.now()}`,
-      nombre: '',
-      direccion: '',
-      responsable: '',
-      telefono: '',
-      principal: sedes.length === 0,
-      distrito: '',
+  const handleSave = async () => {
+    if (!formData.razonSocial || !formData.rucDni) {
+      toast({
+        title: 'Error',
+        description: 'Complete los campos obligatorios',
+        variant: 'destructive'
+      });
+      return;
+    }
+    if (!client && pin && pin.length !== 4) {
+      toast({
+        title: 'PIN inválido',
+        description: 'El PIN debe tener 4 dígitos',
+        variant: 'destructive'
+      });
+      return;
+    }
+    setIsSaving(true);
+    const data: Partial<Client> = {
+      ...formData,
+      portalLoginRuc: formData.rucDni,
+      pin: pin || null,
+      accessModules,
+      sedes: undefined,
+      contactos: undefined
     };
-    setSedes([...sedes, newSede]);
+
+    try {
+      const success = await onSave({ ...data, sedes, contactos }, !!client);
+      if (success) onFinish();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const addSede = () => {
+    setSedes([
+      ...sedes,
+      {
+        id: Date.now().toString(),
+        nombre: '',
+        direccion: '',
+        responsable: '',
+        telefono: '',
+        principal: sedes.length === 0,
+        googleMapsUrl: '',
+        distrito: '',
+        comentarios: []
+      }
+    ]);
   };
 
   const deleteSede = (id: string) => {
-    setSedes(sedes.filter((s) => s.id !== id));
+    setSedes(sedes.filter(s => s.id !== id));
   };
 
   const addContacto = () => {
-    setContactos([...contactos, { tipo: 'pago', nombre: '', dni: '', celular: '', correo: '' }]);
+    setContactos([
+      ...contactos,
+      { tipo: 'admin', nombre: '', dni: '', celular: '', correo: '' }
+    ]);
   };
 
   const deleteContacto = (idx: number) => {
     setContactos(contactos.filter((_, i) => i !== idx));
   };
 
-  const handleSave = async () => {
-    if (!formData.razonSocial || !formData.rucDni) {
-      toast({ title: 'Error', description: 'Complete razón social y RUC/DNI', variant: 'destructive' });
-      return;
-    }
-
-    if (!client && !email) {
-      toast({ title: 'Error', description: 'Ingrese un email para el acceso', variant: 'destructive' });
-      return;
-    }
-
-    if (!client && !password) {
-      toast({ title: 'Error', description: 'Genere o ingrese una contraseña', variant: 'destructive' });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      if (client) {
-        // EDITAR CLIENTE
-        await update(ref(db, `clients/${client.id}`), {
-          ...formData,
-          sedes: sedes.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}),
-          contactos,
-          accessModules,
-        });
-
-        // Actualizar usuario si tiene authUid
-        if (client.authUid) {
-          await update(ref(db, `usuarios/${client.authUid}`), {
-            nombre: formData.razonSocial,
-            correo: email,
-            permissions: accessModules,
-            activo: formData.estado === 'activo',
-          });
-        }
-
-        toast({ title: 'Cliente actualizado' });
-      } else {
-        // CREAR CLIENTE + USUARIO
-        const call = httpsCallable(functions, 'createUser');
-        const res: any = await call({
-          email,
-          password,
-          nombre: formData.razonSocial,
-          rol: 'cliente',
-        });
-
-        const newUid = res?.data?.uid || res?.data?.userId;
-        if (!newUid) {
-          throw new Error('No se obtuvo el UID del usuario creado');
-        }
-
-        // Crear perfil en usuarios
-        await set(ref(db, `usuarios/${newUid}`), {
-          nombre: formData.razonSocial,
-          correo: email,
-          rol: 'cliente',
-          activo: true,
-          permissions: accessModules,
-          createdAt: Date.now(),
-        });
-
-        // Crear cliente
-        const newClientRef = push(ref(db, 'clients'));
-        await set(newClientRef, {
-          ...formData,
-          authUid: newUid,
-          sedes: sedes.reduce((acc, s) => ({ ...acc, [s.id]: s }), {}),
-          contactos,
-          accessModules,
-          fechaCreacion: Date.now(),
-        });
-
-        setGeneratedCredentials({ email, password });
-        toast({ title: 'Cliente creado exitosamente', description: 'Usuario y accesos configurados' });
-      }
-
-      setTimeout(() => {
-        onFinish();
-      }, 1500);
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        title: 'Error',
-        description: error?.message || 'No se pudo guardar',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
-      {generatedCredentials && (
-        <div className="bg-green-50 border border-green-300 rounded-lg p-4">
-          <h3 className="font-semibold text-green-800 mb-2">✅ Credenciales Creadas</h3>
-          <p className="text-sm text-green-700">
-            <strong>Email:</strong> {generatedCredentials.email}
-          </p>
-          <p className="text-sm text-green-700">
-            <strong>Contraseña:</strong> {generatedCredentials.password}
-          </p>
-          <p className="text-xs text-green-600 mt-2">Guarda estas credenciales. El cliente podrá ingresar con ellas.</p>
-        </div>
-      )}
-
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
@@ -761,534 +806,820 @@ const ClientForm = ({ client, onFinish }: { client?: Client; onFinish: () => voi
           <TabsTrigger value="access">Acceso</TabsTrigger>
         </TabsList>
 
+        {/* Tab: General */}
         <TabsContent value="general" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label>Razón Social *</Label>
+            <div className="space-y-2">
+              <Label htmlFor="tipoCliente">Tipo de Cliente *</Label>
+              <Select value={tipoCliente} onValueChange={setTipoCliente}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Identificacion">Identificación</SelectItem>
+                  <SelectItem value="RUC">RUC</SelectItem>
+                  <SelectItem value="DNI">DNI</SelectItem>
+                  <SelectItem value="CE">CE</SelectItem>
+                  <SelectItem value="PASAPORTE">PASAPORTE</SelectItem>
+                  <SelectItem value="DOC.TRI.NO.DISP.SIN.RUC">
+                    DOC.TRI.NO.DISP.SIN.RUC
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rucDni">RUC/DNI *</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="rucDni"
+                  value={formData.rucDni}
+                  onChange={e =>
+                    setFormData(prev => ({ ...prev, rucDni: e.target.value }))
+                  }
+                  placeholder="20123456789"
+                />
+                {tipoCliente === 'RUC' && (
+                  <Button variant="outline">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    SUNAT
+                  </Button>
+                )}
+                {tipoCliente === 'DNI' && (
+                  <Button variant="outline">
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    RENIEC
+                  </Button>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="razonSocial">Razón Social *</Label>
               <Input
+                id="razonSocial"
                 value={formData.razonSocial}
-                onChange={(e) => setFormData({ ...formData, razonSocial: e.target.value })}
+                onChange={e =>
+                  setFormData(prev => ({ ...prev, razonSocial: e.target.value }))
+                }
+                placeholder="Nombre de la empresa"
               />
             </div>
-            <div>
-              <Label>RUC/DNI *</Label>
-              <Input value={formData.rucDni} onChange={(e) => setFormData({ ...formData, rucDni: e.target.value })} />
+            <div className="space-y-2 md:col-span-2">
+              <Label>Ubicación (Perú)</Label>
+              <UbigeoSelector
+                departamento={formData.departamento}
+                provincia={formData.provincia}
+                distrito={formData.distrito}
+                onChange={data =>
+                  setFormData(prev => ({
+                    ...prev,
+                    departamento: data.departamento,
+                    provincia: data.provincia,
+                    distrito: data.distrito
+                  }))
+                }
+              />
             </div>
-          </div>
-          <div>
-            <Label>Dirección Fiscal</Label>
-            <Input
-              value={formData.direccionFiscal}
-              onChange={(e) => setFormData({ ...formData, direccionFiscal: e.target.value })}
-            />
-          </div>
-          <UbigeoSelector
-            departamento={formData.departamento || ''}
-            provincia={formData.provincia || ''}
-            distrito={formData.distrito || ''}
-            onChange={(data) =>
-              setFormData({ ...formData, departamento: data.departamento, provincia: data.provincia, distrito: data.distrito })
-            }
-          />
-          <div>
-            <Label>Estado</Label>
-            <Select value={formData.estado} onValueChange={(v: any) => setFormData({ ...formData, estado: v })}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="activo">Activo</SelectItem>
-                <SelectItem value="suspendido">Suspendido</SelectItem>
-                <SelectItem value="moroso">Moroso</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label>Observaciones</Label>
-            <Textarea
-              value={formData.observaciones}
-              onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="sedes" className="space-y-4">
-          <Button onClick={addSede} variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Agregar Sede
-          </Button>
-          {sedes.map((sede, idx) => (
-            <div key={sede.id} className="border rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <h4 className="font-semibold">Sede {idx + 1}</h4>
-                <Button variant="ghost" size="sm" onClick={() => deleteSede(sede.id)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="direccionFiscal">Dirección Específica</Label>
               <Input
-                placeholder="Nombre de la sede"
-                value={sede.nombre}
-                onChange={(e) => {
-                  const updated = [...sedes];
-                  updated[idx].nombre = e.target.value;
-                  setSedes(updated);
-                }}
+                id="direccionFiscal"
+                value={formData.direccionFiscal}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    direccionFiscal: e.target.value
+                  }))
+                }
+                placeholder="Calle, número, referencia"
               />
-              <Input
-                placeholder="Dirección"
-                value={sede.direccion}
-                onChange={(e) => {
-                  const updated = [...sedes];
-                  updated[idx].direccion = e.target.value;
-                  setSedes(updated);
-                }}
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  placeholder="Responsable"
-                  value={sede.responsable}
-                  onChange={(e) => {
-                    const updated = [...sedes];
-                    updated[idx].responsable = e.target.value;
-                    setSedes(updated);
-                  }}
-                />
-                <Input
-                  placeholder="Teléfono"
-                  value={sede.telefono}
-                  onChange={(e) => {
-                    const updated = [...sedes];
-                    updated[idx].telefono = e.target.value;
-                    setSedes(updated);
-                  }}
-                />
-              </div>
             </div>
-          ))}
-        </TabsContent>
-
-        <TabsContent value="contactos" className="space-y-4">
-          <Button onClick={addContacto} variant="outline" size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Agregar Contacto
-          </Button>
-          {contactos.map((contacto, idx) => (
-            <div key={idx} className="border rounded-lg p-4 space-y-3">
-              <div className="flex justify-between items-center">
-                <h4 className="font-semibold">Contacto {idx + 1}</h4>
-                <Button variant="ghost" size="sm" onClick={() => deleteContacto(idx)}>
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="emailFacturacion">Email Facturación</Label>
+              <Input
+                id="emailFacturacion"
+                type="email"
+                value={formData.emailFacturacion}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    emailFacturacion: e.target.value
+                  }))
+                }
+                placeholder="facturacion@empresa.com"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="estado">Estado</Label>
               <Select
-                value={contacto.tipo}
-                onValueChange={(v: any) => {
-                  const updated = [...contactos];
-                  updated[idx].tipo = v;
-                  setContactos(updated);
-                }}
+                value={formData.estado}
+                onValueChange={(value: any) =>
+                  setFormData(prev => ({ ...prev, estado: value }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pago">Pago</SelectItem>
-                  <SelectItem value="admin">Administración</SelectItem>
-                  <SelectItem value="pedidos">Pedidos</SelectItem>
+                  <SelectItem value="activo">Activo</SelectItem>
+                  <SelectItem value="suspendido">Suspendido</SelectItem>
+                  <SelectItem value="moroso">Moroso</SelectItem>
                 </SelectContent>
               </Select>
-              <Input
-                placeholder="Nombre"
-                value={contacto.nombre}
-                onChange={(e) => {
-                  const updated = [...contactos];
-                  updated[idx].nombre = e.target.value;
-                  setContactos(updated);
-                }}
-              />
-              <div className="grid grid-cols-3 gap-3">
-                <Input
-                  placeholder="DNI"
-                  value={contacto.dni}
-                  onChange={(e) => {
-                    const updated = [...contactos];
-                    updated[idx].dni = e.target.value;
-                    setContactos(updated);
-                  }}
-                />
-                <Input
-                  placeholder="Celular"
-                  value={contacto.celular}
-                  onChange={(e) => {
-                    const updated = [...contactos];
-                    updated[idx].celular = e.target.value;
-                    setContactos(updated);
-                  }}
-                />
-                <Input
-                  placeholder="Correo"
-                  value={contacto.correo}
-                  onChange={(e) => {
-                    const updated = [...contactos];
-                    updated[idx].correo = e.target.value;
-                    setContactos(updated);
-                  }}
-                />
-              </div>
             </div>
-          ))}
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="observaciones">Observaciones</Label>
+              <Textarea
+                id="observaciones"
+                value={formData.observaciones}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    observaciones: e.target.value
+                  }))
+                }
+                placeholder="Notas internas sobre el cliente"
+                rows={3}
+              />
+            </div>
+          </div>
         </TabsContent>
 
+        {/* Tab: Sedes */}
+        <TabsContent value="sedes" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Sedes del Cliente</h3>
+            <Button onClick={addSede}>
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Sede
+            </Button>
+          </div>
+          <div className="space-y-4">
+            {sedes.map((sede, idx) => (
+              <Card key={sede.id}>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Nombre de Sede</Label>
+                      <Input
+                        value={sede.nombre}
+                        onChange={e => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].nombre = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="Sede Principal"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Responsable</Label>
+                      <Input
+                        value={sede.responsable}
+                        onChange={e => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].responsable = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="Nombre del responsable"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Dirección</Label>
+                      <Input
+                        value={sede.direccion}
+                        onChange={e => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].direccion = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="Dirección completa de la sede"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Teléfono</Label>
+                      <Input
+                        value={sede.telefono}
+                        onChange={e => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].telefono = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="987654321"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Distrito</Label>
+                      <Input
+                        value={sede.distrito}
+                        onChange={e => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].distrito = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="Ej: Miraflores"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Link Google Maps</Label>
+                      <Input
+                        value={sede.googleMapsUrl}
+                        onChange={e => {
+                          const newSedes = [...sedes];
+                          newSedes[idx].googleMapsUrl = e.target.value;
+                          setSedes(newSedes);
+                        }}
+                        placeholder="https://maps.google.com/..."
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="flex items-center gap-2">
+                        <Switch
+                          checked={sede.principal}
+                          onCheckedChange={checked => {
+                            const newSedes = sedes.map((s, i) => ({
+                              ...s,
+                              principal: i === idx ? checked : false
+                            }));
+                            setSedes(newSedes);
+                          }}
+                        />
+                        Sede Principal
+                      </Label>
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <Button
+                        variant="outline"
+                        className="text-red-600"
+                        onClick={() => deleteSede(sede.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Eliminar
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Tab: Contactos */}
+        <TabsContent value="contactos" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Contactos Principales</h3>
+            <Button onClick={addContacto}>
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar Contacto
+            </Button>
+          </div>
+          <div className="space-y-4">
+            {contactos.map((contacto, idx) => (
+              <Card key={idx}>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Tipo de Contacto</Label>
+                      <Select
+                        value={contacto.tipo}
+                        onValueChange={(value: any) => {
+                          const newContactos = [...contactos];
+                          newContactos[idx].tipo = value;
+                          setContactos(newContactos);
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pago">Responsable de Pago</SelectItem>
+                          <SelectItem value="admin">Administrador de Cuenta</SelectItem>
+                          <SelectItem value="pedidos">Responsable de Pedidos</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Nombre Completo</Label>
+                      <Input
+                        value={contacto.nombre}
+                        onChange={e => {
+                          const newContactos = [...contactos];
+                          newContactos[idx].nombre = e.target.value;
+                          setContactos(newContactos);
+                        }}
+                        placeholder="Nombre del contacto"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>DNI</Label>
+                      <Input
+                        value={contacto.dni}
+                        onChange={e => {
+                          const newContactos = [...contactos];
+                          newContactos[idx].dni = e.target.value;
+                          setContactos(newContactos);
+                        }}
+                        placeholder="12345678"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Celular</Label>
+                      <Input
+                        value={contacto.celular}
+                        onChange={e => {
+                          const newContactos = [...contactos];
+                          newContactos[idx].celular = e.target.value;
+                          setContactos(newContactos);
+                        }}
+                        placeholder="987654321"
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <Label>Correo Electrónico</Label>
+                      <Input
+                        type="email"
+                        value={contacto.correo}
+                        onChange={e => {
+                          const newContactos = [...contactos];
+                          newContactos[idx].correo = e.target.value;
+                          setContactos(newContactos);
+                        }}
+                        placeholder="contacto@empresa.com"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end mt-4">
+                    <Button
+                      variant="outline"
+                      className="text-red-600"
+                      onClick={() => deleteContacto(idx)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Eliminar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        {/* Tab: Comercial */}
         <TabsContent value="comercial" className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>Lista de Precio</Label>
-              <Input
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Lista de Precios</Label>
+              <Select
                 value={formData.listaPrecio}
-                onChange={(e) => setFormData({ ...formData, listaPrecio: e.target.value })}
-              />
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, listaPrecio: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar lista" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Mayorista A">Mayorista A</SelectItem>
+                  <SelectItem value="Mayorista B">Mayorista B</SelectItem>
+                  <SelectItem value="Distribuidor">Distribuidor</SelectItem>
+                  <SelectItem value="Retail">Retail</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Frecuencia de Compras</Label>
-              <Input
+              <Select
                 value={formData.frecuenciaCompras}
-                onChange={(e) => setFormData({ ...formData, frecuenciaCompras: e.target.value })}
-              />
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, frecuenciaCompras: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar frecuencia" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Semanal">Semanal</SelectItem>
+                  <SelectItem value="Quincenal">Quincenal</SelectItem>
+                  <SelectItem value="Mensual">Mensual</SelectItem>
+                  <SelectItem value="Eventual">Eventual</SelectItem>
+                  <SelectItem value="Otro">Otro</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div>
-              <Label>Horario de Entrega</Label>
-              <Input
-                value={formData.horarioEntrega}
-                onChange={(e) => setFormData({ ...formData, horarioEntrega: e.target.value })}
-              />
-            </div>
-            <div>
+            <div className="space-y-2">
               <Label>Condición de Pago</Label>
-              <Input
+              <Select
                 value={formData.condicionPago}
-                onChange={(e) => setFormData({ ...formData, condicionPago: e.target.value })}
-              />
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, condicionPago: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar condición" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Al contado">Al contado</SelectItem>
+                  <SelectItem value="Crédito 15 días">Crédito 15 días</SelectItem>
+                  <SelectItem value="Crédito 30 días">Crédito 30 días</SelectItem>
+                  <SelectItem value="Crédito 45 días">Crédito 45 días</SelectItem>
+                  <SelectItem value="Contraentrega">Contraentrega</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div>
+            <div className="space-y-2">
               <Label>Límite de Crédito</Label>
               <Input
                 type="number"
                 value={formData.limiteCredito}
-                onChange={(e) => setFormData({ ...formData, limiteCredito: Number(e.target.value) })}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    limiteCredito: Number(e.target.value)
+                  }))
+                }
+                placeholder="0"
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Horario de Entrega Preferido</Label>
+              <Input
+                value={formData.horarioEntrega}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    horarioEntrega: e.target.value
+                  }))
+                }
+                placeholder="Ej: Lunes a Viernes 8:00-17:00"
               />
             </div>
           </div>
         </TabsContent>
 
+        {/* Tab: Acceso */}
         <TabsContent value="access" className="space-y-4">
-          <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-800 mb-2">🔐 Credenciales de Acceso</h3>
-            <p className="text-sm text-blue-700 mb-4">
-              {client
-                ? 'Actualiza el email o los módulos de acceso del cliente.'
-                : 'Crea un usuario para que el cliente pueda acceder al sistema.'}
-            </p>
-
-            <div className="space-y-3">
-              <div>
-                <Label>Email de Acceso *</Label>
-                <Input
-                  type="email"
-                  placeholder="cliente@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Acceso Portal (RUC + PIN)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4 p-4 bg-stone-50 rounded-lg">
+                <div className="space-y-2">
+                  <Label>Usuario (RUC)</Label>
+                  <Input
+                    value={formData.rucDni}
+                    disabled
+                    className="bg-stone-100 text-stone-700 font-mono"
+                  />
+                  <p className="text-xs text-stone-500">
+                    Este RUC será el identificador de acceso.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>PIN (4 dígitos)</Label>
+                  <Input
+                    type="password"
+                    inputMode="numeric"
+                    placeholder="Ej: 1234"
+                    value={pin}
+                    onChange={e =>
+                      setPin(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    }
+                    maxLength={4}
+                    className="font-mono tracking-widest"
+                    disabled={!!client?.authUid}
+                  />
+                  <p className="text-xs text-stone-500">
+                    El PIN se convertirá internamente en credenciales seguras.
+                  </p>
+                </div>
+                {client?.authUid ? (
+                  <Badge className="bg-green-100 text-green-800 border-green-300">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Con Acceso
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-100 text-amber-800 border-amber-300">
+                    <Unlock className="h-3 w-3 mr-1" />
+                    Sin Acceso
+                  </Badge>
+                )}
+                <p className="text-xs text-amber-600">
+                  El email interno se genera usando RUC + PIN.
+                </p>
               </div>
 
-              {!client && (
-                <div>
-                  <Label>Contraseña *</Label>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1">
-                      <Input
-                        type={showPassword ? 'text' : 'password'}
-                        placeholder="Contraseña"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground"
-                      >
-                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                    <Button type="button" variant="outline" onClick={generatePassword}>
-                      <Key className="h-4 w-4 mr-2" />
-                      Generar
-                    </Button>
+              {/* Permisos de Módulos */}
+              <Card className="border border-stone-200">
+                <CardHeader className="py-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Lock className="h-4 w-4" />
+                    Permisos de Módulos
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-stone-500">
+                    Seleccione qué módulos puede ver este cliente en el portal.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    {AVAILABLE_MODULES.map(m => {
+                      const ActiveIcon = m.icon;
+                      const active = accessModules.includes(m.id);
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          onClick={() => toggleModule(m.id)}
+                          className={
+                            'group relative flex flex-col items-center justify-center rounded-md border text-xs py-3 px-2 transition ' +
+                            (active
+                              ? `border-${m.color}-500 bg-${m.color}-500 text-white shadow`
+                              : 'border-stone-200 bg-stone-100 text-stone-600 hover:bg-stone-200')
+                          }
+                        >
+                          <ActiveIcon
+                            className={
+                              'h-4 w-4 mb-1 ' + (active ? 'text-white' : 'text-stone-500')
+                            }
+                          />
+                          <span className="font-medium">{m.name}</span>
+                          {active && (
+                            <Check className="absolute top-1 right-1 h-4 w-4 text-white" />
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Formato: RUC@Pecaditos</p>
+                  <div className="text-xs text-stone-500">
+                    Módulos activos: {accessModules.length || 0}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {client?.authUid && (
+                <div className="text-xs text-stone-500">
+                  Acceso ya creado. Para cambiar PIN no se muestra aquí.
                 </div>
               )}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-semibold mb-3">Módulos de Acceso</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {AVAILABLE_MODULES.map((mod) => {
-                const Icon = mod.icon;
-                const isSelected = accessModules.includes(mod.id);
-                return (
-                  <div
-                    key={mod.id}
-                    className={`border rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-blue-50 border-blue-300' : 'hover:bg-stone-50'
-                    }`}
-                    onClick={() => toggleModule(mod.id)}
-                  >
-                    <Checkbox checked={isSelected} onCheckedChange={() => toggleModule(mod.id)} />
-                    <Icon className="h-5 w-5 text-stone-600" />
-                    <span className="text-sm font-medium">{mod.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={onFinish} disabled={saving}>
+        <Button variant="outline" onClick={onFinish}>
           Cancelar
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Guardando...' : client ? 'Actualizar Cliente' : 'Crear Cliente'}
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Guardando...' : (client ? 'Actualizar' : 'Crear') + ' Cliente'}
         </Button>
       </div>
     </div>
   );
 };
 
-// ========== FORMULARIO DE USUARIO ==========
-const UserForm = ({ user, onFinish }: { user?: UserRecord; onFinish: () => void }) => {
-  const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    nombre: user?.nombre || '',
-    correo: user?.correo || '',
-    rol: user?.rol || 'usuario',
-    activo: user?.activo ?? true,
-  });
-  const [permissions, setPermissions] = useState<string[]>(
-    (user as any)?.accessModules || user?.permissions || []
+const ClientDetails = ({ client }: { client: Client }) => {
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="info" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="info">Información</TabsTrigger>
+          <TabsTrigger value="sedes">Sedes</TabsTrigger>
+          <TabsTrigger value="contactos">Contactos</TabsTrigger>
+          <TabsTrigger value="comercial">Comercial</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="info" className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Datos Generales</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <Label className="text-stone-600">Razón Social</Label>
+                  <p className="font-medium">{client.razonSocial}</p>
+                </div>
+                <div>
+                  <Label className="text-stone-600">RUC/DNI</Label>
+                  <p className="font-medium">{client.rucDni}</p>
+                </div>
+                <div>
+                  <Label className="text-stone-600">Dirección Fiscal</Label>
+                  <p className="font-medium">{client.direccionFiscal}</p>
+                </div>
+                <div>
+                  <Label className="text-stone-600">Estado</Label>
+                  <div className="mt-1">
+                    {client.estado === 'activo' && (
+                      <Badge className="bg-green-100 text-green-800">Activo</Badge>
+                    )}
+                    {client.estado === 'suspendido' && (
+                      <Badge className="bg-yellow-100 text-yellow-800">Suspendido</Badge>
+                    )}
+                    {client.estado === 'moroso' && (
+                      <Badge className="bg-red-100 text-red-800">Moroso</Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="sedes" className="space-y-4">
+          <div className="space-y-6">
+            {(client.sedes || []).map(sede => (
+              <Card key={sede.id}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle>{sede.nombre}</CardTitle>
+                    {sede.principal && <Badge variant="secondary">Principal</Badge>}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="mb-2">
+                    <div className="text-sm text-stone-600">{sede.direccion}</div>
+                    <div className="text-sm text-stone-600">
+                      Responsable: {sede.responsable} - {sede.telefono}
+                    </div>
+                    {sede.distrito && (
+                      <div className="text-xs text-stone-500">Distrito: {sede.distrito}</div>
+                    )}
+                    {sede.googleMapsUrl && (
+                      <div className="mt-2">
+                        <a
+                          href={sede.googleMapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline"
+                        >
+                          Ver en Google Maps
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                  <hr className="my-3" />
+                  <SedeComments sedeId={sede.id} comentarios={sede.comentarios || []} />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+
+        <TabsContent value="contactos" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Contactos</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {(client.contactos || []).map((contacto, idx) => (
+                  <div key={idx} className="border rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge variant="outline">
+                        {contacto.tipo === 'pago' && 'Pagos'}
+                        {contacto.tipo === 'admin' && 'Administrador'}
+                        {contacto.tipo === 'pedidos' && 'Pedidos'}
+                      </Badge>
+                      <span className="font-medium">{contacto.nombre}</span>
+                    </div>
+                    <div className="text-sm text-stone-600 space-y-1">
+                      <p>DNI: {contacto.dni}</p>
+                      <p>Celular: {contacto.celular}</p>
+                      <p>Email: {contacto.correo}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="comercial" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Información Comercial</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label className="text-stone-600">Lista de Precios</Label>
+                <p className="font-medium">{client.listaPrecio}</p>
+              </div>
+              <div>
+                <Label className="text-stone-600">Condición de Pago</Label>
+                <p className="font-medium">{client.condicionPago}</p>
+              </div>
+              <div>
+                <Label className="text-stone-600">Límite de Crédito</Label>
+                <p className="font-medium">S/. {client.limiteCredito?.toFixed(2) || '0.00'}</p>
+              </div>
+              <div>
+                <Label className="text-stone-600">Deuda Actual</Label>
+                <p className="font-medium text-red-600">S/. {client.montoDeuda?.toFixed(2) || '0.00'}</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
   );
-  const [password, setPassword] = useState('');
-  const [password2, setPassword2] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showPassword2, setShowPassword2] = useState(false);
+};
 
-  const toggleModule = (moduleId: string) => {
-    setPermissions((prev) =>
-      prev.includes(moduleId) ? prev.filter((m) => m !== moduleId) : [...prev, moduleId]
-    );
-  };
+const SedeComments = ({
+  sedeId,
+  comentarios
+}: {
+  sedeId: string;
+  comentarios: SedeComment[];
+}) => {
+  const [allComments, setAllComments] = useState<SedeComment[]>(comentarios || []);
+  const [showAll, setShowAll] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [newRating, setNewRating] = useState(5);
+  const [user, setUser] = useState('');
 
-  const handleSave = async () => {
-    if (!formData.nombre.trim()) {
-      toast({ title: 'Error', description: 'Ingresa el nombre completo', variant: 'destructive' });
-      return;
-    }
-    if (!formData.correo.trim()) {
-      toast({ title: 'Error', description: 'Ingresa un correo', variant: 'destructive' });
-      return;
-    }
+  const paginated = showAll ? allComments : allComments.slice(0, 5);
 
-    if (!user) {
-      if (!password || !password2) {
-        toast({ title: 'Error', description: 'Ingresa y confirma la contraseña', variant: 'destructive' });
-        return;
-      }
-      if (password.length < 6) {
-        toast({ title: 'Error', description: 'Contraseña mínimo 6 caracteres', variant: 'destructive' });
-        return;
-      }
-      if (password !== password2) {
-        toast({ title: 'Error', description: 'Las contraseñas no coinciden', variant: 'destructive' });
-        return;
-      }
-    }
+  useEffect(() => {
+    setAllComments([...comentarios].sort((a, b) => b.createdAt - a.createdAt));
+  }, [comentarios]);
 
-    setSaving(true);
-    try {
-      if (user) {
-        // EDITAR
-        console.log('Guardando permisos para usuario:', user.id, permissions);
-        await update(ref(db, `usuarios/${user.id}`), {
-          nombre: formData.nombre,
-          correo: formData.correo,
-          rol: formData.rol,
-          activo: formData.activo,
-          permissions,
-          accessModules: permissions, // CRÍTICO: guardar en ambos campos
-        });
-        console.log('Usuario actualizado exitosamente');
-        toast({ title: 'Usuario actualizado', description: 'Los cambios se guardaron correctamente' });
-      } else {
-        // CREAR
-        const call = httpsCallable(functions, 'createUser');
-        const res: any = await call({
-          email: formData.correo,
-          password,
-          nombre: formData.nombre,
-          rol: formData.rol,
-        });
+  const avg =
+    allComments.length > 0
+      ? (allComments.reduce((acc, c) => acc + c.rating, 0) / allComments.length).toFixed(2)
+      : '0';
 
-        const newUid = res?.data?.uid || res?.data?.userId;
-        if (!newUid) {
-          // Buscar uid por email
-          const snap = await get(ref(db, 'usuarios'));
-          const val = snap.val() || {};
-          let foundUid: string | null = null;
-          for (const [id, u] of Object.entries<any>(val)) {
-            if ((u?.correo || '').toLowerCase() === formData.correo.toLowerCase()) {
-              foundUid = id;
-              break;
-            }
-          }
-          if (foundUid) {
-            await update(ref(db, `usuarios/${foundUid}`), {
-              nombre: formData.nombre,
-              correo: formData.correo,
-              rol: formData.rol,
-              activo: formData.activo,
-              permissions,
-              accessModules: permissions, // CRÍTICO: guardar en ambos campos
-            });
-          } else {
-            throw new Error('No se obtuvo el UID del usuario creado');
-          }
-        } else {
-          await set(ref(db, `usuarios/${newUid}`), {
-            nombre: formData.nombre,
-            correo: formData.correo,
-            rol: formData.rol,
-            activo: formData.activo,
-            permissions,
-            accessModules: permissions, // CRÍTICO: guardar en ambos campos
-            createdAt: Date.now(),
-          });
-        }
-
-        toast({ title: 'Usuario creado' });
-      }
-
-      setTimeout(() => {
-        onFinish();
-      }, 1000);
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        title: 'Error',
-        description: error?.message || 'No se pudo guardar',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
+  const handleSend = () => {
+    if (!newComment || !user) return;
+    const comentario: SedeComment = {
+      id: Date.now().toString(),
+      user,
+      comment: newComment,
+      rating: newRating,
+      createdAt: Date.now()
+    };
+    setAllComments([comentario, ...allComments]);
+    setNewComment('');
+    setUser('');
+    setNewRating(5);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <Label>Nombre Completo *</Label>
-          <Input value={formData.nombre} onChange={(e) => setFormData({ ...formData, nombre: e.target.value })} />
-        </div>
-        <div>
-          <Label>Email *</Label>
-          <Input
-            type="email"
-            value={formData.correo}
-            onChange={(e) => setFormData({ ...formData, correo: e.target.value })}
-          />
-        </div>
-        <div>
-          <Label>Rol</Label>
-          <Input value={formData.rol} onChange={(e) => setFormData({ ...formData, rol: e.target.value })} />
-        </div>
-
-        {!user && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Label>Contraseña *</Label>
-              <Input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mínimo 6 caracteres"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-2 top-[34px] text-muted-foreground"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <Star className="h-5 w-5 text-yellow-400" />
+        <span className="font-bold">{avg} / 5</span>
+        <span className="text-xs text-stone-500">({allComments.length} calificaciones)</span>
+      </div>
+      <div className="mb-3 flex flex-col md:flex-row gap-2">
+        <Input
+          placeholder="Tu nombre"
+          value={user}
+          onChange={e => setUser(e.target.value)}
+          className="max-w-xs"
+        />
+        <Input
+          placeholder="Escribe un comentario"
+          value={newComment}
+          onChange={e => setNewComment(e.target.value)}
+        />
+        <Select value={String(newRating)} onValueChange={v => setNewRating(Number(v))}>
+          <SelectTrigger>
+            <SelectValue placeholder="Puntaje" />
+          </SelectTrigger>
+          <SelectContent>
+            {[5, 4, 3, 2, 1].map(n => (
+              <SelectItem key={n} value={String(n)}>
+                {n} estrellas
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button onClick={handleSend}>Enviar</Button>
+      </div>
+      <div className="space-y-2 max-h-64 overflow-y-auto">
+        {paginated.map(c => (
+          <div key={c.id} className="border rounded-lg p-2 bg-gray-50">
+            <div className="flex items-center gap-1">
+              {Array.from({ length: c.rating }).map((_, i) => (
+                <Star key={i} className="h-4 w-4 text-yellow-400" />
+              ))}
+              <span className="text-xs ml-2 text-gray-800 font-bold">{c.user}</span>
+              <span className="text-xs text-gray-400 ml-2">
+                {new Date(c.createdAt).toLocaleString()}
+              </span>
             </div>
-            <div className="relative">
-              <Label>Confirmar Contraseña *</Label>
-              <Input
-                type={showPassword2 ? 'text' : 'password'}
-                value={password2}
-                onChange={(e) => setPassword2(e.target.value)}
-                placeholder="Repite la contraseña"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword2(!showPassword2)}
-                className="absolute right-2 top-[34px] text-muted-foreground"
-              >
-                {showPassword2 ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
+            <div className="text-sm">{c.comment}</div>
           </div>
-        )}
-
-        <div className="flex items-center gap-2">
-          <Switch checked={formData.activo} onCheckedChange={(v) => setFormData({ ...formData, activo: v })} />
-          <Label>Usuario activo</Label>
-        </div>
+        ))}
       </div>
-
-      <div>
-        <h3 className="font-semibold mb-3">Módulos de Acceso</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {AVAILABLE_MODULES.map((mod) => {
-            const Icon = mod.icon;
-            const isSelected = permissions.includes(mod.id);
-            return (
-              <div
-                key={mod.id}
-                className={`border rounded-lg p-3 flex items-center gap-3 cursor-pointer transition-colors ${
-                  isSelected ? 'bg-blue-50 border-blue-300' : 'hover:bg-stone-50'
-                }`}
-                onClick={() => toggleModule(mod.id)}
-              >
-                <Checkbox checked={isSelected} onCheckedChange={() => toggleModule(mod.id)} />
-                <Icon className="h-5 w-5 text-stone-600" />
-                <span className="text-sm font-medium">{mod.name}</span>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={onFinish} disabled={saving}>
-          Cancelar
+      {allComments.length > 5 && (
+        <Button variant="ghost" className="mt-2" onClick={() => setShowAll(v => !v)}>
+          {showAll ? 'Ver menos' : 'Ver todos'}
         </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Guardando...' : user ? 'Actualizar Usuario' : 'Crear Usuario'}
-        </Button>
-      </div>
+      )}
     </div>
   );
 };

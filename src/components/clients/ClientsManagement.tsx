@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { db, auth } from '@/config/firebase';
-import { ref, onValue, push, set, update, remove } from "firebase/database";
+import { ref, onValue, push, set, update, remove } from 'firebase/database';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { formatAuthCredentials } from '@/services/auth';
+import { useToast } from '@/hooks/use-toast';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -13,23 +15,26 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
-  DropdownMenuItem,
+  DropdownMenuItem
 } from '@/components/ui/dropdown-menu';
+
 import UbigeoSelector from '@/components/UbigeoSelector';
-import { 
-  Search, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Building, 
-  FileText, 
+
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
+import {
+  Search,
+  Plus,
+  Edit,
+  Trash2,
+  Building,
+  FileText,
   Download,
   ExternalLink,
   Shield,
@@ -48,21 +53,21 @@ import {
   BarChart3,
   MapPin
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 
+// Array disponible (no obligatorio usarlo en este archivo)
 const AVAILABLE_MODULES = [
-  { id: "dashboard", name: "Dashboard Global", icon: BarChart3, color: "purple" },
-  { id: "catalog", name: "Catálogo de Productos", icon: ShoppingCart, color: "blue" },
-  { id: "catalogs-admin", name: "Catálogo por Cliente", icon: Package, color: "emerald" },
-  { id: "orders", name: "Pedidos", icon: Package, color: "blue" },
-  { id: "tracking", name: "Seguimiento", icon: Truck, color: "amber" },
-  { id: "delivery", name: "Reparto", icon: Truck, color: "green" },
-  { id: "production", name: "Producción", icon: Factory, color: "amber" },
-  { id: "billing", name: "Cobranzas", icon: DollarSign, color: "red" },
-  { id: "logistics", name: "Logística", icon: Truck, color: "indigo" },
-  { id: "locations", name: "Ubicaciones", icon: MapPin, color: "indigo" },
-  { id: "reports", name: "Reportes", icon: BarChart3, color: "purple" },
-};
+  { id: 'dashboard', name: 'Dashboard Global', icon: BarChart3, color: 'purple' },
+  { id: 'catalog', name: 'Catálogo de Productos', icon: ShoppingCart, color: 'blue' },
+  { id: 'catalogs-admin', name: 'Catálogo por Cliente', icon: Package, color: 'emerald' },
+  { id: 'orders', name: 'Pedidos', icon: Package, color: 'blue' },
+  { id: 'tracking', name: 'Seguimiento', icon: Truck, color: 'amber' },
+  { id: 'delivery', name: 'Reparto', icon: Truck, color: 'green' },
+  { id: 'production', name: 'Producción', icon: Factory, color: 'amber' },
+  { id: 'billing', name: 'Cobranzas', icon: DollarSign, color: 'red' },
+  { id: 'logistics', name: 'Logística', icon: Truck, color: 'indigo' },
+  { id: 'locations', name: 'Ubicaciones', icon: MapPin, color: 'indigo' },
+  { id: 'reports', name: 'Reportes', icon: BarChart3, color: 'purple' }
+];
 
 interface SedeComment {
   id: string;
@@ -116,74 +121,73 @@ interface Client {
   authUid?: string;
   accessModules?: string[];
   portalLoginRuc?: string;
-  pin?: string; // temporal para creación
+  pin?: string;
 }
 
+// Reporte PDF
 export const generateClientReportPDF = (client: Client) => {
   const doc = new jsPDF();
   doc.setFontSize(16);
-  doc.text("Reporte Detallado de Cliente", 14, 16);
+  doc.text('Reporte Detallado de Cliente', 14, 16);
   doc.setFontSize(12);
   doc.text(`Razón Social: ${client.razonSocial}`, 14, 26);
   doc.text(`RUC/DNI: ${client.rucDni}`, 14, 34);
   doc.text(`Dirección Fiscal: ${client.direccionFiscal}`, 14, 42);
   doc.text(`Estado: ${client.estado}`, 14, 50);
   let nextY = 58;
+
   if (client.sedes?.length > 0) {
-    doc.text("Sedes:", 14, nextY + 2);
+    doc.text('Sedes:', 14, nextY + 2);
     autoTable(doc, {
       startY: nextY + 6,
-      head: [["Nombre", "Dirección", "Responsable", "Teléfono", "Distrito"]],
+      head: [['Nombre', 'Dirección', 'Responsable', 'Teléfono', 'Distrito']],
       body: client.sedes.map(s => [
         s.nombre,
         s.direccion,
         s.responsable,
         s.telefono,
-        s.distrito || ""
-      ]),
+        s.distrito || ''
+      ])
     });
     nextY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : nextY + 30;
   } else {
     nextY += 18;
   }
+
   if (client.contactos?.length > 0) {
-    doc.text("Contactos:", 14, nextY + 2);
+    doc.text('Contactos:', 14, nextY + 2);
     autoTable(doc, {
       startY: nextY + 6,
-      head: [["Tipo", "Nombre", "DNI", "Celular", "Correo"]],
-      body: client.contactos.map(c => [
-        c.tipo,
-        c.nombre,
-        c.dni,
-        c.celular,
-        c.correo,
-      ]),
+      head: [['Tipo', 'Nombre', 'DNI', 'Celular', 'Correo']],
+      body: client.contactos.map(c => [c.tipo, c.nombre, c.dni, c.celular, c.correo])
     });
     if (client.observaciones) {
       const lastY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 10 : 110;
-      doc.text("Observaciones:", 14, lastY);
+      doc.text('Observaciones:', 14, lastY);
       doc.text(client.observaciones, 14, lastY + 8);
     }
   }
+
   doc.save(`Reporte_${client.razonSocial || client.rucDni}.pdf`);
 };
 
+// Reporte Excel
 export const generateClientReportExcel = (client: Client) => {
   const ws1 = XLSX.utils.json_to_sheet([
     {
-      "Razón Social": client.razonSocial,
-      "RUC/DNI": client.rucDni,
-      "Dirección Fiscal": client.direccionFiscal,
-      "Estado": client.estado,
-      "Observaciones": client.observaciones
+      'Razón Social': client.razonSocial,
+      'RUC/DNI': client.rucDni,
+      'Dirección Fiscal': client.direccionFiscal,
+      Estado: client.estado,
+      Observaciones: client.observaciones
     }
   ]);
   const ws2 = XLSX.utils.json_to_sheet(client.sedes || []);
   const ws3 = XLSX.utils.json_to_sheet(client.contactos || []);
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws1, "Cliente");
-  XLSX.utils.book_append_sheet(wb, ws2, "Sedes");
-  XLSX.utils.book_append_sheet(wb, ws3, "Contactos");
+  XLSX.utils.book_append_sheet(wb, ws1, 'Cliente');
+  XLSX.utils.book_append_sheet(wb, ws2, 'Sedes');
+  XLSX.utils.book_append_sheet(wb, ws3, 'Contactos');
   XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
 };
 
@@ -198,9 +202,12 @@ export const ClientsManagement = () => {
 
   useEffect(() => {
     const clientsRef = ref(db, 'clients');
-    const unsubscribe = onValue(clientsRef, (snapshot) => {
+    const unsubscribe = onValue(clientsRef, snapshot => {
       const data = snapshot.val();
-      if (!data) { setClients([]); return; }
+      if (!data) {
+        setClients([]);
+        return;
+      }
       const arr: Client[] = Object.entries(data).map(([id, client]: any) => ({
         ...client,
         id,
@@ -210,7 +217,7 @@ export const ClientsManagement = () => {
               id: sid,
               comentarios: sede.comentarios ? Object.values(sede.comentarios) : []
             }))
-          : [],
+          : []
       }));
       setClients(arr);
     });
@@ -221,11 +228,10 @@ export const ClientsManagement = () => {
     const clientsRef = ref(db, 'clients');
 
     if (isEdit && client.id) {
-      // Si se edita y aún no tiene acceso y se asigna PIN válido, crear credenciales
       if (!client.authUid && client.rucDni && client.pin && client.pin.length === 4) {
         try {
           const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
-          const credential = await createUserWithEmailAndPassword(auth, email, password);
+            const credential = await createUserWithEmailAndPassword(auth, email, password);
           await set(ref(db, `usuarios/${credential.user.uid}`), {
             nombre: client.razonSocial,
             correo: email,
@@ -241,16 +247,19 @@ export const ClientsManagement = () => {
           });
           toast({ title: 'Acceso creado', description: 'Credenciales generadas (RUC + PIN)' });
         } catch (err: any) {
-          toast({ title: 'Error creando acceso', description: err.message || 'No se pudo crear el usuario', variant: 'destructive' });
+          toast({
+            title: 'Error creando acceso',
+            description: err.message || 'No se pudo crear el usuario',
+            variant: 'destructive'
+          });
         }
       } else {
         await update(ref(db, `clients/${client.id}`), { ...client });
-        toast({ title: "Cliente actualizado", description: "Actualizado correctamente" });
+        toast({ title: 'Cliente actualizado', description: 'Actualizado correctamente' });
       }
       return;
     }
 
-    // Creación nueva
     try {
       let authUid: string | undefined;
       if (client.rucDni && client.pin && client.pin.length === 4) {
@@ -269,7 +278,11 @@ export const ClientsManagement = () => {
           toast({ title: 'Usuario portal creado', description: 'Acceso habilitado (RUC + PIN)' });
         } catch (authError: any) {
           if (authError.code === 'auth/email-already-in-use') {
-            toast({ title: 'Email interno existente', description: 'Se continúa sin crear nuevo usuario', variant: 'default' });
+            toast({
+              title: 'Email interno existente',
+              description: 'Se continúa sin crear nuevo usuario',
+              variant: 'default'
+            });
           } else {
             throw authError;
           }
@@ -285,31 +298,51 @@ export const ClientsManagement = () => {
         portalLoginRuc: client.rucDni,
         fechaCreacion: Date.now()
       });
-      toast({ title: "Cliente creado", description: "Registro almacenado correctamente" });
+      toast({ title: 'Cliente creado', description: 'Registro almacenado correctamente' });
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "No se pudo crear el cliente", variant: "destructive" });
+      toast({
+        title: 'Error',
+        description: error.message || 'No se pudo crear el cliente',
+        variant: 'destructive'
+      });
     }
   };
 
   const deleteClient = (id: string) => {
     remove(ref(db, `clients/${id}`));
-    toast({ title: "Cliente eliminado" });
+    toast({ title: 'Cliente eliminado' });
   };
 
-  const filteredClients = clients.filter(client =>
-    client.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.rucDni?.includes(searchTerm) ||
-    client.sedes?.some(sede => sede.nombre?.toLowerCase().includes(searchTerm.toLowerCase()))
+  const filteredClients = clients.filter(
+    client =>
+      client.razonSocial?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.rucDni?.includes(searchTerm) ||
+      client.sedes?.some(sede => sede.nombre?.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const getStatusBadge = (estado: string) => {
     switch (estado) {
       case 'activo':
-        return <Badge className="bg-green-100 text-green-800 border-green-300"><CheckCircle className="h-3 w-3 mr-1" />Activo</Badge>;
+        return (
+          <Badge className="bg-green-100 text-green-800 border-green-300">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Activo
+          </Badge>
+        );
       case 'suspendido':
-        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300"><AlertTriangle className="h-3 w-3 mr-1" />Suspendido</Badge>;
+        return (
+          <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300">
+            <AlertTriangle className="h-3 w-3 mr-1" />
+            Suspendido
+          </Badge>
+        );
       case 'moroso':
-        return <Badge className="bg-red-100 text-red-800 border-red-300"><XCircle className="h-3 w-3 mr-1" />Moroso</Badge>;
+        return (
+          <Badge className="bg-red-100 text-red-800 border-red-300">
+            <XCircle className="h-3 w-3 mr-1" />
+            Moroso
+          </Badge>
+        );
       default:
         return <Badge variant="secondary">{estado}</Badge>;
     }
@@ -323,13 +356,14 @@ export const ClientsManagement = () => {
           <p className="text-stone-600 mt-1">Administración completa de clientes y ubicaciones</p>
         </div>
       </div>
+
       <div className="flex flex-col sm:flex-row gap-4 justify-between">
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-stone-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
           <Input
             placeholder="Buscar por razón social, RUC, sede..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={e => setSearchTerm(e.target.value)}
             className="pl-10"
           />
         </div>
@@ -355,8 +389,11 @@ export const ClientsManagement = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {filteredClients.map((client) => (
-              <div key={client.id} className="border rounded-lg p-4 hover:bg-stone-50 transition-colors">
+            {filteredClients.map(client => (
+              <div
+                key={client.id}
+                className="border rounded-lg p-4 hover:bg-stone-50 transition-colors"
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
@@ -390,10 +427,14 @@ export const ClientsManagement = () => {
                         Sin Acceso
                       </Badge>
                     )}
-                    <Dialog open={isViewModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
-                      if (!open) setSelectedClient(null);
-                      setIsViewModalOpen(open);
-                    }}>
+
+                    <Dialog
+                      open={isViewModalOpen && selectedClient?.id === client.id}
+                      onOpenChange={open => {
+                        if (!open) setSelectedClient(null);
+                        setIsViewModalOpen(open);
+                      }}
+                    >
                       <DialogTrigger asChild>
                         <Button
                           variant="outline"
@@ -411,10 +452,14 @@ export const ClientsManagement = () => {
                         {selectedClient && <ClientDetails client={selectedClient} />}
                       </DialogContent>
                     </Dialog>
-                    <Dialog open={isEditModalOpen && selectedClient?.id === client.id} onOpenChange={(open) => {
-                      if (!open) setSelectedClient(null);
-                      setIsEditModalOpen(open);
-                    }}>
+
+                    <Dialog
+                      open={isEditModalOpen && selectedClient?.id === client.id}
+                      onOpenChange={open => {
+                        if (!open) setSelectedClient(null);
+                        setIsEditModalOpen(open);
+                      }}
+                    >
                       <DialogTrigger asChild>
                         <Button
                           variant="outline"
@@ -441,6 +486,7 @@ export const ClientsManagement = () => {
                         )}
                       </DialogContent>
                     </Dialog>
+
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -457,6 +503,7 @@ export const ClientsManagement = () => {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -477,14 +524,18 @@ export const ClientsManagement = () => {
   );
 };
 
-const ClientForm = ({ client, onSave, onFinish }: { 
-  client?: Client; 
-  onSave: (data: Partial<Client>, isEdit?: boolean) => void; 
+const ClientForm = ({
+  client,
+  onSave,
+  onFinish
+}: {
+  client?: Client;
+  onSave: (data: Partial<Client>, isEdit?: boolean) => void;
   onFinish: () => void;
 }) => {
   const { toast } = useToast();
   const [tipoCliente, setTipoCliente] = useState<string>('RUC');
-  const [pin, setPin] = useState(''); // PIN para acceso portal
+  const [pin, setPin] = useState('');
   const [formData, setFormData] = useState({
     id: client?.id || '',
     razonSocial: client?.razonSocial || '',
@@ -508,24 +559,37 @@ const ClientForm = ({ client, onSave, onFinish }: {
 
   const handleSave = () => {
     if (!formData.razonSocial || !formData.rucDni) {
-      toast({ title: "Error", description: "Complete los campos obligatorios", variant: "destructive" });
+      toast({
+        title: 'Error',
+        description: 'Complete los campos obligatorios',
+        variant: 'destructive'
+      });
       return;
     }
-    // Validar PIN solo en creación de nuevo acceso (cliente nuevo sin authUid)
     if (!client && pin && pin.length !== 4) {
-      toast({ title: "PIN inválido", description: "El PIN debe tener 4 dígitos", variant: "destructive" });
+      toast({
+        title: 'PIN inválido',
+        description: 'El PIN debe tener 4 dígitos',
+        variant: 'destructive'
+      });
       return;
     }
     if (!client && !pin) {
-      toast({ title: "Aviso", description: "Se creará el cliente sin acceso (sin PIN).", variant: "default" });
+      toast({
+        title: 'Aviso',
+        description: 'Se creará el cliente sin acceso (sin PIN).',
+        variant: 'default'
+      });
     }
+
     const data: Partial<Client> = {
       ...formData,
       portalLoginRuc: formData.rucDni,
       pin: pin || undefined,
       sedes: undefined,
-      contactos: undefined,
+      contactos: undefined
     };
+
     onSave({ ...data, sedes, contactos }, !!client);
     onFinish();
   };
@@ -542,7 +606,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
         principal: sedes.length === 0,
         googleMapsUrl: '',
         distrito: '',
-        comentarios: [],
+        comentarios: []
       }
     ]);
   };
@@ -567,10 +631,10 @@ const ClientForm = ({ client, onSave, onFinish }: {
       <Tabs defaultValue="general" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="sedes">Sedes</TabsTrigger>
-            <TabsTrigger value="contactos">Contactos</TabsTrigger>
-            <TabsTrigger value="comercial">Comercial</TabsTrigger>
-            <TabsTrigger value="access">Acceso</TabsTrigger>
+          <TabsTrigger value="sedes">Sedes</TabsTrigger>
+          <TabsTrigger value="contactos">Contactos</TabsTrigger>
+          <TabsTrigger value="comercial">Comercial</TabsTrigger>
+          <TabsTrigger value="access">Acceso</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -578,14 +642,18 @@ const ClientForm = ({ client, onSave, onFinish }: {
             <div className="space-y-2">
               <Label htmlFor="tipoCliente">Tipo de Cliente *</Label>
               <Select value={tipoCliente} onValueChange={setTipoCliente}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Identificacion">Identificación</SelectItem>
                   <SelectItem value="RUC">RUC</SelectItem>
                   <SelectItem value="DNI">DNI</SelectItem>
                   <SelectItem value="CE">CE</SelectItem>
                   <SelectItem value="PASAPORTE">PASAPORTE</SelectItem>
-                  <SelectItem value="DOC.TRI.NO.DISP.SIN.RUC">DOC.TRI.NO.DISP.SIN.RUC</SelectItem>
+                  <SelectItem value="DOC.TRI.NO.DISP.SIN.RUC">
+                    DOC.TRI.NO.DISP.SIN.RUC
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -595,7 +663,9 @@ const ClientForm = ({ client, onSave, onFinish }: {
                 <Input
                   id="rucDni"
                   value={formData.rucDni}
-                  onChange={(e) => setFormData(prev => ({ ...prev, rucDni: e.target.value }))}
+                  onChange={e =>
+                    setFormData(prev => ({ ...prev, rucDni: e.target.value }))
+                  }
                   placeholder="20123456789"
                 />
                 {tipoCliente === 'RUC' && (
@@ -617,7 +687,9 @@ const ClientForm = ({ client, onSave, onFinish }: {
               <Input
                 id="razonSocial"
                 value={formData.razonSocial}
-                onChange={(e) => setFormData(prev => ({ ...prev, razonSocial: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({ ...prev, razonSocial: e.target.value }))
+                }
                 placeholder="Nombre de la empresa"
               />
             </div>
@@ -627,12 +699,14 @@ const ClientForm = ({ client, onSave, onFinish }: {
                 departamento={formData.departamento}
                 provincia={formData.provincia}
                 distrito={formData.distrito}
-                onChange={(data) => setFormData(prev => ({
-                  ...prev,
-                  departamento: data.departamento,
-                  provincia: data.provincia,
-                  distrito: data.distrito
-                }))}
+                onChange={data =>
+                  setFormData(prev => ({
+                    ...prev,
+                    departamento: data.departamento,
+                    provincia: data.provincia,
+                    distrito: data.distrito
+                  }))
+                }
               />
             </div>
             <div className="space-y-2 md:col-span-2">
@@ -640,7 +714,12 @@ const ClientForm = ({ client, onSave, onFinish }: {
               <Input
                 id="direccionFiscal"
                 value={formData.direccionFiscal}
-                onChange={(e) => setFormData(prev => ({ ...prev, direccionFiscal: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    direccionFiscal: e.target.value
+                  }))
+                }
                 placeholder="Calle, número, referencia"
               />
             </div>
@@ -650,14 +729,26 @@ const ClientForm = ({ client, onSave, onFinish }: {
                 id="emailFacturacion"
                 type="email"
                 value={formData.emailFacturacion}
-                onChange={(e) => setFormData(prev => ({ ...prev, emailFacturacion: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    emailFacturacion: e.target.value
+                  }))
+                }
                 placeholder="facturacion@empresa.com"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="estado">Estado</Label>
-              <Select value={formData.estado} onValueChange={(value: any) => setFormData(prev => ({ ...prev, estado: value }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={formData.estado}
+                onValueChange={(value: any) =>
+                  setFormData(prev => ({ ...prev, estado: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="activo">Activo</SelectItem>
                   <SelectItem value="suspendido">Suspendido</SelectItem>
@@ -670,7 +761,12 @@ const ClientForm = ({ client, onSave, onFinish }: {
               <Textarea
                 id="observaciones"
                 value={formData.observaciones}
-                onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    observaciones: e.target.value
+                  }))
+                }
                 placeholder="Notas internas sobre el cliente"
                 rows={3}
               />
@@ -695,7 +791,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Nombre de Sede</Label>
                       <Input
                         value={sede.nombre}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newSedes = [...sedes];
                           newSedes[idx].nombre = e.target.value;
                           setSedes(newSedes);
@@ -707,7 +803,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Responsable</Label>
                       <Input
                         value={sede.responsable}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newSedes = [...sedes];
                           newSedes[idx].responsable = e.target.value;
                           setSedes(newSedes);
@@ -719,7 +815,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Dirección</Label>
                       <Input
                         value={sede.direccion}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newSedes = [...sedes];
                           newSedes[idx].direccion = e.target.value;
                           setSedes(newSedes);
@@ -731,7 +827,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Teléfono</Label>
                       <Input
                         value={sede.telefono}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newSedes = [...sedes];
                           newSedes[idx].telefono = e.target.value;
                           setSedes(newSedes);
@@ -743,7 +839,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Distrito</Label>
                       <Input
                         value={sede.distrito}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newSedes = [...sedes];
                           newSedes[idx].distrito = e.target.value;
                           setSedes(newSedes);
@@ -755,7 +851,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Link Google Maps</Label>
                       <Input
                         value={sede.googleMapsUrl}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newSedes = [...sedes];
                           newSedes[idx].googleMapsUrl = e.target.value;
                           setSedes(newSedes);
@@ -767,7 +863,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label className="flex items-center gap-2">
                         <Switch
                           checked={sede.principal}
-                          onCheckedChange={(checked) => {
+                          onCheckedChange={checked => {
                             const newSedes = sedes.map((s, i) => ({
                               ...s,
                               principal: i === idx ? checked : false
@@ -779,7 +875,11 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       </Label>
                     </div>
                     <div className="flex justify-end mt-4">
-                      <Button variant="outline" className="text-red-600" onClick={() => deleteSede(sede.id)}>
+                      <Button
+                        variant="outline"
+                        className="text-red-600"
+                        onClick={() => deleteSede(sede.id)}
+                      >
                         <Trash2 className="h-4 w-4 mr-1" />
                         Eliminar
                       </Button>
@@ -806,15 +906,17 @@ const ClientForm = ({ client, onSave, onFinish }: {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label>Tipo de Contacto</Label>
-                      <Select 
-                        value={contacto.tipo} 
+                      <Select
+                        value={contacto.tipo}
                         onValueChange={(value: any) => {
                           const newContactos = [...contactos];
                           newContactos[idx].tipo = value;
                           setContactos(newContactos);
                         }}
                       >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="pago">Responsable de Pago</SelectItem>
                           <SelectItem value="admin">Administrador de Cuenta</SelectItem>
@@ -826,7 +928,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Nombre Completo</Label>
                       <Input
                         value={contacto.nombre}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newContactos = [...contactos];
                           newContactos[idx].nombre = e.target.value;
                           setContactos(newContactos);
@@ -838,7 +940,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>DNI</Label>
                       <Input
                         value={contacto.dni}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newContactos = [...contactos];
                           newContactos[idx].dni = e.target.value;
                           setContactos(newContactos);
@@ -850,7 +952,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Label>Celular</Label>
                       <Input
                         value={contacto.celular}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newContactos = [...contactos];
                           newContactos[idx].celular = e.target.value;
                           setContactos(newContactos);
@@ -863,7 +965,7 @@ const ClientForm = ({ client, onSave, onFinish }: {
                       <Input
                         type="email"
                         value={contacto.correo}
-                        onChange={(e) => {
+                        onChange={e => {
                           const newContactos = [...contactos];
                           newContactos[idx].correo = e.target.value;
                           setContactos(newContactos);
@@ -873,7 +975,11 @@ const ClientForm = ({ client, onSave, onFinish }: {
                     </div>
                   </div>
                   <div className="flex justify-end mt-4">
-                    <Button variant="outline" className="text-red-600" onClick={() => deleteContacto(idx)}>
+                    <Button
+                      variant="outline"
+                      className="text-red-600"
+                      onClick={() => deleteContacto(idx)}
+                    >
                       <Trash2 className="h-4 w-4 mr-1" />
                       Eliminar
                     </Button>
@@ -888,8 +994,15 @@ const ClientForm = ({ client, onSave, onFinish }: {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Lista de Precios</Label>
-              <Select value={formData.listaPrecio} onValueChange={(value) => setFormData(prev => ({ ...prev, listaPrecio: value }))}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar lista" /></SelectTrigger>
+              <Select
+                value={formData.listaPrecio}
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, listaPrecio: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar lista" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Mayorista A">Mayorista A</SelectItem>
                   <SelectItem value="Mayorista B">Mayorista B</SelectItem>
@@ -900,8 +1013,15 @@ const ClientForm = ({ client, onSave, onFinish }: {
             </div>
             <div className="space-y-2">
               <Label>Frecuencia de Compras</Label>
-              <Select value={formData.frecuenciaCompras} onValueChange={(value) => setFormData(prev => ({ ...prev, frecuenciaCompras: value }))}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar frecuencia" /></SelectTrigger>
+              <Select
+                value={formData.frecuenciaCompras}
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, frecuenciaCompras: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar frecuencia" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Semanal">Semanal</SelectItem>
                   <SelectItem value="Quincenal">Quincenal</SelectItem>
@@ -913,8 +1033,15 @@ const ClientForm = ({ client, onSave, onFinish }: {
             </div>
             <div className="space-y-2">
               <Label>Condición de Pago</Label>
-              <Select value={formData.condicionPago} onValueChange={(value) => setFormData(prev => ({ ...prev, condicionPago: value }))}>
-                <SelectTrigger><SelectValue placeholder="Seleccionar condición" /></SelectTrigger>
+              <Select
+                value={formData.condicionPago}
+                onValueChange={value =>
+                  setFormData(prev => ({ ...prev, condicionPago: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar condición" />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Al contado">Al contado</SelectItem>
                   <SelectItem value="Crédito 15 días">Crédito 15 días</SelectItem>
@@ -929,7 +1056,12 @@ const ClientForm = ({ client, onSave, onFinish }: {
               <Input
                 type="number"
                 value={formData.limiteCredito}
-                onChange={(e) => setFormData(prev => ({ ...prev, limiteCredito: Number(e.target.value) }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    limiteCredito: Number(e.target.value)
+                  }))
+                }
                 placeholder="0"
               />
             </div>
@@ -937,7 +1069,12 @@ const ClientForm = ({ client, onSave, onFinish }: {
               <Label>Horario de Entrega Preferido</Label>
               <Input
                 value={formData.horarioEntrega}
-                onChange={(e) => setFormData(prev => ({ ...prev, horarioEntrega: e.target.value }))}
+                onChange={e =>
+                  setFormData(prev => ({
+                    ...prev,
+                    horarioEntrega: e.target.value
+                  }))
+                }
                 placeholder="Ej: Lunes a Viernes 8:00-17:00"
               />
             </div>
@@ -972,7 +1109,9 @@ const ClientForm = ({ client, onSave, onFinish }: {
                     inputMode="numeric"
                     placeholder="Ej: 1234"
                     value={pin}
-                    onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                    onChange={e =>
+                      setPin(e.target.value.replace(/\D/g, '').slice(0, 4))
+                    }
                     maxLength={4}
                     className="font-mono tracking-widest"
                     disabled={!!client?.authUid}
@@ -993,21 +1132,28 @@ const ClientForm = ({ client, onSave, onFinish }: {
                   </Badge>
                 )}
                 <p className="text-xs text-amber-600">
-                  El email y password generados no se muestran; se derivan del RUC + PIN con formato interno.
+                  El email y password generados no se muestran; se derivan del
+                  RUC + PIN con formato interno.
                 </p>
               </div>
               {client?.authUid && (
                 <div className="text-xs text-stone-500">
-                  Acceso ya creado. Para nuevos accesos deberá crear otro cliente.
+                  Acceso ya creado. Para nuevos accesos deberá crear otro
+                  cliente.
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
+
       <div className="flex justify-end gap-2 pt-4 border-t">
-        <Button variant="outline" onClick={onFinish}>Cancelar</Button>
-        <Button onClick={handleSave}>{client ? 'Actualizar' : 'Crear'} Cliente</Button>
+        <Button variant="outline" onClick={onFinish}>
+          Cancelar
+        </Button>
+        <Button onClick={handleSave}>
+          {client ? 'Actualizar' : 'Crear'} Cliente
+        </Button>
       </div>
     </div>
   );
@@ -1045,18 +1191,27 @@ const ClientDetails = ({ client }: { client: Client }) => {
                 <div>
                   <Label className="text-stone-600">Estado</Label>
                   <div className="mt-1">
-                    {client.estado === 'activo' && <Badge className="bg-green-100 text-green-800">Activo</Badge>}
-                    {client.estado === 'suspendido' && <Badge className="bg-yellow-100 text-yellow-800">Suspendido</Badge>}
-                    {client.estado === 'moroso' && <Badge className="bg-red-100 text-red-800">Moroso</Badge>}
+                    {client.estado === 'activo' && (
+                      <Badge className="bg-green-100 text-green-800">Activo</Badge>
+                    )}
+                    {client.estado === 'suspendido' && (
+                      <Badge className="bg-yellow-100 text-yellow-800">
+                        Suspendido
+                      </Badge>
+                    )}
+                    {client.estado === 'moroso' && (
+                      <Badge className="bg-red-100 text-red-800">Moroso</Badge>
+                    )}
                   </div>
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
+
         <TabsContent value="sedes" className="space-y-4">
           <div className="space-y-6">
-            {(client.sedes || []).map((sede) => (
+            {(client.sedes || []).map(sede => (
               <Card key={sede.id}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1067,13 +1222,20 @@ const ClientDetails = ({ client }: { client: Client }) => {
                 <CardContent>
                   <div className="mb-2">
                     <div className="text-sm text-stone-600">{sede.direccion}</div>
-                    <div className="text-sm text-stone-600">Responsable: {sede.responsable} - {sede.telefono}</div>
+                    <div className="text-sm text-stone-600">
+                      Responsable: {sede.responsable} - {sede.telefono}
+                    </div>
                     {sede.distrito && (
                       <div className="text-xs text-stone-500">Distrito: {sede.distrito}</div>
                     )}
                     {sede.googleMapsUrl && (
                       <div className="mt-2">
-                        <a href={sede.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                        <a
+                          href={sede.googleMapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 underline"
+                        >
                           Ver en Google Maps
                         </a>
                       </div>
@@ -1086,6 +1248,7 @@ const ClientDetails = ({ client }: { client: Client }) => {
             ))}
           </div>
         </TabsContent>
+
         <TabsContent value="contactos" className="space-y-4">
           <Card>
             <CardHeader>
@@ -1114,6 +1277,7 @@ const ClientDetails = ({ client }: { client: Client }) => {
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="comercial" className="space-y-4">
           <Card>
             <CardHeader>
@@ -1130,11 +1294,15 @@ const ClientDetails = ({ client }: { client: Client }) => {
               </div>
               <div>
                 <Label className="text-stone-600">Límite de Crédito</Label>
-                <p className="font-medium">S/. {client.limiteCredito?.toFixed(2) || '0.00'}</p>
+                <p className="font-medium">
+                  S/. {client.limiteCredito?.toFixed(2) || '0.00'}
+                </p>
               </div>
               <div>
                 <Label className="text-stone-600">Deuda Actual</Label>
-                <p className="font-medium text-red-600">S/. {client.montoDeuda?.toFixed(2) || '0.00'}</p>
+                <p className="font-medium text-red-600">
+                  S/. {client.montoDeuda?.toFixed(2) || '0.00'}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -1156,25 +1324,26 @@ const SedeComments = ({
   const [newComment, setNewComment] = useState('');
   const [newRating, setNewRating] = useState(5);
   const [user, setUser] = useState('');
+
   const paginated = showAll ? allComments : allComments.slice(0, 5);
 
   useEffect(() => {
-    setAllComments(comentarios.sort((a, b) => b.createdAt - a.createdAt));
+    setAllComments([...comentarios].sort((a, b) => b.createdAt - a.createdAt));
   }, [comentarios]);
 
   const avg =
     allComments.length > 0
       ? (allComments.reduce((acc, c) => acc + c.rating, 0) / allComments.length).toFixed(2)
-      : "0";
+      : '0';
 
-  const handleSend = async () => {
+  const handleSend = () => {
     if (!newComment || !user) return;
     const comentario: SedeComment = {
       id: Date.now().toString(),
       user,
       comment: newComment,
       rating: newRating,
-      createdAt: Date.now(),
+      createdAt: Date.now()
     };
     setAllComments([comentario, ...allComments]);
     setNewComment('');
@@ -1187,7 +1356,9 @@ const SedeComments = ({
       <div className="flex items-center gap-2 mb-2">
         <Star className="h-5 w-5 text-yellow-400" />
         <span className="font-bold">{avg} / 5</span>
-        <span className="text-xs text-stone-500">({allComments.length} calificaciones)</span>
+        <span className="text-xs text-stone-500">
+          ({allComments.length} calificaciones)
+        </span>
       </div>
       <div className="mb-3 flex flex-col md:flex-row gap-2">
         <Input
@@ -1202,31 +1373,41 @@ const SedeComments = ({
           onChange={e => setNewComment(e.target.value)}
         />
         <Select value={String(newRating)} onValueChange={v => setNewRating(Number(v))}>
-          <SelectTrigger><SelectValue placeholder="Puntaje" /></SelectTrigger>
+          <SelectTrigger>
+            <SelectValue placeholder="Puntaje" />
+          </SelectTrigger>
           <SelectContent>
             {[5, 4, 3, 2, 1].map(n => (
-              <SelectItem key={n} value={String(n)}>{n} estrellas</SelectItem>
+              <SelectItem key={n} value={String(n)}>
+                {n} estrellas
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Button onClick={handleSend}>Enviar</Button>
       </div>
       <div className="space-y-2 max-h-64 overflow-y-auto">
-        {paginated.map((c) => (
+        {paginated.map(c => (
           <div key={c.id} className="border rounded-lg p-2 bg-gray-50">
             <div className="flex items-center gap-1">
               {Array.from({ length: c.rating }).map((_, i) => (
                 <Star key={i} className="h-4 w-4 text-yellow-400" />
               ))}
               <span className="text-xs ml-2 text-gray-800 font-bold">{c.user}</span>
-              <span className="text-xs text-gray-400 ml-2">{new Date(c.createdAt).toLocaleString()}</span>
+              <span className="text-xs text-gray-400 ml-2">
+                {new Date(c.createdAt).toLocaleString()}
+              </span>
             </div>
             <div className="text-sm">{c.comment}</div>
           </div>
         ))}
       </div>
       {allComments.length > 5 && (
-        <Button variant="ghost" className="mt-2" onClick={() => setShowAll((v) => !v)}>
+        <Button
+          variant="ghost"
+          className="mt-2"
+          onClick={() => setShowAll(v => !v)}
+        >
           {showAll ? 'Ver menos' : 'Ver todos'}
         </Button>
       )}
