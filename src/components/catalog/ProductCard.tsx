@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Plus, Minus, ShoppingCart, Info } from 'lucide-react';
+import { Plus, Minus, ShoppingCart, Info, Zap, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Product, discountRules } from '@/data/mockData';
@@ -9,21 +9,7 @@ import { toast } from '@/components/ui/use-toast';
 import { ProductDetailModal } from './ProductDetailModal';
 
 /**
- * TARJETA DE PRODUCTO
- * 
- * Card individual para cada producto con:
- * - Imagen del producto
- * - Nombre y descripción
- * - Precio unitario
- * - Selector de cantidad
- * - Descuentos automáticos
- * - Botón agregar al carrito
- * - Modal de detalles al hacer clic
- * 
- * PARA PERSONALIZAR:
- * - Modificar diseño de la card
- * - Cambiar colores de promoción
- * - Agregar más información del producto
+ * TARJETA DE PRODUCTO - DISEÑO MODERNO Y MÓVIL
  */
 
 interface ProductCardProps {
@@ -34,9 +20,10 @@ interface ProductCardProps {
 export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) => {
   const [quantity, setQuantity] = useState(1);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
   const { addItem } = useCart();
 
-  // Calcular precio con descuento por cantidad
+  // Calcular precio con descuento
   const getDiscountedPrice = (qty: number) => {
     const basePrice = product.price * qty;
     
@@ -68,17 +55,17 @@ export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) =
   const handleAddToCart = () => {
     addItem(product, quantity);
     toast({
-      title: "Producto agregado",
-      description: `${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} de ${product.name} agregado${quantity === 1 ? '' : 's'} al carrito`,
+      title: "✅ ¡Agregado!",
+      description: `${quantity} ${quantity === 1 ? 'unidad' : 'unidades'} en tu carrito`,
+      duration: 2000,
     });
-    setQuantity(1); // Reset quantity after adding
+    setQuantity(1);
   };
 
   const increaseQuantity = () => setQuantity(prev => prev + 1);
   const decreaseQuantity = () => setQuantity(prev => Math.max(1, prev - 1));
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Solo abrir modal si no se hace clic en botones interactivos
     const target = e.target as HTMLElement;
     if (!target.closest('button') && !target.closest('input')) {
       setIsDetailModalOpen(true);
@@ -89,175 +76,198 @@ export const ProductCard = ({ product, isPromoted = false }: ProductCardProps) =
     <>
       <Card 
         className={`
-          group overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer
-          ${isPromoted ? 'ring-2 ring-amber-300 shadow-lg' : 'hover:shadow-lg'}
+          group overflow-hidden transition-all duration-300 cursor-pointer
+          ${isPromoted 
+            ? 'ring-2 ring-amber-400 shadow-xl shadow-amber-500/20 hover:shadow-2xl hover:shadow-amber-500/30' 
+            : 'hover:shadow-xl hover:shadow-stone-300/50'
+          }
           ${!product.available ? 'opacity-60' : ''}
+          rounded-3xl border-0
         `}
         onClick={handleCardClick}
-        title="Haz clic para ver más detalles"
+        title="Toca para ver más detalles"
       >
-      <CardContent className="p-0">
-        {/* Imagen del producto */}
-        <div className="relative overflow-hidden bg-stone-100 aspect-square">
-          <img
-            src={product.image}
-            alt={product.name}
-            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-            onError={(e) => {
-              // Placeholder si la imagen no carga
-              e.currentTarget.src = '/placeholder.svg';
-            }}
-          />
-          
-          {/* Badge de no disponible */}
-          {!product.available && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <span className="text-white font-semibold bg-red-500 px-3 py-1 rounded-full">
-                No disponible
-              </span>
+        <CardContent className="p-0">
+          {/* Imagen del producto */}
+          <div className="relative overflow-hidden bg-gradient-to-br from-stone-100 to-stone-50 aspect-square">
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500"
+              onError={(e) => {
+                e.currentTarget.src = '/placeholder.svg';
+              }}
+            />
+            
+            {/* Badges superiores */}
+            <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+              {isPromoted && (
+                <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-1.5 rounded-full text-xs font-black shadow-lg flex items-center gap-1 animate-pulse">
+                  <Zap className="w-3 h-3" />
+                  OFERTA
+                </div>
+              )}
+              
+              {/* Botón favorito */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFavorite(!isFavorite);
+                }}
+                className={`ml-auto w-9 h-9 rounded-full flex items-center justify-center backdrop-blur-md transition-all ${
+                  isFavorite 
+                    ? 'bg-red-500 text-white shadow-lg' 
+                    : 'bg-white/80 text-stone-400 hover:text-red-500'
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+              </button>
             </div>
-          )}
 
-          {/* Badge de promoción */}
-          {isPromoted && (
-            <div className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-pink-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-md">
-              OFERTA
-            </div>
-          )}
-        </div>
+            {/* Badge no disponible */}
+            {!product.available && (
+              <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center">
+                <span className="text-white font-bold bg-red-500 px-4 py-2 rounded-full shadow-xl">
+                  Agotado
+                </span>
+              </div>
+            )}
 
-        {/* Información del producto */}
-        <div className="p-4">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="font-semibold text-stone-800 group-hover:text-amber-600 transition-colors flex-1">
-              {product.name}
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-stone-400 hover:text-amber-600"
+            {/* Botón info flotante */}
+            <button
               onClick={(e) => {
                 e.stopPropagation();
                 setIsDetailModalOpen(true);
               }}
-              title="Ver detalles del producto"
+              className="absolute bottom-3 right-3 w-9 h-9 bg-white/90 backdrop-blur-md rounded-full flex items-center justify-center text-amber-600 hover:bg-amber-500 hover:text-white transition-all shadow-lg hover:scale-110"
             >
-              <Info className="h-4 w-4" />
-            </Button>
+              <Info className="w-4 h-4" />
+            </button>
           </div>
-          
-          <p className="text-sm text-stone-600 mb-3 line-clamp-2">
-            {product.description}
-          </p>
 
-          {/* Ingredientes */}
-          <div className="mb-4">
-            <p className="text-xs text-stone-500 mb-1">Ingredientes principales:</p>
-            <div className="flex flex-wrap gap-1">
-              {product.ingredients.slice(0, 3).map((ingredient, index) => (
-                <span key={index} className="text-xs bg-stone-100 text-stone-600 px-2 py-1 rounded-full">
+          {/* Información del producto */}
+          <div className="p-4 space-y-3">
+            {/* Nombre */}
+            <h3 className="font-bold text-stone-800 group-hover:text-amber-600 transition-colors line-clamp-2 text-base leading-tight">
+              {product.name}
+            </h3>
+
+            {/* Ingredientes chips */}
+            <div className="flex flex-wrap gap-1.5">
+              {product.ingredients.slice(0, 2).map((ingredient, index) => (
+                <span key={index} className="text-[10px] bg-amber-50 text-amber-700 px-2 py-1 rounded-full font-medium border border-amber-200">
                   {ingredient}
                 </span>
               ))}
-              {product.ingredients.length > 3 && (
-                <span className="text-xs text-stone-400">+{product.ingredients.length - 3} más</span>
+              {product.ingredients.length > 2 && (
+                <span className="text-[10px] text-stone-400 px-2 py-1">+{product.ingredients.length - 2}</span>
               )}
             </div>
-          </div>
 
-          {/* Precio */}
-          <div className="mb-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-lg font-bold text-stone-800">
-                S/ {priceInfo.discountedPrice.toFixed(2)}
-              </span>
-              {priceInfo.discountPercent > 0 && (
-                <>
-                  <span className="text-sm text-stone-500 line-through">
-                    S/ {priceInfo.originalPrice.toFixed(2)}
-                  </span>
-                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-semibold">
+            {/* Precio */}
+            <div>
+              <div className="flex items-baseline gap-2 mb-1">
+                <span className="text-2xl font-black text-stone-800">
+                  S/ {priceInfo.discountedPrice.toFixed(2)}
+                </span>
+                {priceInfo.discountPercent > 0 && (
+                  <span className="text-xs bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 py-1 rounded-full font-bold shadow-md">
                     -{priceInfo.discountPercent}%
                   </span>
-                </>
-              )}
-            </div>
-            <p className="text-xs text-stone-500 mt-1">
-              Precio unitario: S/ {product.price.toFixed(2)}
-            </p>
-          </div>
-
-          {/* Selector de cantidad */}
-          {product.available && (
-            <div className="mb-4">
-              <label className="text-sm font-medium text-stone-700 mb-2 block">
-                Cantidad:
-              </label>
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={decreaseQuantity}
-                  disabled={quantity <= 1}
-                  className="h-8 w-8 p-0"
-                >
-                  <Minus className="h-3 w-3" />
-                </Button>
-                
-                <span className="font-semibold text-lg min-w-[2rem] text-center">
-                  {quantity}
-                </span>
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={increaseQuantity}
-                  className="h-8 w-8 p-0"
-                >
-                  <Plus className="h-3 w-3" />
-                </Button>
+                )}
               </div>
-
-              {/* Mensaje de descuento próximo */}
-              {quantity < discountRules.quantity6.minQuantity && (
-                <p className="text-xs text-amber-600 mt-2">
-                  Agrega {discountRules.quantity6.minQuantity - quantity} más para obtener 5% de descuento
-                </p>
+              {priceInfo.discountPercent > 0 && (
+                <span className="text-xs text-stone-500 line-through block">
+                  S/ {priceInfo.originalPrice.toFixed(2)}
+                </span>
               )}
-              {quantity >= discountRules.quantity6.minQuantity && quantity < discountRules.quantity12.minQuantity && (
-                <p className="text-xs text-amber-600 mt-2">
-                  Agrega {discountRules.quantity12.minQuantity - quantity} más para obtener 10% de descuento
-                </p>
-              )}
+              <p className="text-[11px] text-stone-500 mt-1">
+                Precio unitario: S/ {product.price.toFixed(2)}
+              </p>
             </div>
-          )}
 
-          {/* Botón agregar al carrito */}
-          <Button
-            onClick={handleAddToCart}
-            disabled={!product.available}
-            className={`
-              w-full font-semibold transition-all duration-200
-              ${isPromoted 
-                ? 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600' 
-                : 'bg-amber-500 hover:bg-amber-600'
-              }
-              text-white
-            `}
-          >
-            <ShoppingCart className="h-4 w-4 mr-2" />
-            {product.available ? 'Agregar al carrito' : 'No disponible'}
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
+            {/* Selector de cantidad */}
+            {product.available && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between bg-stone-50 rounded-2xl p-1.5 border-2 border-stone-200">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      decreaseQuantity();
+                    }}
+                    disabled={quantity <= 1}
+                    className="h-9 w-9 p-0 rounded-xl hover:bg-white disabled:opacity-40"
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  
+                  <span className="font-black text-xl min-w-[3rem] text-center text-stone-800">
+                    {quantity}
+                  </span>
+                  
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      increaseQuantity();
+                    }}
+                    className="h-9 w-9 p-0 rounded-xl hover:bg-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
 
-    {/* Modal de detalles del producto */}
-    <ProductDetailModal
-      product={product}
-      isOpen={isDetailModalOpen}
-      onClose={() => setIsDetailModalOpen(false)}
-    />
+                {/* Mensaje motivacional de descuento */}
+                {quantity < discountRules.quantity6.minQuantity && (
+                  <p className="text-[11px] text-amber-600 text-center font-medium animate-pulse">
+                    🎉 +{discountRules.quantity6.minQuantity - quantity} para 5% OFF
+                  </p>
+                )}
+                {quantity >= discountRules.quantity6.minQuantity && quantity < discountRules.quantity12.minQuantity && (
+                  <p className="text-[11px] text-green-600 text-center font-medium animate-pulse">
+                    🔥 +{discountRules.quantity12.minQuantity - quantity} para 10% OFF
+                  </p>
+                )}
+                {quantity >= discountRules.quantity12.minQuantity && (
+                  <p className="text-[11px] text-green-600 text-center font-bold">
+                    ✨ ¡Máximo descuento activado!
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Botón agregar al carrito */}
+            <Button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleAddToCart();
+              }}
+              disabled={!product.available}
+              className={`
+                w-full font-bold transition-all duration-200 h-12 rounded-2xl text-base shadow-lg
+                ${isPromoted 
+                  ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 hover:from-amber-600 hover:via-orange-600 hover:to-red-600 shadow-amber-500/40' 
+                  : 'bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 shadow-amber-500/30'
+                }
+                text-white hover:scale-[1.02] active:scale-95
+              `}
+            >
+              <ShoppingCart className="h-5 w-5 mr-2" />
+              {product.available ? 'Agregar' : 'No disponible'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Modal de detalles */}
+      <ProductDetailModal
+        product={product}
+        isOpen={isDetailModalOpen}
+        onClose={() => setIsDetailModalOpen(false)}
+      />
     </>
   );
 };

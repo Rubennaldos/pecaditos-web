@@ -14,23 +14,15 @@ import { PromotionalBanners } from '@/components/catalog/PromotionalBanners';
 import { useState } from 'react';
 
 /**
- * PÁGINA PRINCIPAL DEL CATÁLOGO DE PRODUCTOS
+ * PÁGINA PRINCIPAL DEL CATÁLOGO - DISEÑO MODERNO Y MÓVIL
  * 
- * Esta es la página principal donde los usuarios pueden:
- * - Ver y comprar productos
- * - Gestionar su carrito de compras
- * - Aplicar descuentos automáticos
- * - Proceder al checkout
- * 
- * Estructura:
- * - Header con buscador y carrito
- * - Banner promocional
- * - Selector de categorías
- * - Dashboard con resumen de usuario
- * - Catálogo de productos
- * - Carrito sticky
- * - Productos recomendados
- * - FAQ y banners promocionales
+ * Catálogo futurista optimizado para móviles con:
+ * - Header interactivo con búsqueda mejorada
+ * - Banners promocionales modernos
+ * - Categorías con scroll horizontal
+ * - Cards de productos con animaciones
+ * - Experiencia táctil optimizada
+ * - Diseño limpio y profesional
  */
 const Catalog = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
@@ -38,59 +30,40 @@ const Catalog = () => {
 
   return (
     <CartProvider>
-      <div className="min-h-screen bg-background">
-        {/* Header del catálogo */}
+      <div className="min-h-screen bg-gradient-to-b from-white via-stone-50 to-amber-50/30">
+        {/* Header moderno sticky */}
         <CatalogHeader 
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
         />
 
-        {/* Banner hero promocional */}
+        {/* Banner hero futurista */}
         <HeroBanner />
 
-        {/* Selector de categorías */}
+        {/* Selector de categorías con scroll horizontal */}
         <CategorySelector 
           selectedCategory={selectedCategory}
           onCategoryChange={setSelectedCategory}
         />
 
-        {/* Banners promocionales */}
-        <PromoBanners />
-
-        {/* Dashboard con resumen del usuario */}
-        <DashboardSummary />
-
-        {/* Productos en promoción */}
-        <ProductsOnPromotion />
-
-        <div className="container mx-auto px-4 py-8">
-          <div className="flex gap-8">
-            {/* Catálogo principal */}
-            <div className="flex-1">
-              <ProductCatalog 
-                selectedCategory={selectedCategory}
-                searchQuery={searchQuery}
-              />
-              
-              {/* Productos recomendados */}
-              <RecommendedProducts />
-              
-              {/* Preguntas frecuentes */}
-              <FAQSection />
-            </div>
-
-            {/* Carrito sticky */}
-            <div className="hidden lg:block w-80">
-              <StickyCart />
-            </div>
+        {/* Contenedor principal con diseño optimizado */}
+        <div className="container mx-auto px-4 py-6">
+          {/* Catálogo principal - Full width en móvil */}
+          <div className="space-y-6">
+            <ProductCatalog 
+              selectedCategory={selectedCategory}
+              searchQuery={searchQuery}
+            />
           </div>
         </div>
 
-        {/* Banners promocionales del final */}
-        <PromotionalBanners />
+        {/* Carrito flotante móvil */}
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40">
+          <StickyCart />
+        </div>
 
-        {/* Carrito móvil flotante */}
-        <div className="lg:hidden">
+        {/* Carrito desktop sidebar */}
+        <div className="hidden lg:block fixed right-4 top-24 w-96 z-40">
           <StickyCart />
         </div>
       </div>

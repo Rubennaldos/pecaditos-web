@@ -1,8 +1,9 @@
 // src/components/catalog/CategorySelector.tsx
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { db } from '@/config/firebase'; // si no usas alias, usa: import { db } from '../../config/firebase';
+import { db } from '@/config/firebase';
 import { onValue, ref } from 'firebase/database';
+import { Cookie, Cake, Package, Sparkles } from 'lucide-react';
 
 interface CategorySelectorProps {
   selectedCategory: string;
@@ -24,6 +25,13 @@ type UiCategory = {
   sortOrder: number;
   active: boolean;
   description?: string;
+};
+
+const categoryIcons: Record<string, any> = {
+  todas: Sparkles,
+  clasicas: Cookie,
+  especiales: Cake,
+  combos: Package,
 };
 
 export const CategorySelector = ({
@@ -48,13 +56,11 @@ export const CategorySelector = ({
           description: c?.description,
         }));
 
-        // Solo activas y ordenadas
-        list
-          .sort(
-            (a, b) =>
-              (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999) ||
-              a.name.localeCompare(b.name)
-          );
+        list.sort(
+          (a, b) =>
+            (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999) ||
+            a.name.localeCompare(b.name)
+        );
 
         setCategories(list.filter((c) => c.active));
         setLoading(false);
@@ -71,75 +77,120 @@ export const CategorySelector = ({
     return found?.description ?? '';
   }, [categories, selectedCategory]);
 
+  const getCategoryIcon = (catId: string) => {
+    const Icon = categoryIcons[catId] || Cookie;
+    return Icon;
+  };
+
   return (
-    <section className="bg-stone-50 py-8 border-b border-stone-200">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-6">
-          <h2 className="text-2xl font-display font-bold text-stone-800 mb-2">
-            Nuestras Categorías
-          </h2>
-          <p className="text-stone-600">
-            Encuentra tus galletas favoritas por sabor y tipo
-          </p>
-        </div>
-
-        {/* Botones de categorías */}
-        <div className="flex flex-wrap justify-center gap-3 md:gap-4">
-          {/* Botón "Todas" */}
-          <Button
-            key="todas"
-            variant={selectedCategory === 'todas' ? 'default' : 'outline'}
-            size="lg"
-            onClick={() => onCategoryChange('todas')}
-            className={`px-6 py-3 rounded-full font-semibold transition-all duration-200
-              ${
+    <section className="py-4 px-4">
+      <div className="container mx-auto">
+        {/* Scroll horizontal en móvil */}
+        <div className="relative">
+          <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+            {/* Botón "Todas" */}
+            <button
+              onClick={() => onCategoryChange('todas')}
+              className={`flex-shrink-0 snap-start transition-all duration-300 ${
                 selectedCategory === 'todas'
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md transform scale-105'
-                  : 'bg-white hover:bg-stone-50 text-stone-700 border-stone-300 hover:border-amber-400'
+                  ? 'scale-105'
+                  : 'scale-100 hover:scale-105'
               }`}
-          >
-            <span className="text-sm md:text-base">Todas</span>
-          </Button>
+            >
+              <div
+                className={`relative w-20 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 ${
+                  selectedCategory === 'todas'
+                    ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-xl shadow-amber-500/40'
+                    : 'bg-white border-2 border-stone-200 hover:border-amber-300 shadow-md'
+                }`}
+              >
+                <Sparkles
+                  className={`w-7 h-7 ${
+                    selectedCategory === 'todas' ? 'text-white' : 'text-stone-600'
+                  }`}
+                />
+                <span
+                  className={`text-xs font-bold ${
+                    selectedCategory === 'todas' ? 'text-white' : 'text-stone-700'
+                  }`}
+                >
+                  Todas
+                </span>
+                {selectedCategory === 'todas' && (
+                  <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+                )}
+              </div>
+            </button>
 
-          {/* Dinámicas desde RTDB */}
-          {loading ? (
-            // Skeleton simple mientras carga
-            <>
-              {Array.from({ length: 4 }).map((_, i) => (
+            {/* Categorías dinámicas */}
+            {loading ? (
+              Array.from({ length: 4 }).map((_, i) => (
                 <div
                   key={`s-${i}`}
-                  className="h-10 md:h-12 w-28 md:w-32 rounded-full bg-stone-200 animate-pulse"
+                  className="flex-shrink-0 w-20 h-20 rounded-2xl bg-stone-200 animate-pulse"
                 />
-              ))}
-            </>
-          ) : categories.length === 0 ? (
-            <span className="text-stone-500 text-sm">
-              No hay categorías activas.
-            </span>
-          ) : (
-            categories.map((category) => (
-              <Button
-                key={category.id}
-                variant={selectedCategory === category.id ? 'default' : 'outline'}
-                size="lg"
-                onClick={() => onCategoryChange(category.id)}
-                className={`px-6 py-3 rounded-full font-semibold transition-all duration-200
-                  ${
-                    selectedCategory === category.id
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-md transform scale-105'
-                      : 'bg-white hover:bg-stone-50 text-stone-700 border-stone-300 hover:border-amber-400'
-                  }`}
-              >
-                <span className="text-sm md:text-base">{category.name}</span>
-              </Button>
-            ))
-          )}
+              ))
+            ) : categories.length === 0 ? (
+              <div className="flex-shrink-0 px-4 py-6 text-stone-500 text-sm">
+                No hay categorías activas.
+              </div>
+            ) : (
+              categories.map((category) => {
+                const Icon = getCategoryIcon(category.id);
+                return (
+                  <button
+                    key={category.id}
+                    onClick={() => onCategoryChange(category.id)}
+                    className={`flex-shrink-0 snap-start transition-all duration-300 ${
+                      selectedCategory === category.id
+                        ? 'scale-105'
+                        : 'scale-100 hover:scale-105'
+                    }`}
+                  >
+                    <div
+                      className={`relative w-20 h-20 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all duration-300 ${
+                        selectedCategory === category.id
+                          ? 'bg-gradient-to-br from-amber-400 to-orange-500 shadow-xl shadow-amber-500/40'
+                          : 'bg-white border-2 border-stone-200 hover:border-amber-300 shadow-md'
+                      }`}
+                    >
+                      <Icon
+                        className={`w-7 h-7 ${
+                          selectedCategory === category.id
+                            ? 'text-white'
+                            : 'text-stone-600'
+                        }`}
+                      />
+                      <span
+                        className={`text-xs font-bold truncate max-w-full px-1 ${
+                          selectedCategory === category.id
+                            ? 'text-white'
+                            : 'text-stone-700'
+                        }`}
+                      >
+                        {category.name}
+                      </span>
+                      {selectedCategory === category.id && (
+                        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 bg-white rounded-full"></div>
+                      )}
+                    </div>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          {/* Gradient fade edges */}
+          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none"></div>
         </div>
 
-        {/* Descripción de la categoría seleccionada */}
+        {/* Descripción seleccionada */}
         {selectedCategory !== 'todas' && selectedDescription && (
-          <div className="text-center mt-4">
-            <p className="text-stone-600 text-sm">{selectedDescription}</p>
+          <div className="text-center mt-4 animate-fade-in">
+            <p className="text-sm text-stone-600 bg-amber-50 px-4 py-2 rounded-full inline-block">
+              {selectedDescription}
+            </p>
           </div>
         )}
       </div>

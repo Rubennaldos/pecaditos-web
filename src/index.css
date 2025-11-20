@@ -201,10 +201,45 @@
   }
 }
 
+@keyframes slide-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
 .shimmer {
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
   background-size: 200% 100%;
   animation: shimmer 2s infinite;
+}
+
+/* Scroll horizontal suave sin scrollbar visible */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animación de fade in */
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
 }
 
 /* Mejoras de accesibilidad */
