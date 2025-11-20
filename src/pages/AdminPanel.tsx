@@ -65,7 +65,7 @@ const DashboardContent = () => {
       'production-admin': ['production', 'produccion'],
       'billing-admin': ['billing', 'cobranzas'],
       'customers-admin': ['locations', 'customers', 'ubicaciones'],
-      'catalogs-admin': ['catalogs-admin', 'catalogs', 'catalogo'],
+      'catalogs-admin': ['catalogs-admin', 'catalogs', 'catalogo', 'catalog'],
       'dashboard': ['dashboard', 'admin'],
       'clients-access': ['clients-access', 'clients', 'clientes', 'clients-access'],
     };
