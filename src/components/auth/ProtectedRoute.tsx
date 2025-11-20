@@ -30,6 +30,7 @@ export function ProtectedRoute({
       role?: string;
       accessModules?: string[];
       permissions?: string[];
+      portalLoginRuc?: string | null;
     } | null;
     loading: boolean;
   };
@@ -58,6 +59,19 @@ export function ProtectedRoute({
   if (perfil && perfil.activo === false) {
     console.warn("Acceso denegado: usuario inactivo");
     return <Navigate to="/" replace />;
+  }
+
+  // Caso especial: Portal Mayorista: se controla por portalLoginRuc o rol mayorista
+  if (module === 'wholesale') {
+    const isWholesaleUser = !!perfil?.portalLoginRuc || perfil?.rol === 'mayorista';
+
+    if (!isWholesaleUser) {
+      console.warn('Acceso denegado portal mayorista', { module, perfil });
+      return <Navigate to="/" replace />;
+    }
+
+    console.log('Acceso autorizado portal mayorista', { module, perfil });
+    return <>{children}</>;
   }
 
   // Usuarios con rol admin tienen acceso automático a todos los módulos

@@ -136,7 +136,8 @@ const Login = () => {
         navigate('/', { replace: true });
         return;
       }
-      const redirectPath = getFirstAvailableRoute(perfil);
+      // Redirección: si es usuario de portal mayorista, ir al portal
+      const redirectPath = perfil.portalLoginRuc ? '/mayorista' : getFirstAvailableRoute(perfil);
       console.log('🔀 Ruta de redirección (post-auth):', redirectPath);
       toast({ title: 'Bienvenido', description: `Has iniciado sesión exitosamente` });
       navigate(from !== '/' ? from : redirectPath, { replace: true });
