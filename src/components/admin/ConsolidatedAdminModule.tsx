@@ -316,68 +316,126 @@ export default function ConsolidatedAdminModule() {
     });
   };
 
-  // ====== Plantilla productos mayoristas ======
-  const generateProductsTemplate = () => {
-    const wb = XLSX.utils.book_new();
-    const instructions = [
-      ['PLANTILLA IMPORTACIÓN MASIVA PRODUCTOS'],
-      [],
-      ['INSTRUCCIONES:'],
-      ['1. Llene la hoja "Productos". Campos obligatorios: SKU*, Nombre*, Precio Unitario Base*.'],
-      ['2. Puede dejar vacíos los demás campos.'],
-      ['3. Activo (SI/NO). Imágenes se suben manualmente luego.'],
-      ['4. Paquetes opcionales: Cantidad y Total (hasta 3).'],
-      [],
-      ['COLUMNAS:'],
-      ['SKU*','Nombre*','Descripción','Categoría','Subcategoría','Unidad Medida','Precio Unitario Base*','Múltiplo Pedido','Stock','Activo (SI/NO)',
-       'Paquete1 Cantidad','Paquete1 Total','Paquete2 Cantidad','Paquete2 Total','Paquete3 Cantidad','Paquete3 Total']
-    ];
-    const wsI = XLSX.utils.aoa_to_sheet(instructions);
-    XLSX.utils.book_append_sheet(wb, wsI, 'Instrucciones');
 
-    const sample = [
-      ['SKU*','Nombre*','Descripción','Categoría','Subcategoría','Unidad Medida','Precio Unitario Base*','Múltiplo Pedido','Stock','Activo (SI/NO)',
-       'Paquete1 Cantidad','Paquete1 Total','Paquete2 Cantidad','Paquete2 Total','Paquete3 Cantidad','Paquete3 Total'],
-      ['GAL-AV-MZ-12','Galleta avena y manzana','Galleta sin preservantes','Galletas','Avena','Unidad','3.83','6','460','SI','12','46.00','','','','','']
-    ];
-    const wsP = XLSX.utils.aoa_to_sheet(sample);
-    XLSX.utils.book_append_sheet(wb, wsP, 'Productos');
-    XLSX.writeFile(wb, 'Plantilla_Productos_Mayoristas.xlsx');
-  };
 
-  // ====== Exportar productos ======
-  const exportProductsToExcel = async () => {
+  // ====== Exportar plantilla productos (para importación masiva) ======
+  const exportProductsToExcel = () => {
     try {
-      const snap = await get(ref(db, 'products'));
-      const data = snap.val() || {};
-      const arr = Object.entries(data).map(([id, p]: any) => {
-        const bundles = (p.bundleDiscounts || []).slice(0, 3);
-        const flat: any = {
-          id,
-          SKU: p.sku || '',
-          Nombre: p.name || '',
-          Descripción: p.description || '',
-          Categoría: p.category || '',
-          Subcategoría: p.subcategory || '',
-          'Unidad Medida': p.unit || p.unidadMedida || '',
-          'Precio Unitario Base': p.wholesalePrice ?? '',
-          'Múltiplo Pedido': p.minOrder ?? '',
-          Stock: p.stock ?? '',
-          Activo: p.isActive ? 'SI' : 'NO'
-        };
-        bundles.forEach((b: any, i: number) => {
-          flat[`Paquete${i+1} Cantidad`] = b.qty || '';
-          flat[`Paquete${i+1} Total`] = b.total || '';
-        });
-        return flat;
-      });
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(arr);
-      XLSX.utils.book_append_sheet(wb, ws, 'Productos');
-      XLSX.writeFile(wb, 'Export_Productos_Mayoristas.xlsx');
-      toast({ title: 'Exportado', description: `${arr.length} productos` });
-    } catch {
-      toast({ title: 'Error', description: 'No se pudo exportar', variant: 'destructive' });
+      
+      // Hoja 1: INSTRUCCIONES
+      const instructions = [
+        ['PLANTILLA PARA IMPORTACIÓN MASIVA DE PRODUCTOS MAYORISTAS'],
+        [],
+        ['INSTRUCCIONES PARA USAR ESTA PLANTILLA:'],
+        [],
+        ['1. CAMPOS OBLIGATORIOS (marcados con *):'],
+        ['   - Nombre del Producto*: Nombre comercial del producto'],
+        ['   - Precio Unitario (S/)*: Precio base por unidad en soles'],
+        [],
+        ['2. CAMPOS OPCIONALES:'],
+        ['   - Descripción: Características, presentación, peso, etc.'],
+        ['   - Categoría: Clasificación del producto (ej: Galletas, Snacks, Bebidas)'],
+        ['   - Múltiplo Pedido: Cantidad mínima que debe ordenarse (por defecto: 6)'],
+        ['   - Stock: Cantidad disponible en inventario'],
+        ['   - Activo: Escriba "SI" o "NO" (por defecto: SI)'],
+        [],
+        ['3. DESCUENTOS POR CANTIDAD (PAQUETES):'],
+        ['   Puede definir hasta 3 opciones de paquetes con descuento:'],
+        ['   - Paquete X Cantidad: Número de unidades del paquete'],
+        ['   - Paquete X Total: Precio total del paquete en soles'],
+        ['   Ejemplo: 12 unidades por S/ 46.00 (S/ 3.83 c/u)'],
+        [],
+        ['4. IMÁGENES:'],
+        ['   Las imágenes se suben manualmente después de crear los productos.'],
+        ['   No incluya URLs de imágenes en esta plantilla.'],
+        [],
+        ['5. IMPORTANTE:'],
+        ['   - No modifique los encabezados de las columnas'],
+        ['   - La cantidad de los paquetes debe ser múltiplo del "Múltiplo Pedido"'],
+        ['   - Puede dejar celdas vacías en campos opcionales'],
+        ['   - Use punto decimal para precios (ej: 3.50)'],
+        [],
+        ['6. DESPUÉS DE COMPLETAR:'],
+        ['   - Guarde el archivo'],
+        ['   - Use el botón "Importar Productos" en el sistema'],
+        ['   - Suba las imágenes editando cada producto individualmente'],
+      ];
+      
+      const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+      // Ajustar ancho de columnas para las instrucciones
+      wsInstructions['!cols'] = [{ wch: 80 }];
+      XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instrucciones');
+      
+      // Hoja 2: PLANTILLA CON EJEMPLO
+      const headers = [
+        'Nombre del Producto*',
+        'Descripción',
+        'Categoría',
+        'Precio Unitario (S/)*',
+        'Múltiplo Pedido',
+        'Stock',
+        'Activo (SI/NO)',
+        'Paquete1 Cantidad',
+        'Paquete1 Total (S/)',
+        'Paquete2 Cantidad',
+        'Paquete2 Total (S/)',
+        'Paquete3 Cantidad',
+        'Paquete3 Total (S/)'
+      ];
+      
+      const example = [
+        'Galleta de avena y manzana',
+        'Galleta artesanal sin preservantes, 80g por unidad',
+        'Galletas',
+        '3.83',
+        '6',
+        '460',
+        'SI',
+        '12',
+        '46.00',
+        '24',
+        '88.00',
+        '48',
+        '168.00'
+      ];
+      
+      const templateData = [headers, example];
+      const wsTemplate = XLSX.utils.aoa_to_sheet(templateData);
+      
+      // Ajustar ancho de columnas
+      wsTemplate['!cols'] = [
+        { wch: 30 }, // Nombre
+        { wch: 50 }, // Descripción
+        { wch: 20 }, // Categoría
+        { wch: 20 }, // Precio Unitario
+        { wch: 18 }, // Múltiplo Pedido
+        { wch: 12 }, // Stock
+        { wch: 15 }, // Activo
+        { wch: 18 }, // Paquete1 Cantidad
+        { wch: 20 }, // Paquete1 Total
+        { wch: 18 }, // Paquete2 Cantidad
+        { wch: 20 }, // Paquete2 Total
+        { wch: 18 }, // Paquete3 Cantidad
+        { wch: 20 }, // Paquete3 Total
+      ];
+      
+      XLSX.utils.book_append_sheet(wb, wsTemplate, 'Productos');
+      
+      // Descargar archivo
+      XLSX.writeFile(wb, 'Plantilla_Productos_Mayoristas.xlsx');
+      
+      toast({ 
+        title: 'Plantilla descargada', 
+        description: 'Complete la plantilla y use "Importar Productos" para subir masivamente.' 
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({ 
+        title: 'Error', 
+        description: 'No se pudo generar la plantilla', 
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -393,38 +451,54 @@ export default function ConsolidatedAdminModule() {
           if (!sheet) throw new Error('Hoja "Productos" no encontrada');
           const rows: any[] = XLSX.utils.sheet_to_json(sheet);
           let created = 0;
+          let skipped = 0;
+          
           for (const r of rows) {
-            const sku = (r['SKU*'] || '').toString().trim();
-            const nombre = (r['Nombre*'] || '').toString().trim();
-            const base = r['Precio Unitario Base*'];
-            if (!sku || !nombre || base === undefined || base === '') continue;
+            const nombre = (r['Nombre del Producto*'] || '').toString().trim();
+            const precioUnitario = r['Precio Unitario (S/)*'];
+            
+            // Validar campos obligatorios
+            if (!nombre || precioUnitario === undefined || precioUnitario === '') {
+              skipped++;
+              continue;
+            }
 
             const bundles: BundleDiscount[] = [];
             for (let i = 1; i <= 3; i++) {
               const qty = r[`Paquete${i} Cantidad`];
-              const total = r[`Paquete${i} Total`];
-              if (qty && total) bundles.push({ qty, total });
+              const total = r[`Paquete${i} Total (S/)`];
+              if (qty && total) {
+                bundles.push({ 
+                  qty: Number(qty), 
+                  total: Number(total) 
+                });
+              }
             }
+
+            const activo = (r['Activo (SI/NO)'] || 'SI').toString().toUpperCase();
 
             const prodRef = push(ref(db, 'products'));
             await set(prodRef, {
-              sku,
               name: nombre,
               description: r['Descripción'] || '',
               category: r['Categoría'] || '',
-              subcategory: r['Subcategoría'] || '',
-              unit: r['Unidad Medida'] || '',
-              wholesalePrice: Number(base) || 0,
-              minOrder: Number(r['Múltiplo Pedido']) || 1,
+              wholesalePrice: Number(precioUnitario) || 0,
+              price: Number(precioUnitario) || 0, // opcional, mismo valor por defecto
+              minOrder: Number(r['Múltiplo Pedido']) || 6,
               stock: r['Stock'] === '' || r['Stock'] === undefined ? 0 : Number(r['Stock']),
-              isActive: (r['Activo (SI/NO)'] || '').toString().toUpperCase() === 'SI',
+              isActive: activo === 'SI',
               bundleDiscounts: bundles,
               image: '/placeholder.svg',
-              createdAt: Date.now()
+              createdAt: Date.now(),
+              updatedAt: Date.now()
             });
             created++;
           }
-          toast({ title: 'Importación completa', description: `${created} productos creados` });
+          
+          toast({ 
+            title: 'Importación completa', 
+            description: `${created} productos creados${skipped > 0 ? `, ${skipped} omitidos` : ''}` 
+          });
           resolve();
         } catch (err: any) {
           toast({ title: 'Error importando', description: err.message, variant: 'destructive' });
@@ -485,8 +559,8 @@ export default function ConsolidatedAdminModule() {
         <TabsContent value="catalog" className="space-y-4">
           {/* Botones masivos */}
           <div className="flex flex-wrap gap-2 justify-end">
-            <Button variant="outline" onClick={generateProductsTemplate}>
-              <FileSpreadsheet className="h-4 w-4 mr-2" /> Plantilla Productos
+            <Button variant="outline" onClick={exportProductsToExcel}>
+              <FileSpreadsheet className="h-4 w-4 mr-2" /> Descargar Plantilla
             </Button>
             <Button
               variant="outline"
@@ -503,9 +577,6 @@ export default function ConsolidatedAdminModule() {
               onChange={handleProductsFileImport}
               className="hidden"
             />
-            <Button variant="outline" onClick={exportProductsToExcel}>
-              <Download className="h-4 w-4 mr-2" /> Exportar Productos
-            </Button>
           </div>
 
           <div className="flex justify-between items-center">
