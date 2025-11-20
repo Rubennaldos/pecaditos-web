@@ -16,9 +16,16 @@ async function ensureUserProfile(user: User) {
   const snap = await get(profileRef);
   if (snap.exists()) return;
 
-  // intenta completar datos desde /clients por authUid
+  // Intenta completar datos desde /clients por authUid
   const byUid = query(ref(db, "clients"), orderByChild("authUid"), equalTo(user.uid));
-  const cliSnap = await get(byUid);
+  let cliSnap = await get(byUid);
+
+  // Si no encontramos por authUid, intentamos buscar por RUC (para portales mayoristas)
+  if (!cliSnap.exists() && user.email && user.email.includes('@sys.pecaditos.com')) {
+    const ruc = user.email.split('@')[0]; // Extraer RUC del email generado
+    const byRuc = query(ref(db, "clients"), orderByChild("rucDni"), equalTo(ruc));
+    cliSnap = await get(byRuc);
+  }
 
   let payload: any = {
     nombre: user.displayName || (user.email ? user.email.split("@")[0] : "Cliente"),
@@ -38,10 +45,22 @@ async function ensureUserProfile(user: User) {
       correo: c?.emailFacturacion ?? payload.correo,
       activo: (c?.estado || "activo") === "activo",
       accessModules: c?.accessModules || [],
-      permissions: [], // Aseguramos array vacío si no existe
+      permissions: c?.permissions || [],
       clientId,
-      portalLoginRuc: c?.rucDni || null // Guardamos referencia del RUC
+      portalLoginRuc: c?.rucDni || null,
+      rol: c?.rol || null
     };
+    
+    console.log('[Auth] Perfil creado con módulos:', payload.accessModules);
+    
+    // Actualizar authUid en el cliente si no existe (optimizar futuros logins)
+    if (!c?.authUid) {
+      const clientRef = ref(db, `clients/${clientId}`);
+      await set(clientRef, { ...c, authUid: user.uid });
+      console.log('[Auth] authUid actualizado en cliente:', clientId);
+    }
+  } else {
+    console.warn('[Auth] Cliente no encontrado en /clients');
   }
 
   await set(profileRef, payload);
