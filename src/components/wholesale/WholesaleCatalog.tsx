@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useWholesaleCart } from '@/contexts/WholesaleCartContext';
 import { useWholesaleCustomer } from '@/hooks/useWholesaleCustomer';
+import { WholesaleProductCard } from './WholesaleProductCard';
 
 // Helpers de precios/cantidades (porcentuales)
 import {
@@ -226,29 +227,26 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
 
   /* -------------------- UI -------------------- */
   return (
-    <section>
+    <section className="px-2 sm:px-4 py-3 max-w-[1600px] mx-auto">
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="border rounded-xl p-6 shadow-sm">
-              <div className="w-full h-64 bg-stone-200 animate-pulse rounded-lg mb-4" />
-              <div className="h-5 w-3/4 bg-stone-200 animate-pulse rounded mb-3" />
-              <div className="h-4 w-1/2 bg-stone-200 animate-pulse rounded mb-5" />
-              <div className="flex gap-3">
-                <div className="h-11 w-24 bg-stone-200 animate-pulse rounded-lg" />
-                <div className="h-11 w-32 bg-stone-200 animate-pulse rounded-lg" />
-              </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <div key={i} className="border rounded-lg p-2 shadow-sm bg-white">
+              <div className="w-full h-32 bg-stone-200 animate-pulse rounded mb-2" />
+              <div className="h-4 w-3/4 bg-stone-200 animate-pulse rounded mb-2" />
+              <div className="h-3 w-1/2 bg-stone-200 animate-pulse rounded mb-2" />
+              <div className="h-7 bg-stone-200 animate-pulse rounded" />
             </div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center text-stone-600 py-16">
-          <div className="text-6xl mb-4">🛒</div>
-          <h3 className="text-xl font-semibold mb-2">No hay productos para mostrar</h3>
-          <p className="text-stone-500">Intenta cambiar los filtros de búsqueda</p>
+        <div className="text-center text-stone-600 py-12">
+          <div className="text-4xl mb-3">🛒</div>
+          <h3 className="text-base font-semibold mb-1">No hay productos</h3>
+          <p className="text-xs text-stone-500">Intenta cambiar los filtros</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-3">
           {filtered.map((p) => {
             const step = stepFor(p);
             const qty = qtyById[p.id] ?? step;
@@ -259,89 +257,16 @@ export const WholesaleCatalog = ({ selectedCategory, searchQuery }: Props) => {
               qty
             );
 
+            // Render usando WholesaleProductCard
             return (
-              <div key={p.id} className="border rounded-xl p-6 hover:shadow-lg transition-all duration-200 bg-card">
-                <div className="w-full h-64 mb-4 bg-muted rounded-lg overflow-hidden">
-                  {p.imageUrl ? (
-                    // eslint-disable-next-line
-                    <img
-                      src={p.imageUrl}
-                      alt={p.name}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      loading="lazy"
-                      onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                      Sin imagen
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-2">
-                  <h3 className="font-bold text-lg text-foreground line-clamp-2 min-h-[3.5rem]">{p.name}</h3>
-                  {p.unit && <p className="text-sm text-muted-foreground">Unidad: {p.unit}</p>}
-
-                  <div className="text-2xl font-bold text-primary">
-                    {money(unit)}
-                  </div>
-                  
-                  <div className="text-sm text-muted-foreground">
-                    <span className="text-xs">Precio mayorista c/u</span>
-                  </div>
-
-                  {discountPct > 0 && (
-                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs font-medium">
-                      🎉 {discountPct}% de descuento
-                    </div>
-                  )}
-                  
-                  <div className="text-sm text-muted-foreground pt-1">
-                    Base: <span className="font-semibold">{money(p.wholesalePrice)}</span>
-                  </div>
-                </div>
-
-                <div className="mt-5 flex items-center gap-2">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => dec(p)} 
-                    className="px-4 text-lg font-bold"
-                  >
-                    −
-                  </Button>
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    min={0}
-                    step={step}
-                    value={qty}
-                    onChange={(e) => setQty(p.id, Number(e.target.value || 0), p)}
-                    onBlur={(e) => setQty(p.id, Number(e.target.value || 0), p)}
-                    className="flex-1 text-center text-lg font-semibold h-11"
-                    placeholder={`${step}`}
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => inc(p)} 
-                    className="px-4 text-lg font-bold"
-                  >
-                    +
-                  </Button>
-                </div>
-
-                <Button 
-                  className="mt-4 w-full h-11 text-base font-semibold" 
-                  size="lg"
-                  onClick={() => addToCart(p)}
-                >
-                  Añadir al carrito
-                </Button>
+              <div key={p.id} className="relative">
+                <WholesaleProductCard 
+                  product={{
+                    ...p,
+                    image: p.imageUrl,
+                    price: p.price ?? p.wholesalePrice,
+                  } as any}
+                />
               </div>
             );
           })}
