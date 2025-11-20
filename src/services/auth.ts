@@ -14,27 +14,47 @@ export async function signInAndEnsureProfile(email: string, password: string) {
 async function ensureUserProfile(user: User) {
   const profileRef = ref(db, `usuarios/${user.uid}`);
   
-  // Si NO es email de portal mayorista, mantener el perfil existente sin cambios
+  // Si NO es email de portal mayorista, verificar si es usuario administrativo
   const isWholesaleEmail = user.email && user.email.includes('@sys.pecaditos.com');
   
   if (!isWholesaleEmail) {
     const snap = await get(profileRef);
-    if (snap.exists()) {
-      console.log('[Auth] Usuario administrativo existente, manteniendo perfil:', user.email);
-      return; // No sobrescribir perfiles administrativos
+    const existingProfile = snap.exists() ? snap.val() : null;
+    
+    // Si existe Y tiene rol/módulos, mantenerlo sin cambios
+    if (existingProfile && (existingProfile.rol || (existingProfile.accessModules && existingProfile.accessModules.length > 0))) {
+      console.log('[Auth] Usuario administrativo existente con configuración válida:', user.email);
+      return;
     }
-    // Si no existe, crear perfil básico para usuario administrativo
-    console.log('[Auth] Creando perfil básico para usuario administrativo:', user.email);
-    await set(profileRef, {
-      nombre: user.displayName || user.email?.split("@")[0] || "Usuario",
+    
+    // Si existe pero está corrupto (sin rol ni módulos) O no existe, recrearlo/repararlo
+    console.log('[Auth] Recreando/reparando perfil administrativo para:', user.email);
+    
+    // Intentar encontrar configuración en usuarios administrativos
+    const adminUsersRef = ref(db, 'users');
+    const adminSnap = await get(adminUsersRef);
+    let adminConfig = null;
+    
+    if (adminSnap.exists()) {
+      const users = adminSnap.val();
+      adminConfig = Object.values(users).find((u: any) => u.email === user.email);
+      console.log('[Auth] Configuración admin encontrada:', adminConfig ? 'sí' : 'no');
+    }
+    
+    // Crear perfil administrativo (usar config si existe, sino crear básico)
+    const adminPayload = {
+      nombre: adminConfig?.nombre || user.displayName || user.email?.split("@")[0] || "Usuario",
       correo: user.email ?? null,
-      isAdmin: false,
-      activo: true,
-      accessModules: [],
-      permissions: [],
-      rol: null,
-      createdAt: Date.now(),
-    });
+      isAdmin: adminConfig?.isAdmin ?? false,
+      activo: adminConfig?.activo ?? true,
+      accessModules: adminConfig?.accessModules || adminConfig?.permissions || [],
+      permissions: adminConfig?.permissions || adminConfig?.accessModules || [],
+      rol: adminConfig?.rol || adminConfig?.role || null,
+      createdAt: existingProfile?.createdAt || Date.now(),
+    };
+    
+    console.log('[Auth] Guardando perfil administrativo con rol:', adminPayload.rol);
+    await set(profileRef, adminPayload);
     return;
   }
 
