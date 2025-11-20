@@ -12,6 +12,12 @@ import { useAuth } from '@/hooks/useAuth';
 
 // Helper: detecta la ruta de dashboard para usuarios con módulos
 function getFirstAvailableRoute(perfil: any): string {
+  // Si es usuario de Portal Mayorista, siempre redirigir al panel de control
+  if (perfil?.portalLoginRuc) {
+    console.log('[Login] perfil mayorista detectado → /panel-control');
+    return '/panel-control';
+  }
+
   const userModules: string[] = perfil?.accessModules || perfil?.permissions || [];
   console.log('[Login] getFirstAvailableRoute => userModules:', userModules);
   if (userModules.length > 0) {
