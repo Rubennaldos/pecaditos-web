@@ -33,6 +33,7 @@ import { OrderHistoryModal } from '@/components/orders/OrderHistoryModal';
 import { OrderDeleteModal } from '@/components/orders/OrderDeleteModal';
 import { OrderActionButtons } from '@/components/orders/OrderActionButtons';
 import AIImportOrderModal from '@/components/orders/AIImportOrderModal';
+import { QuickOrderButton } from '@/components/orders/QuickOrderButton';
 import { db } from '@/config/firebase';
 import { ref, onValue, update, push, runTransaction } from 'firebase/database';
 
@@ -532,6 +533,7 @@ const OrdersPanel = () => {
                   Historial Global
                 </Button>
               )}
+              <QuickOrderButton />
               <Button onClick={() => setShowQRReader(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
                 <QrCode className="h-4 w-4 mr-2" />
                 Leer QR
