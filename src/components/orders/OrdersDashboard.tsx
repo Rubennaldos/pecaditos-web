@@ -158,44 +158,42 @@ const OrdersDashboard = ({ stats, orders, onExportReport }: OrdersDashboardProps
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header con filtros y exportación */}
-      <div className="flex justify-between items-center">
+    <div className="space-y-4">
+      {/* Header compacto */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
         <div>
-          <h2 className="text-2xl font-bold text-brown-900">Dashboard de Pedidos</h2>
-          <p className="text-brown-700">Análisis visual y estadísticas de rendimiento</p>
+          <h2 className="text-lg font-semibold text-neutral-900">Resumen</h2>
         </div>
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <Select value={dateFilter} onValueChange={(v: any) => setDateFilter(v)}>
-            <SelectTrigger className="w-48">
-              <Calendar className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Rango de fechas" />
+            <SelectTrigger className="w-40 h-9 text-sm">
+              <SelectValue placeholder="Periodo" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="hoy">Hoy</SelectItem>
-              <SelectItem value="semana">Esta semana</SelectItem>
-              <SelectItem value="mes">Este mes</SelectItem>
-              <SelectItem value="trimestre">Este trimestre</SelectItem>
+              <SelectItem value="semana">Semana</SelectItem>
+              <SelectItem value="mes">Mes</SelectItem>
+              <SelectItem value="trimestre">Trimestre</SelectItem>
             </SelectContent>
           </Select>
 
           <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
             <DialogTrigger asChild>
-              <Button className="bg-green-600 hover:bg-green-700">
-                <Download className="h-4 w-4 mr-2" />
-                Exportar Reportes
+              <Button size="sm" variant="outline" className="h-9">
+                <Download className="h-3.5 w-3.5 sm:mr-2" />
+                <span className="hidden sm:inline">Exportar</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2">
-                  <FileSpreadsheet className="h-5 w-5 text-green-600" />
+                  <FileSpreadsheet className="h-5 w-5 text-neutral-700" />
                   Exportar Reportes
                 </DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
-                <p className="text-sm text-stone-600">
-                  Seleccione el tipo de reporte que desea exportar:
+                <p className="text-sm text-neutral-600">
+                  Seleccione el tipo de reporte:
                 </p>
                 <div className="space-y-2">
                   {exportReports.map((report) => (
@@ -203,11 +201,11 @@ const OrdersDashboard = ({ stats, orders, onExportReport }: OrdersDashboardProps
                       key={report.id}
                       onClick={() => handleExportReport(report.id)}
                       variant="outline"
-                      className="w-full justify-start h-auto p-4"
+                      className="w-full justify-start h-auto p-3"
                     >
                       <div className="text-left">
-                        <div className="font-medium">{report.name}</div>
-                        <div className="text-xs text-stone-500">{report.description}</div>
+                        <div className="font-medium text-sm">{report.name}</div>
+                        <div className="text-xs text-neutral-500">{report.description}</div>
                       </div>
                     </Button>
                   ))}
@@ -218,75 +216,68 @@ const OrdersDashboard = ({ stats, orders, onExportReport }: OrdersDashboardProps
         </div>
       </div>
 
-      {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Pedidos</CardTitle>
-            <Package className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">+0% desde la semana pasada</p>
+      {/* Métricas principales - Más compactas */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-neutral-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-neutral-600">Total</span>
+              <Package className="h-4 w-4 text-neutral-400" />
+            </div>
+            <div className="text-2xl font-bold text-neutral-900">{stats.total}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Entregados</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{pieData[0].value}</div>
-            <p className="text-xs text-muted-foreground">{eficiencia}% tasa de entrega</p>
+        <Card className="border-neutral-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-neutral-600">Entregados</span>
+              <CheckCircle className="h-4 w-4 text-emerald-500" />
+            </div>
+            <div className="text-2xl font-bold text-emerald-600">{pieData[0].value}</div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">En Proceso</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">
+        <Card className="border-neutral-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-neutral-600">En Proceso</span>
+              <Clock className="h-4 w-4 text-amber-500" />
+            </div>
+            <div className="text-2xl font-bold text-amber-600">
               {pieData[2].value + pieData[1].value}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Tiempo promedio: {avgPrepHours} h
-            </p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Eficiencia</CardTitle>
-            <TrendingUp className="h-4 w-4 text-purple-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-purple-600">{eficiencia}%</div>
-            <p className="text-xs text-muted-foreground">+0% desde el mes pasado</p>
+        <Card className="border-neutral-200">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-neutral-600">Eficiencia</span>
+              <TrendingUp className="h-4 w-4 text-blue-500" />
+            </div>
+            <div className="text-2xl font-bold text-blue-600">{eficiencia}%</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Gráficos principales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de torta */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribución por Estado</CardTitle>
-            <CardDescription>Vista general del estado actual de los pedidos ({dateFilter})</CardDescription>
+      {/* Gráficos más compactos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Gráfico de torta - Más pequeño */}
+        <Card className="border-neutral-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-neutral-900">Distribución</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pb-4">
+            <ResponsiveContainer width="100%" height={200}>
               <PieChart>
                 <Pie
                   data={pieData}
                   cx="50%"
                   cy="50%"
                   labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
+                  label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                  outerRadius={60}
                   dataKey="value"
                 >
                   {pieData.map((entry, index) => (
@@ -296,50 +287,57 @@ const OrdersDashboard = ({ stats, orders, onExportReport }: OrdersDashboardProps
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            {/* Leyenda manual compacta */}
+            <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+              {pieData.map((entry) => (
+                <div key={entry.name} className="flex items-center gap-1.5">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+                  <span className="text-neutral-600 truncate">{entry.name}</span>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
-        {/* Gráfico de barras - Rendimiento semanal */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Rendimiento Semanal</CardTitle>
-            <CardDescription>Pedidos por día ({dateFilter})</CardDescription>
+        {/* Gráfico de barras - Más pequeño */}
+        <Card className="border-neutral-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-semibold text-neutral-900">Semanal</CardTitle>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
+          <CardContent className="pb-4">
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={weeklyData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis allowDecimals={false} />
-                <Tooltip />
-                <Bar dataKey="entregados" stackId="a" fill="#10B981" name="Entregados" />
-                <Bar dataKey="preparacion" stackId="a" fill="#F59E0B" name="En Preparación" />
-                <Bar dataKey="pendientes" stackId="a" fill="#EF4444" name="Pendientes" />
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+                <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ fontSize: 12 }} />
+                <Bar dataKey="entregados" stackId="a" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="preparacion" stackId="a" fill="#F59E0B" />
+                <Bar dataKey="pendientes" stackId="a" fill="#EF4444" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
 
-      {/* Tendencias */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Tendencia de Entregas</CardTitle>
-          <CardDescription>Últimos 7 días ({dateFilter})</CardDescription>
+      {/* Tendencias - Opcional en mobile, más compacta */}
+      <Card className="border-neutral-200 hidden sm:block">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-semibold text-neutral-900">Tendencia</CardTitle>
         </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={200}>
+        <CardContent className="pb-4">
+          <ResponsiveContainer width="100%" height={140}>
             <LineChart data={weeklyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis allowDecimals={false} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+              <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
+              <Tooltip contentStyle={{ fontSize: 12 }} />
               <Line
                 type="monotone"
                 dataKey="entregados"
                 stroke="#10B981"
-                strokeWidth={3}
-                dot={{ fill: '#10B981', strokeWidth: 2, r: 4 }}
+                strokeWidth={2}
+                dot={{ fill: '#10B981', r: 3 }}
               />
             </LineChart>
           </ResponsiveContainer>
