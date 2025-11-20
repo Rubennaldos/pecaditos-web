@@ -247,25 +247,28 @@ export const ClientsAccessManagement = () => {
   }, []);
 
   // Logic: Save Client (Create or Edit)
-const saveClient = async (client: Partial<Client>, isEdit?: boolean): Promise<boolean> => {
-  const clientsRef = ref(db, 'clients');
-  const cleanClientData = {
-    ...client,
-    pin: client.pin || null,
-    portalLoginRuc: client.rucDni || null,
-    sedes: client.sedes || null,
-    contactos: client.contactos || null,
-    accessModules: client.accessModules || []
-  };
+  const saveClient = async (client: Partial<Client>, isEdit?: boolean): Promise<boolean> => {
+    const clientsRef = ref(db, 'clients');
+    // Normaliza datos y asegura accessModules
+    const cleanClientData = {
+      ...client,
+      pin: client.pin || null,
+      portalLoginRuc: client.rucDni || null,
+      sedes: client.sedes || null,
+      contactos: client.contactos || null,
+      accessModules: client.accessModules || []
+    };
 
-  try {
-    // EDITAR
-    if (isEdit && client.id) {
-      if (!client.authUid && client.rucDni && client.pin && client.pin.length === 4) {
-        try {
-          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
-          const credential = await createUserWithEmailAndPassword(auth, email, password);
+    try {
+      // EDITAR
+      if (isEdit && client.id) {
+        // Si no tiene usuario y se ingresó PIN válido, creamos acceso
+        if (!client.authUid && client.rucDni && client.pin && client.pin.length === 4) {
+          try {
+            const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
+            const credential = await createUserWithEmailAndPassword(auth, email, password);
 
+            // Crear nodo usuario con permisos
             await set(ref(db, `usuarios/${credential.user.uid}`), {
               nombre: client.razonSocial,
               correo: email,
@@ -275,140 +278,112 @@ const saveClient = async (client: Partial<Client>, isEdit?: boolean): Promise<bo
               portalLoginRuc: client.rucDni
             });
 
+            // Actualizar cliente con authUid
             await update(ref(db, `clients/${client.id}`), {
               ...cleanClientData,
               authUid: credential.user.uid
             });
 
-            // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
-            console.log("Sincronizando permisos para usuario (creado en edición):", credential.user.uid, cleanClientData.accessModules);
+            // Refuerzo: asegurar permisos en usuario
             await update(ref(db, `usuarios/${credential.user.uid}`), {
               accessModules: cleanClientData.accessModules
             });
 
             toast({ title: 'Acceso creado', description: 'Credenciales generadas (RUC + PIN)' });
-        } catch (authError: any) {
-          if (authError.code === 'auth/email-already-in-use') {
-            let foundUid: string | undefined;
-            try {
-              const qByRuc = query(ref(db, 'usuarios'), orderByChild('portalLoginRuc'), equalTo(client.rucDni!));
-              const snapRuc = await get(qByRuc);
-              if (snapRuc.exists()) {
-                foundUid = Object.keys(snapRuc.val())[0];
-              } else {
-                const { email } = formatAuthCredentials(client.rucDni!, client.pin!);
-                const qByEmail = query(ref(db, 'usuarios'), orderByChild('correo'), equalTo(email));
-                const snapEmail = await get(qByEmail);
-                if (snapEmail.exists()) {
-                  foundUid = Object.keys(snapEmail.val())[0];
+          } catch (authError: any) {
+            if (authError.code === 'auth/email-already-in-use') {
+              // Buscar usuario existente por RUC o correo y vincular + actualizar permisos
+              let foundUid: string | undefined;
+              try {
+                const qByRuc = query(ref(db, 'usuarios'), orderByChild('portalLoginRuc'), equalTo(client.rucDni!));
+                const snapRuc = await get(qByRuc);
+                if (snapRuc.exists()) {
+                  foundUid = Object.keys(snapRuc.val())[0];
+                } else {
+                  const { email } = formatAuthCredentials(client.rucDni!, client.pin!);
+                  const qByEmail = query(ref(db, 'usuarios'), orderByChild('correo'), equalTo(email));
+                  const snapEmail = await get(qByEmail);
+                  if (snapEmail.exists()) {
+                    foundUid = Object.keys(snapEmail.val())[0];
+                  }
                 }
-              }
-              if (foundUid) {
-                await update(ref(db, `usuarios/${foundUid}`), {
-                  accessModules: cleanClientData.accessModules,
-                  portalLoginRuc: client.rucDni
-                });
-                await update(ref(db, `clients/${client.id}`), {
-                  ...cleanClientData,
-                  authUid: foundUid
-                });
 
-                // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
-                console.log("Sincronizando permisos para usuario (vinculado existente en edición):", foundUid, cleanClientData.accessModules);
-                await update(ref(db, `usuarios/${foundUid}`), {
-                  accessModules: cleanClientData.accessModules
-                });
-
+                if (foundUid) {
+                  await update(ref(db, `usuarios/${foundUid}`), {
+                    accessModules: cleanClientData.accessModules,
+                    portalLoginRuc: client.rucDni
+                  });
+                  await update(ref(db, `clients/${client.id}`), {
+                    ...cleanClientData,
+                    authUid: foundUid
+                  });
+                  toast({
+                    title: 'Acceso vinculado',
+                    description: 'Usuario existente vinculado y permisos actualizados.'
+                  });
+                } else {
+                  toast({
+                    title: 'Aviso',
+                    description: 'El acceso ya existía pero no se pudo vincular automáticamente.',
+                    variant: 'destructive'
+                  });
+                }
+              } catch {
                 toast({
-                  title: 'Acceso vinculado',
-                  description: 'Usuario existente vinculado y permisos actualizados.'
-                });
-              } else {
-                toast({
-                  title: 'Aviso',
-                  description: 'El acceso ya existía pero no se pudo vincular automáticamente.',
+                  title: 'Error',
+                  description: 'No se pudo vincular el acceso existente.',
                   variant: 'destructive'
                 });
               }
-            } catch {
-              toast({
-                title: 'Error',
-                description: 'No se pudo vincular el acceso existente.',
-                variant: 'destructive'
-              });
+            } else {
+              throw authError;
             }
-          } else {
-            throw authError;
           }
+        } else {
+          // Solo actualizar datos del cliente
+          await update(ref(db, `clients/${client.id}`), cleanClientData);
+          // Asegurar que permisos queden en el nodo de usuario si existe
+          if (client.authUid) {
+            await update(ref(db, `usuarios/${client.authUid}`), {
+              accessModules: cleanClientData.accessModules
+            });
+          }
+          toast({ title: 'Cliente actualizado', description: 'Actualizado correctamente' });
         }
-      } else {
-        await update(ref(db, `clients/${client.id}`), cleanClientData);
 
-        // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
-        if (client.authUid) {
-          console.log("Sincronizando permisos para usuario (solo edición de datos):", client.authUid, cleanClientData.accessModules);
-          await update(ref(db, `usuarios/${client.authUid}`), {
-            accessModules: cleanClientData.accessModules
-          });
-        }
-
-        toast({ title: 'Cliente actualizado', description: 'Actualizado correctamente' });
+        return true;
       }
-      return true;
-    }
 
-    // CREAR
-    let authUid: string | undefined;
-    if (client.rucDni && client.pin && client.pin.length === 4) {
-      try {
-        const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
-        const credential = await createUserWithEmailAndPassword(auth, email, password);
-        authUid = credential.user.uid;
+      // CREAR
+      let authUid: string | undefined;
 
-        await set(ref(db, `usuarios/${authUid}`), {
-          nombre: client.razonSocial,
-          correo: email,
-          rol: 'retailUser',
-          activo: true,
-          accessModules: cleanClientData.accessModules,
-          portalLoginRuc: client.rucDni
-        });
+      if (client.rucDni && client.pin && client.pin.length === 4) {
+        try {
+          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
+          const credential = await createUserWithEmailAndPassword(auth, email, password);
+          authUid = credential.user.uid;
 
-        // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
-        console.log("Sincronizando permisos para usuario (creado):", authUid, cleanClientData.accessModules);
-        await update(ref(db, `usuarios/${authUid}`), {
-          accessModules: cleanClientData.accessModules
-        });
+          // Crear nodo usuario con permisos
+          await set(ref(db, `usuarios/${authUid}`), {
+            nombre: client.razonSocial,
+            correo: email,
+            rol: 'retailUser',
+            activo: true,
+            accessModules: cleanClientData.accessModules,
+            portalLoginRuc: client.rucDni
+          });
 
-        toast({ title: 'Usuario portal creado', description: 'Acceso habilitado (RUC + PIN)' });
-      } catch (authError: any) {
-        if (authError.code === 'auth/email-already-in-use') {
-          let foundUid: string | undefined;
-          try {
+          toast({ title: 'Usuario portal creado', description: 'Acceso habilitado (RUC + PIN)' });
+        } catch (authError: any) {
+          if (authError.code === 'auth/email-already-in-use') {
+            // Buscar por RUC y actualizar permisos
             const qByRuc = query(ref(db, 'usuarios'), orderByChild('portalLoginRuc'), equalTo(client.rucDni!));
             const snapRuc = await get(qByRuc);
             if (snapRuc.exists()) {
-              foundUid = Object.keys(snapRuc.val())[0];
-            } else {
-              const { email } = formatAuthCredentials(client.rucDni!, client.pin!);
-              const qByEmail = query(ref(db, 'usuarios'), orderByChild('correo'), equalTo(email));
-              const snapEmail = await get(qByEmail);
-              if (snapEmail.exists()) {
-                foundUid = Object.keys(snapEmail.val())[0];
-              }
-            }
-            if (foundUid) {
-              authUid = foundUid;
+              authUid = Object.keys(snapRuc.val())[0];
               await update(ref(db, `usuarios/${authUid}`), {
                 accessModules: cleanClientData.accessModules
               });
-
-              // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
-              console.log("Sincronizando permisos para usuario (vinculado existente en creación):", authUid, cleanClientData.accessModules);
-              await update(ref(db, `usuarios/${authUid}`), {
-                accessModules: cleanClientData.accessModules
-              });
-
               toast({
                 title: 'Acceso existente',
                 description: 'Vinculado y permisos actualizados.'
@@ -420,43 +395,36 @@ const saveClient = async (client: Partial<Client>, isEdit?: boolean): Promise<bo
                 variant: 'default'
               });
             }
-          } catch {
-            toast({
-              title: 'Error',
-              description: 'No se pudo vincular acceso existente.',
-              variant: 'destructive'
-            });
+          } else {
+            throw authError;
           }
-        } else {
-          throw authError;
         }
       }
-    }
 
-    const newClientRef = push(clientsRef);
-    await set(newClientRef, {
-      ...cleanClientData,
-      authUid: authUid || null,
-      fechaCreacion: Date.now()
-    });
-
-    // FUERZA LA ACTUALIZACIÓN EN EL NODO DE USUARIO
-    if (authUid) {
-      console.log("Sincronizando permisos para usuario (post creación cliente):", authUid, cleanClientData.accessModules);
-      await update(ref(db, `usuarios/${authUid}`), {
-        accessModules: cleanClientData.accessModules
+      // Crear registro del cliente
+      const newClientRef = push(clientsRef);
+      await set(newClientRef, {
+        ...cleanClientData,
+        authUid: authUid || null,
+        fechaCreacion: Date.now()
       });
-    }
 
-    toast({ title: 'Cliente creado', description: 'Registro almacenado correctamente' });
-    return true;
-  } catch (error: any) {
-    let errorMsg = 'No se pudo guardar el cliente.';
-    if (error.code === 'auth/invalid-email') errorMsg = 'Email interno inválido.';
-    toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
-    return false;
-  }
-};
+      // Refuerzo: asegurar permisos también en usuarios si hay authUid
+      if (authUid) {
+        await update(ref(db, `usuarios/${authUid}`), {
+          accessModules: cleanClientData.accessModules
+        });
+      }
+
+      toast({ title: 'Cliente creado', description: 'Registro almacenado correctamente' });
+      return true;
+    } catch (error: any) {
+      let errorMsg = 'No se pudo guardar el cliente.';
+      if (error.code === 'auth/invalid-email') errorMsg = 'Email interno inválido.';
+      toast({ title: 'Error', description: errorMsg, variant: 'destructive' });
+      return false;
+    }
+  };
 
   const deleteClient = (id: string) => {
     remove(ref(db, `clients/${id}`));
