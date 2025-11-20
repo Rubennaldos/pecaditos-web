@@ -141,7 +141,7 @@ interface Product {
 // IMPORTANTE: Los IDs deben coincidir con los módulos usados en ProtectedRoute (App.tsx)
 const AVAILABLE_MODULES = [
   { id: 'dashboard', name: 'Dashboard', icon: BarChart3, color: 'purple' },
-  { id: 'catalog', name: 'Administrador de Catálogo Mayorista', icon: ShoppingCart, color: 'blue' }, // Renombrado
+  { id: 'catalog', name: 'Administrador de Catálogo Mayorista', icon: ShoppingCart, color: 'blue' }, // OK
   { id: 'orders', name: 'Pedidos', icon: Package, color: 'indigo' },
   { id: 'tracking', name: 'Seguimiento', icon: Truck, color: 'amber' },
   { id: 'delivery', name: 'Reparto', icon: Truck, color: 'green' },
@@ -965,27 +965,12 @@ export const ClientsAccessManagement = () => {
         </div>
         
         <div className="flex gap-2 flex-wrap">
-          {/* Botones productos mayoristas */}
-          <Button variant="outline" onClick={generateProductsTemplate}>
-            Plantilla Productos
-          </Button>
-          <Button
-            variant="outline"
-            disabled={isProductsImporting}
-            onClick={() => document.getElementById('products-import')?.click()}
-          >
+          <Button variant="outline" onClick={generateProductsTemplate}>Plantilla Productos</Button>
+          <Button variant="outline" disabled={isProductsImporting} onClick={() => document.getElementById('products-import')?.click()}>
             {isProductsImporting ? 'Importando Productos...' : 'Importar Productos'}
           </Button>
-          <input
-            id="products-import"
-            type="file"
-            accept=".xlsx,.xls"
-            onChange={handleProductsFileImport}
-            className="hidden"
-          />
-          <Button variant="outline" onClick={() => exportProductsToExcel(toast)}>
-            Exportar Productos
-          </Button>
+          <input id="products-import" type="file" accept=".xlsx,.xls" onChange={handleProductsFileImport} className="hidden" />
+          <Button variant="outline" onClick={() => exportProductsToExcel(toast)}>Exportar Productos</Button>
           
           <Button
             variant="outline"
@@ -1879,6 +1864,7 @@ const ClientForm = ({
                                                    {active && (
                             <Check className="absolute top-1 right-1 h-4 w-4 text-white" />
                           )}
+                       
                         </button>
                       );
                     })}

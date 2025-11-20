@@ -325,8 +325,8 @@ export default function ConsolidatedAdminModule() {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-stone-800">Administración General</h1>
-          <p className="text-stone-600">Portal unificado de gestión mayorista y puntos de venta</p>
+          <h1 className="text-3xl font-bold text-stone-800">Administrador de Catálogo Mayorista</h1>
+          <p className="text-stone-600">Gestión integral de productos mayoristas, promociones y configuración</p>
         </div>
       </div>
 
