@@ -12,7 +12,6 @@ import {
   Clock,
   CheckCircle,
   AlertTriangle,
-  Smile,
   Edit,
   Trash2,
   History,
@@ -20,6 +19,11 @@ import {
   Building2,
   Calendar,
   IdCard,
+  Search,
+  Zap,
+  ChevronDown,
+  Menu,
+  X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -108,6 +112,7 @@ const OrdersPanel = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [historyOrderId, setHistoryOrderId] = useState<string | undefined>();
   const [showAIImport, setShowAIImport] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Evitar backfill duplicado
   const backfilledRef = useRef<Set<string>>(new Set());
@@ -313,7 +318,7 @@ const OrdersPanel = () => {
   };
 
   const renderOrderList = (list: OrderWithUrgency[]) => (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {list.map((order) => {
         const title = getTitle(order);
         const site = getSiteName(order);
@@ -325,45 +330,45 @@ const OrdersPanel = () => {
         const blinkClass = getBlinkClass(order);
 
         return (
-          <Card key={order.id} className="hover:shadow-lg transition-all">
+          <Card 
+            key={order.id} 
+            className="border border-neutral-200 hover:border-neutral-300 transition-all duration-200 hover:shadow-sm bg-white"
+          >
             <CardContent className="p-4">
-              {/* Header */}
-              <div className="flex flex-col gap-1 md:flex-row md:items-start md:justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  {blinkClass && <span className={`inline-block h-2.5 w-2.5 rounded-full ${blinkClass}`} />}
-                  <h3 className="text-lg md:text-xl font-semibold text-brown-900">{title}</h3>
+              {/* Compact Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    {blinkClass && <span className={`inline-block h-2 w-2 rounded-full ${blinkClass}`} />}
+                    <h3 className="text-base font-semibold text-neutral-900 truncate">{title}</h3>
+                  </div>
                   {showSiteChip && (
-                    <div className="hidden md:flex items-center gap-1 text-stone-600">
-                      <span className="mx-1">•</span>
-                      <Building2 className="h-4 w-4" />
-                      <span className="font-medium">{site}</span>
+                    <div className="flex items-center gap-1.5 text-xs text-neutral-600">
+                      <Building2 className="h-3.5 w-3.5" />
+                      <span className="truncate">{site}</span>
                     </div>
                   )}
                 </div>
-                <div className="text-right">
-                  <div className="text-xs text-stone-500">
-                    <span className="font-medium">Orden:</span>{' '}
-                    <span className="font-semibold">{oc}</span>
-                  </div>
+                <div className="flex flex-col items-end gap-1.5 ml-3">
                   <Badge
-                    className={`mt-1 ${
+                    className={`text-xs px-2 py-0.5 ${
                       order.status === 'pendiente'
-                        ? 'bg-yellow-100 text-yellow-800'
+                        ? 'bg-amber-100 text-amber-900 border-amber-200'
                         : order.status === 'en_preparacion'
-                        ? 'bg-blue-100 text-blue-800'
+                        ? 'bg-blue-100 text-blue-900 border-blue-200'
                         : order.status === 'listo'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
                         : order.status === 'rechazado'
-                        ? 'bg-red-100 text-red-700'
+                        ? 'bg-red-100 text-red-900 border-red-200'
                         : order.status === 'entregado'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-stone-100 text-stone-800'
+                        ? 'bg-neutral-100 text-neutral-900 border-neutral-200'
+                        : 'bg-neutral-100 text-neutral-800 border-neutral-200'
                     }`}
                   >
                     {order.status === 'pendiente'
                       ? 'Pendiente'
                       : order.status === 'en_preparacion'
-                      ? 'En Preparación'
+                      ? 'Preparando'
                       : order.status === 'listo'
                       ? 'Listo'
                       : order.status === 'entregado'
@@ -372,72 +377,61 @@ const OrdersPanel = () => {
                       ? 'Rechazado'
                       : order.status}
                   </Badge>
-                  <div className="mt-1 font-bold text-lg">S/ {Number(order.total ?? 0).toFixed(2)}</div>
-                  <div className="text-xs text-stone-500">{order.items?.length ?? 0} productos</div>
+                  <div className="text-xs text-neutral-500 font-medium">{oc}</div>
                 </div>
               </div>
 
-              {/* Meta */}
-              <div className="flex flex-col gap-2 text-sm text-stone-700 mb-3">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-stone-500" />
-                  <span>
-                    <span className="text-stone-500">Creado:</span>{' '}
-                    {order.createdAt ? new Date(ts(order.createdAt)).toLocaleString() : '—'}
+              {/* Precio y productos - Más compacto */}
+              <div className="flex items-center justify-between mb-3 py-2 px-3 bg-neutral-50 rounded-lg">
+                <div>
+                  <div className="text-xl font-bold text-neutral-900">S/ {Number(order.total ?? 0).toFixed(2)}</div>
+                  <div className="text-xs text-neutral-500">{order.items?.length ?? 0} items</div>
+                </div>
+                {order.items && order.items.length > 0 && (
+                  <div className="text-xs text-right text-neutral-600 max-w-[180px]">
+                    <div className="truncate">{order.items[0].name ?? order.items[0].product ?? 'Producto'}</div>
+                    {order.items.length > 1 && (
+                      <div className="text-neutral-400">+{order.items.length - 1} más</div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Info compacta */}
+              <div className="space-y-1.5 text-xs text-neutral-600 mb-3">
+                {addr && (
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                    <span className="truncate">{addr}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                  <span className="truncate">
+                    {order.createdAt ? new Date(ts(order.createdAt)).toLocaleDateString('es-ES', { 
+                      day: '2-digit', 
+                      month: 'short', 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    }) : '—'}
                   </span>
                 </div>
-                {addr ? (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-stone-500" />
-                    <span>{addr}</span>
-                  </div>
-                ) : null}
-                {(legal || ruc) && (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    {legal ? (
-                      <div className="flex items-center gap-2">
-                        <IdCard className="h-4 w-4 text-stone-500" />
-                        <span className="text-stone-500">Razón social:</span>
-                        <span className="font-medium">{legal}</span>
-                      </div>
-                    ) : null}
-                    {ruc ? (
-                      <div className="flex items-center gap-2">
-                        <IdCard className="h-4 w-4 text-stone-500" />
-                        <span className="text-stone-500">RUC:</span>
-                        <span className="font-medium">{ruc}</span>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-                {order.status === 'rechazado' && order.rejectedReason && (
-                  <div className="text-xs text-red-700 bg-red-50 p-2 rounded">
-                    <strong>Motivo rechazo:</strong> {order.rejectedReason}
+                {ruc && (
+                  <div className="flex items-center gap-1.5">
+                    <IdCard className="h-3.5 w-3.5 text-neutral-400 flex-shrink-0" />
+                    <span className="truncate">{ruc}</span>
                   </div>
                 )}
               </div>
 
-              {/* Ítems */}
-              <div className="mb-4 p-3 bg-stone-50 rounded">
-                <div className="space-y-1">
-                  {order.items?.slice(0, 2).map((item, idx) => (
-                    <div key={idx} className="flex justify-between text-sm">
-                      <span>{item.name ?? item.product ?? item.title ?? 'Producto'}</span>
-                      <span>
-                        {item.quantity} x S/ {item.price}
-                      </span>
-                    </div>
-                  ))}
-                  {order.items && order.items.length > 2 && (
-                    <p className="text-xs text-stone-500">
-                      y {order.items.length - 2} producto(s) más...
-                    </p>
-                  )}
+              {order.status === 'rechazado' && order.rejectedReason && (
+                <div className="text-xs text-red-700 bg-red-50 border border-red-100 p-2 rounded-lg mb-3">
+                  <strong>Motivo:</strong> {order.rejectedReason}
                 </div>
-              </div>
+              )}
 
-              {/* Acciones */}
-              <div className="flex flex-wrap gap-2 pt-3 border-t border-stone-200">
+              {/* Acciones - Mobile optimized */}
+              <div className="flex flex-wrap gap-2 pt-3 border-t border-neutral-100">
                 <OrderActionButtons
                   orderId={order.id}
                   currentStatus={order.status ?? 'pendiente'}
@@ -447,42 +441,39 @@ const OrdersPanel = () => {
                 />
 
                 {isAdminMode && (
-                  <div className="flex gap-2 flex-wrap">
+                  <>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleEditOrder(order)}
-                      className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                      className="text-neutral-700 border-neutral-300 hover:bg-neutral-100 h-8 px-3"
                     >
-                      <Edit className="h-3 w-3 mr-1" />
-                      Editar
+                      <Edit className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleViewHistory(order.id)}
-                      className="text-blue-600 border-blue-300 hover:bg-blue-50"
+                      className="text-neutral-700 border-neutral-300 hover:bg-neutral-100 h-8 px-3"
                     >
-                      <History className="h-3 w-3 mr-1" />
-                      Historial
+                      <History className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleDeleteOrder(order)}
-                      className="text-red-600 border-red-300 hover:bg-red-50"
+                      className="text-red-600 border-red-300 hover:bg-red-50 h-8 px-3"
                     >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Rechazar
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
-                  </div>
+                  </>
                 )}
               </div>
 
               {order.notes && (
-                <div className="pt-2 border-t border-stone-200 mt-2">
-                  <p className="text-xs text-stone-500">
-                    <strong>Notas:</strong> {order.notes}
+                <div className="pt-3 mt-3 border-t border-neutral-100">
+                  <p className="text-xs text-neutral-600">
+                    <strong className="text-neutral-700">Notas:</strong> {order.notes}
                   </p>
                 </div>
               )}
@@ -499,7 +490,7 @@ const OrdersPanel = () => {
   }, [ordersWithUrgency, searchTerm]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-sand-50 via-white to-sand-50">
+    <div className="min-h-screen bg-neutral-50">
       {/* Estilos locales para parpadeo */}
       <style>{`
         @keyframes pulseYellow { 0%,100% { opacity:.25 } 50% { opacity:1 } }
@@ -508,125 +499,252 @@ const OrdersPanel = () => {
         .blink-red { background:#ef4444; animation:pulseRed .7s infinite; }
       `}</style>
 
-      
-
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-sand-200">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary to-primary-dark rounded-full flex items-center justify-center">
-                <Package className="h-5 w-5 text-primary-foreground" />
+      {/* Header minimalista y sticky */}
+      <div className="sticky top-0 z-50 bg-white border-b border-neutral-200 backdrop-blur-sm bg-white/95">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo y título compacto */}
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-neutral-900 rounded-xl flex items-center justify-center">
+                <Package className="h-5 w-5 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-brown-900">
-                  Panel de Pedidos
-                  {isAdminMode && <Badge className="ml-2 bg-purple-600 text-white">MODO ADMIN</Badge>}
+              <div className="hidden sm:block">
+                <h1 className="text-lg font-semibold text-neutral-900">
+                  Pedidos
+                  {isAdminMode && <Badge className="ml-2 bg-neutral-800 text-white text-xs">ADMIN</Badge>}
                 </h1>
-                <p className="text-brown-700">Gestión y preparación de pedidos</p>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
+
+            {/* Desktop actions */}
+            <div className="hidden lg:flex items-center gap-2">
               {isAdminMode && (
-                <Button onClick={() => handleViewHistory()} className="bg-amber-600 hover:bg-amber-700 text-white">
+                <Button 
+                  onClick={() => handleViewHistory()} 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-neutral-700 hover:bg-neutral-100"
+                >
+                  <History className="h-4 w-4 mr-2" />
+                  Historial
+                </Button>
+              )}
+              <QuickOrderButton />
+              <Button 
+                onClick={() => setShowQRReader(true)} 
+                variant="ghost" 
+                size="sm"
+                className="text-neutral-700 hover:bg-neutral-100"
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                Escanear
+              </Button>
+              <Button 
+                onClick={() => setShowAIImport(true)} 
+                className="bg-neutral-900 hover:bg-neutral-800 text-white"
+                size="sm"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Importar IA
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleLogout} 
+                className="text-neutral-700 hover:bg-neutral-100"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Mobile menu button */}
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="lg:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </Button>
+          </div>
+
+          {/* Mobile menu dropdown */}
+          {mobileMenuOpen && (
+            <div className="lg:hidden pb-4 space-y-2 border-t border-neutral-200 pt-4">
+              <QuickOrderButton />
+              <Button 
+                onClick={() => { setShowQRReader(true); setMobileMenuOpen(false); }} 
+                variant="outline" 
+                className="w-full justify-start"
+              >
+                <QrCode className="h-4 w-4 mr-2" />
+                Escanear QR
+              </Button>
+              <Button 
+                onClick={() => { setShowAIImport(true); setMobileMenuOpen(false); }} 
+                className="w-full justify-start bg-neutral-900 text-white"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Importar con IA
+              </Button>
+              {isAdminMode && (
+                <Button 
+                  onClick={() => { handleViewHistory(); setMobileMenuOpen(false); }} 
+                  variant="outline"
+                  className="w-full justify-start"
+                >
                   <History className="h-4 w-4 mr-2" />
                   Historial Global
                 </Button>
               )}
-              <QuickOrderButton />
-              <Button onClick={() => setShowQRReader(true)} className="bg-purple-600 hover:bg-purple-700 text-white">
-                <QrCode className="h-4 w-4 mr-2" />
-                Leer QR
-              </Button>
-              <Button onClick={() => setShowAIImport(true)} className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white">
-                ✨ Importar Pedido IA
-              </Button>
-              <Button variant="outline" onClick={handleLogout} className="text-brown-700 border-sand-300 hover:bg-sand-50">
+              <Button 
+                variant="outline" 
+                onClick={handleLogout} 
+                className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 Cerrar Sesión
               </Button>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* Body */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex gap-8">
-          <div className="flex-1 min-w-0">
-            {/* Filtros + Tabs */}
-            <div className="flex flex-col md:flex-row items-start gap-4 mb-6">
-              <Input
-                className="md:w-72"
-                placeholder="Buscar por cliente, sede, orden o teléfono..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-              <div className="flex flex-wrap gap-2 justify-start w-full md:w-auto">
-                <Button size="sm" variant={selectedTab === 'dashboard' ? 'default' : 'outline'} onClick={() => setSelectedTab('dashboard')}>
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  Dashboard
-                </Button>
-                <Button size="sm" variant={selectedTab === 'pendientes' ? 'default' : 'outline'} onClick={() => setSelectedTab('pendientes')}>
-                  <Clock className="h-4 w-4 mr-1" />
-                  Pendientes
-                  <Badge className="ml-1">{stats.pendientes}</Badge>
-                </Button>
-                <Button size="sm" variant={selectedTab === 'en_preparacion' ? 'default' : 'outline'} onClick={() => setSelectedTab('en_preparacion')}>
-                  <Smile className="h-4 w-4 mr-1" />
-                  En preparación
-                  <Badge className="ml-1">{stats.enPreparacion}</Badge>
-                </Button>
-                <Button size="sm" variant={selectedTab === 'listos' ? 'default' : 'outline'} onClick={() => setSelectedTab('listos')}>
-                  <CheckCircle className="h-4 w-4 mr-1" />
-                  Listos
-                  <Badge className="ml-1">{stats.listos}</Badge>
-                </Button>
-                <Button size="sm" variant={selectedTab === 'entregados' ? 'default' : 'outline'} onClick={() => setSelectedTab('entregados')}>
-                  Entregados
-                  <Badge className="ml-1">{stats.entregados}</Badge>
-                </Button>
-                <Button size="sm" variant={selectedTab === 'alertas' ? 'default' : 'outline'} onClick={() => setSelectedTab('alertas')}>
-                  <AlertTriangle className="h-4 w-4 mr-1" />
-                  Urgentes/Vencidos
-                  <Badge className="ml-1">{stats.alertas}</Badge>
-                </Button>
-                <Button size="sm" variant={selectedTab === 'rechazados' ? 'default' : 'outline'} onClick={() => setSelectedTab('rechazados')}>
-                  Rechazados
-                  <Badge className="ml-1">{stats.rechazados}</Badge>
-                </Button>
-                <Button size="sm" variant={selectedTab === 'todos' ? 'default' : 'outline'} onClick={() => setSelectedTab('todos')}>
-                  Todos
-                  <Badge className="ml-1">{stats.total}</Badge>
-                </Button>
-              </div>
-            </div>
-
-            {selectedTab === 'dashboard' && <OrdersDashboard stats={stats} orders={ordersWithUrgency} />}
-
-            {selectedTab === 'pendientes' &&
-              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'pendiente' && matchesSearch(o, searchTerm)))}
-
-            {selectedTab === 'en_preparacion' &&
-              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)))}
-
-            {selectedTab === 'listos' &&
-              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'listo' && matchesSearch(o, searchTerm)))}
-
-            {selectedTab === 'entregados' &&
-              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'entregado' && matchesSearch(o, searchTerm)))}
-
-            {selectedTab === 'rechazados' &&
-              renderOrderList(ordersWithUrgency.filter((o) => o.status === 'rechazado' && matchesSearch(o, searchTerm)))}
-
-            {selectedTab === 'alertas' &&
-              renderOrderList(
-                ordersWithUrgency.filter((o) => (o.urgency.isUrgent || o.urgency.isExpired) && matchesSearch(o, searchTerm))
-              )}
-
-            {selectedTab === 'todos' && renderOrderList(filtered)}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        {/* Search bar con estilo moderno */}
+        <div className="mb-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-neutral-400" />
+            <Input
+              className="pl-10 bg-white border-neutral-200 focus-visible:ring-neutral-900 h-11"
+              placeholder="Buscar pedidos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </div>
+
+        {/* Tabs horizontales con scroll en mobile */}
+        <div className="mb-4 -mx-4 sm:mx-0">
+          <div className="overflow-x-auto px-4 sm:px-0 scrollbar-hide">
+            <div className="flex gap-2 min-w-max sm:min-w-0 pb-2">
+              <Button 
+                size="sm" 
+                variant={selectedTab === 'dashboard' ? 'default' : 'outline'} 
+                onClick={() => setSelectedTab('dashboard')}
+                className={selectedTab === 'dashboard' 
+                  ? 'bg-neutral-900 text-white hover:bg-neutral-800' 
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }
+              >
+                <BarChart3 className="h-3.5 w-3.5 mr-1.5" />
+                Panel
+              </Button>
+              <Button 
+                size="sm" 
+                variant={selectedTab === 'pendientes' ? 'default' : 'outline'} 
+                onClick={() => setSelectedTab('pendientes')}
+                className={selectedTab === 'pendientes' 
+                  ? 'bg-amber-500 text-white hover:bg-amber-600' 
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }
+              >
+                <Clock className="h-3.5 w-3.5 mr-1.5" />
+                Pendientes
+                {stats.pendientes > 0 && <Badge className="ml-1.5 bg-white/20 text-white">{stats.pendientes}</Badge>}
+              </Button>
+              <Button 
+                size="sm" 
+                variant={selectedTab === 'en_preparacion' ? 'default' : 'outline'} 
+                onClick={() => setSelectedTab('en_preparacion')}
+                className={selectedTab === 'en_preparacion' 
+                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }
+              >
+                Preparando
+                {stats.enPreparacion > 0 && <Badge className="ml-1.5 bg-white/20 text-white">{stats.enPreparacion}</Badge>}
+              </Button>
+              <Button 
+                size="sm" 
+                variant={selectedTab === 'listos' ? 'default' : 'outline'} 
+                onClick={() => setSelectedTab('listos')}
+                className={selectedTab === 'listos' 
+                  ? 'bg-emerald-500 text-white hover:bg-emerald-600' 
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }
+              >
+                <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                Listos
+                {stats.listos > 0 && <Badge className="ml-1.5 bg-white/20 text-white">{stats.listos}</Badge>}
+              </Button>
+              <Button 
+                size="sm" 
+                variant={selectedTab === 'entregados' ? 'default' : 'outline'} 
+                onClick={() => setSelectedTab('entregados')}
+                className={selectedTab === 'entregados' 
+                  ? 'bg-neutral-900 text-white hover:bg-neutral-800' 
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }
+              >
+                Entregados
+                {stats.entregados > 0 && <Badge className="ml-1.5 bg-white/20 text-white">{stats.entregados}</Badge>}
+              </Button>
+              {stats.alertas > 0 && (
+                <Button 
+                  size="sm" 
+                  variant={selectedTab === 'alertas' ? 'default' : 'outline'} 
+                  onClick={() => setSelectedTab('alertas')}
+                  className={selectedTab === 'alertas' 
+                    ? 'bg-red-500 text-white hover:bg-red-600' 
+                    : 'border-red-300 text-red-700 hover:bg-red-50'
+                  }
+                >
+                  <AlertTriangle className="h-3.5 w-3.5 mr-1.5" />
+                  Urgentes
+                  <Badge className="ml-1.5 bg-white/20 text-white">{stats.alertas}</Badge>
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant={selectedTab === 'todos' ? 'default' : 'outline'} 
+                onClick={() => setSelectedTab('todos')}
+                className={selectedTab === 'todos' 
+                  ? 'bg-neutral-900 text-white hover:bg-neutral-800' 
+                  : 'border-neutral-300 text-neutral-700 hover:bg-neutral-100'
+                }
+              >
+                Todos
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenido */}
+        {selectedTab === 'dashboard' && <OrdersDashboard stats={stats} orders={ordersWithUrgency} />}
+
+        {selectedTab === 'pendientes' &&
+          renderOrderList(ordersWithUrgency.filter((o) => o.status === 'pendiente' && matchesSearch(o, searchTerm)))}
+
+        {selectedTab === 'en_preparacion' &&
+          renderOrderList(ordersWithUrgency.filter((o) => o.status === 'en_preparacion' && matchesSearch(o, searchTerm)))}
+
+        {selectedTab === 'listos' &&
+          renderOrderList(ordersWithUrgency.filter((o) => o.status === 'listo' && matchesSearch(o, searchTerm)))}
+
+        {selectedTab === 'entregados' &&
+          renderOrderList(ordersWithUrgency.filter((o) => o.status === 'entregado' && matchesSearch(o, searchTerm)))}
+
+        {selectedTab === 'rechazados' &&
+          renderOrderList(ordersWithUrgency.filter((o) => o.status === 'rechazado' && matchesSearch(o, searchTerm)))}
+
+        {selectedTab === 'alertas' &&
+          renderOrderList(
+            ordersWithUrgency.filter((o) => (o.urgency.isUrgent || o.urgency.isExpired) && matchesSearch(o, searchTerm))
+          )}
+
+        {selectedTab === 'todos' && renderOrderList(filtered)}
       </div>
 
       {/* Modales */}
