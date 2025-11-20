@@ -120,9 +120,10 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
     '/placeholder.svg';
 
   return (
-    <Card className="w-full max-w-xs bg-white border shadow-sm hover:shadow-md transition-all duration-200 mx-auto">
-      <div className="h-48 relative overflow-hidden rounded-t-lg">
-  {/* eslint-disable-next-line */}
+    <Card className="w-full bg-white border shadow-sm hover:shadow-md transition-all duration-200">
+      {/* IMAGEN */}
+      <div className="h-28 sm:h-36 relative overflow-hidden rounded-t-lg">
+        {/* eslint-disable-next-line */}
         <img
           src={imgSrc}
           alt={product.name}
@@ -131,52 +132,52 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
             (e.currentTarget as HTMLImageElement).src = '/placeholder.svg';
           }}
         />
+        {product.stock !== undefined && (
+          <span className="absolute bottom-1 right-1 bg-stone-800 text-white text-[9px] px-1.5 py-0.5 rounded">
+            Stock: {product.stock}
+          </span>
+        )}
       </div>
 
-      <CardContent className="p-4 flex-1 flex flex-col">
-        <h3 className="font-semibold text-gray-900 mb-2 text-center line-clamp-2">
+      <CardContent className="p-2 sm:p-3 flex-1 flex flex-col space-y-1.5">
+        {/* NOMBRE */}
+        <h3 className="font-semibold text-stone-900 text-xs sm:text-sm line-clamp-2 min-h-[2rem]">
           {product.name}
         </h3>
 
-        {/* Info de precios */}
-        <div className="text-center mb-3">
-          <p className="text-xs text-gray-500 mb-1 line-clamp-3">
-            {product.description || 'Producto mayorista'}
+        {/* PRECIO */}
+        <div className="text-center">
+          <p className="text-[10px] text-stone-600 mb-0.5">
+            Base: <span className="font-medium">{money(baseUnit)}</span>
           </p>
-
-          <div className="space-y-1">
-            <p className="text-sm text-gray-600">
-              Base mayorista: <b>{money(baseUnit)}</b> c/u
-            </p>
-
-            <p className="text-lg font-bold text-amber-700">
-              {quantity > 0 && line.discountPct > 0 ? (
-                <>
-                  {money(line.unit)}{' '}
-                  <span className="text-xs text-green-600">
-                    ({line.discountPct}% desc.)
-                  </span>
-                </>
-              ) : (
-                money(baseUnit)
-              )}{' '}
-              <span className="text-xs text-stone-500">c/u</span>
-            </p>
-          </div>
+          
+          <p className="text-base sm:text-lg font-bold text-amber-700 leading-tight">
+            {quantity > 0 && line.discountPct > 0 ? (
+              <>
+                {money(line.unit)}{' '}
+                <span className="text-[10px] text-green-600">
+                  ({line.discountPct}% desc.)
+                </span>
+              </>
+            ) : (
+              money(baseUnit)
+            )}{' '}
+            <span className="text-[9px] text-stone-500">c/u</span>
+          </p>
         </div>
 
-        {/* Controles de cantidad */}
-        <div className="space-y-3 mt-auto">
-          <div className="flex items-center gap-2">
+        {/* CONTROLES */}
+        <div className="space-y-1 mt-auto">
+          <div className="flex items-center gap-1">
             <Button
               variant="outline"
               size="sm"
               onClick={dec}
               disabled={quantity <= 0}
-              className="h-8 w-8 p-0"
+              className="h-7 w-7 p-0 text-xs"
               aria-label="Disminuir"
             >
-              <Minus className="h-4 w-4" />
+              <Minus className="h-3 w-3" />
             </Button>
 
             <Input
@@ -194,45 +195,61 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
                 setQuantity(Math.max(0, n));
               }}
               onBlur={(e) => setQtyNormalized(Number(e.target.value || 0))}
-              className="flex-1 text-center h-8"
+              className="flex-1 text-center h-7 text-xs sm:text-sm"
               min={0}
               step={step}
-              placeholder={`Múltiplos de ${step}`}
+              placeholder={`x${step}`}
             />
 
             <Button
               variant="outline"
               size="sm"
               onClick={inc}
-              className="h-8 w-8 p-0"
+              className="h-7 w-7 p-0 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
               aria-label="Aumentar"
             >
-              <Plus className="h-4 w-4" />
+              <Plus className="h-3 w-3" />
             </Button>
           </div>
 
-          <p className="text-xs text-stone-500 text-center">
-            Cantidades en múltiplos de {step} unidades
+          <p className="text-[9px] text-stone-500 text-center">
+            Múltiplos de {step}
           </p>
 
-          {/* Próximo tramo */}
+          {/* PRÓXIMO TRAMO */}
           {quantity > 0 && nextTier && (
-            <p className="text-[11px] text-blue-700 text-center">
-              Te faltan <b>{nextTier.missing}</b> unid. para {nextTier.discountPct}% de descuento.
+            <p className="text-[9px] text-blue-700 text-center leading-tight">
+              +{nextTier.missing} = {nextTier.discountPct}% desc.
             </p>
           )}
 
-          {/* Subtotal / ahorro */}
+          {/* SUBTOTAL */}
           {quantity > 0 && (
-            <div className="bg-amber-50 p-2 rounded-lg text-center">
+            <div className="bg-amber-50 p-1.5 rounded text-center">
               {line.discountPct > 0 ? (
                 <>
-                  <p className="text-xs text-green-700 mb-1">
-                    {line.discountPct}% descuento aplicado — ahorras {money(line.savings)}
+                  <p className="text-[9px] text-green-700 mb-0.5 leading-tight">
+                    {line.discountPct}% desc. — ahorras {money(line.savings)}
                   </p>
-                  <p className="text-sm font-medium text-amber-800">
-                    <span className="line-through text-gray-500 mr-1">
+                  <p className="text-xs font-medium text-amber-800 leading-tight">
+                    <span className="line-through text-stone-500 mr-1 text-[10px]">
                       {money(baseUnit * quantity)}
+                    </span>
+                    <span className="text-sm sm:text-base">{money(line.total)}</span>
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs font-medium text-amber-800 leading-tight">
+                  Total: {money(line.total)}
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
                     </span>
                     <span className="text-green-700">{money(line.total)}</span>
                   </p>
