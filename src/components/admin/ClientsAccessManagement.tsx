@@ -55,7 +55,8 @@ import {
   Search, Plus, Edit, Trash2, Building, FileText, Download,
   ExternalLink, Shield, Eye, CheckCircle, AlertTriangle,
   XCircle, DollarSign, Package, Star, Lock, Unlock,
-  ShoppingCart, Truck, Factory, BarChart3, MapPin, Check
+  ShoppingCart, Truck, Factory, BarChart3, MapPin, Check,
+  Upload, FileSpreadsheet
 } from 'lucide-react';
 
 // ==========================================
@@ -207,6 +208,212 @@ export const generateClientReportExcel = (client: Client) => {
   XLSX.writeFile(wb, `Reporte_${client.razonSocial || client.rucDni}.xlsx`);
 };
 
+// Generar plantilla de importación masiva
+export const generateBulkImportTemplate = () => {
+  const workbook = XLSX.utils.book_new();
+
+  // Instrucciones
+  const instructions = [
+    ['PLANTILLA DE IMPORTACIÓN MASIVA DE CLIENTES'],
+    [],
+    ['INSTRUCCIONES:'],
+    ['1. Complete los datos en la hoja "Clientes" (campos obligatorios marcados con *)'],
+    ['2. Complete las sedes en la hoja "Sedes" (vincular por RUC/DNI del cliente)'],
+    ['3. Complete los contactos en la hoja "Contactos" (vincular por RUC/DNI del cliente)'],
+    ['4. Los módulos de acceso deben separarse por punto y coma (;)'],
+    ['5. Módulos disponibles: dashboard;catalog;orders;tracking;delivery;production;billing;logistics;locations;reports'],
+    ['6. Guarde el archivo y use el botón "Importar Clientes" para subirlo'],
+    [],
+    ['NOTAS IMPORTANTES:'],
+    ['- El RUC/DNI debe ser único para cada cliente'],
+    ['- El estado puede ser: activo, suspendido, moroso'],
+    ['- Si desea crear acceso al portal, ingrese un PIN de 4 dígitos'],
+    ['- Para marcar una sede como principal, use "SI" o "NO"'],
+    ['- Los tipos de contacto pueden ser: pago, admin, pedidos']
+  ];
+
+  const wsInstructions = XLSX.utils.aoa_to_sheet(instructions);
+  XLSX.utils.book_append_sheet(workbook, wsInstructions, 'Instrucciones');
+
+  // Hoja de Clientes
+  const clientsData = [
+    ['RUC/DNI*', 'Razón Social*', 'Dirección Fiscal*', 'Departamento', 'Provincia', 'Distrito', 'Email Facturación*', 'Estado*', 'Lista de Precio', 'Frecuencia Compras', 'Horario Entrega', 'Condición Pago', 'Límite Crédito', 'Observaciones', 'PIN (4 dígitos)', 'Módulos de Acceso'],
+    ['20123456789', 'Ejemplo SAC', 'Av. Principal 123', 'Lima', 'Lima', 'Miraflores', 'facturacion@ejemplo.com', 'activo', 'Lista A', 'Semanal', '8am - 12pm', 'Crédito 30 días', '10000', 'Cliente de ejemplo', '1234', 'catalog;orders;tracking']
+  ];
+
+  const wsClients = XLSX.utils.aoa_to_sheet(clientsData);
+  XLSX.utils.book_append_sheet(workbook, wsClients, 'Clientes');
+
+  // Hoja de Sedes
+  const sedesData = [
+    ['RUC/DNI Cliente*', 'Nombre Sede*', 'Dirección*', 'Distrito', 'Responsable*', 'Teléfono*', 'Principal (SI/NO)*', 'Google Maps URL'],
+    ['20123456789', 'Sede Central', 'Av. Principal 123', 'Miraflores', 'Juan Pérez', '987654321', 'SI', ''],
+    ['20123456789', 'Sede Callao', 'Av. Colonial 456', 'Callao', 'María García', '987654322', 'NO', '']
+  ];
+
+  const wsSedes = XLSX.utils.aoa_to_sheet(sedesData);
+  XLSX.utils.book_append_sheet(workbook, wsSedes, 'Sedes');
+
+  // Hoja de Contactos
+  const contactosData = [
+    ['RUC/DNI Cliente*', 'Tipo (pago/admin/pedidos)*', 'Nombre*', 'DNI*', 'Celular*', 'Correo*'],
+    ['20123456789', 'pago', 'Juan Pérez', '12345678', '987654321', 'juan.perez@ejemplo.com'],
+    ['20123456789', 'pedidos', 'María García', '87654321', '987654322', 'maria.garcia@ejemplo.com']
+  ];
+
+  const wsContactos = XLSX.utils.aoa_to_sheet(contactosData);
+  XLSX.utils.book_append_sheet(workbook, wsContactos, 'Contactos');
+
+  XLSX.writeFile(workbook, 'Plantilla_Importacion_Clientes.xlsx');
+};
+
+// Procesar importación masiva
+export const processBulkImport = async (file: File, toast: any) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = async (e) => {
+      try {
+        const data = new Uint8Array(e.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        const clientsSheet = workbook.Sheets['Clientes'];
+        if (!clientsSheet) {
+          throw new Error('No se encontró la hoja "Clientes"');
+        }
+        const clientsData: any[] = XLSX.utils.sheet_to_json(clientsSheet);
+
+        const sedesSheet = workbook.Sheets['Sedes'];
+        const sedesData: any[] = sedesSheet ? XLSX.utils.sheet_to_json(sedesSheet) : [];
+
+        const contactosSheet = workbook.Sheets['Contactos'];
+        const contactosData: any[] = contactosSheet ? XLSX.utils.sheet_to_json(contactosSheet) : [];
+
+        const clientsRef = ref(db, 'clients');
+        let createdCount = 0;
+        let errorCount = 0;
+
+        for (const row of clientsData) {
+          try {
+            const rucDni = row['RUC/DNI*']?.toString().trim();
+            if (!rucDni) continue;
+
+            const clientSedes = sedesData
+              .filter(s => s['RUC/DNI Cliente*']?.toString().trim() === rucDni)
+              .map((s, idx) => ({
+                id: `sede_${Date.now()}_${idx}`,
+                nombre: s['Nombre Sede*'] || '',
+                direccion: s['Dirección*'] || '',
+                distrito: s['Distrito'] || '',
+                responsable: s['Responsable*'] || '',
+                telefono: s['Teléfono*']?.toString() || '',
+                principal: s['Principal (SI/NO)*']?.toString().toUpperCase() === 'SI',
+                googleMapsUrl: s['Google Maps URL'] || ''
+              }));
+
+            const clientContactos = contactosData
+              .filter(c => c['RUC/DNI Cliente*']?.toString().trim() === rucDni)
+              .map(c => ({
+                tipo: c['Tipo (pago/admin/pedidos)*'] || 'pedidos',
+                nombre: c['Nombre*'] || '',
+                dni: c['DNI*']?.toString() || '',
+                celular: c['Celular*']?.toString() || '',
+                correo: c['Correo*'] || ''
+              }));
+
+            const modulesStr = row['Módulos de Acceso']?.toString() || '';
+            const accessModules = modulesStr
+              .split(';')
+              .map(m => m.trim())
+              .filter(m => m);
+
+            const newClient = {
+              rucDni,
+              razonSocial: row['Razón Social*'] || '',
+              direccionFiscal: row['Dirección Fiscal*'] || '',
+              departamento: row['Departamento'] || '',
+              provincia: row['Provincia'] || '',
+              distrito: row['Distrito'] || '',
+              emailFacturacion: row['Email Facturación*'] || '',
+              estado: (row['Estado*'] || 'activo').toLowerCase(),
+              listaPrecio: row['Lista de Precio'] || 'Lista A',
+              frecuenciaCompras: row['Frecuencia Compras'] || '',
+              horarioEntrega: row['Horario Entrega'] || '',
+              condicionPago: row['Condición Pago'] || '',
+              limiteCredito: parseFloat(row['Límite Crédito'] || '0'),
+              observaciones: row['Observaciones'] || '',
+              fechaCreacion: new Date().toLocaleDateString('es-PE'),
+              montoDeuda: 0,
+              sedes: clientSedes,
+              contactos: clientContactos,
+              accessModules,
+              pin: row['PIN (4 dígitos)']?.toString() || '',
+              portalLoginRuc: rucDni
+            };
+
+            const newClientRef = push(clientsRef);
+            
+            if (newClient.pin && newClient.pin.length === 4) {
+              try {
+                const { email, password } = formatAuthCredentials(rucDni, newClient.pin);
+                const credential = await createUserWithEmailAndPassword(auth, email, password);
+                
+                await set(ref(db, `usuarios/${credential.user.uid}`), {
+                  nombre: newClient.razonSocial,
+                  correo: email,
+                  rol: 'retailUser',
+                  activo: true,
+                  accessModules: newClient.accessModules,
+                  portalLoginRuc: rucDni
+                });
+
+                await set(newClientRef, {
+                  ...newClient,
+                  authUid: credential.user.uid
+                });
+              } catch (authError: any) {
+                await set(newClientRef, newClient);
+              }
+            } else {
+              await set(newClientRef, newClient);
+            }
+
+            createdCount++;
+          } catch (error) {
+            console.error('Error procesando cliente:', error);
+            errorCount++;
+          }
+        }
+
+        toast({
+          title: 'Importación completada',
+          description: `${createdCount} clientes creados. ${errorCount} errores.`
+        });
+
+        resolve({ createdCount, errorCount });
+      } catch (error: any) {
+        toast({
+          title: 'Error en importación',
+          description: error.message,
+          variant: 'destructive'
+        });
+        reject(error);
+      }
+    };
+
+    reader.onerror = () => {
+      toast({
+        title: 'Error leyendo archivo',
+        description: 'No se pudo leer el archivo',
+        variant: 'destructive'
+      });
+      reject(new Error('Error leyendo archivo'));
+    };
+
+    reader.readAsArrayBuffer(file);
+  });
+};
+
 // ==========================================
 // 5. MAIN COMPONENT
 // ==========================================
@@ -221,6 +428,7 @@ export const ClientsAccessManagement = () => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Fetch Clients
   useEffect(() => {
@@ -433,6 +641,21 @@ export const ClientsAccessManagement = () => {
     toast({ title: 'Cliente eliminado' });
   };
 
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    try {
+      await processBulkImport(file, toast);
+    } catch (error) {
+      console.error('Error en importación:', error);
+    } finally {
+      setIsImporting(false);
+      event.target.value = '';
+    }
+  };
+
   // Filter logic
   const filteredClients = clients.filter(
     client =>
@@ -490,20 +713,47 @@ export const ClientsAccessManagement = () => {
             className="pl-10"
           />
         </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Cliente
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Crear Nuevo Cliente</DialogTitle>
-            </DialogHeader>
-            <ClientForm onSave={saveClient} onFinish={() => setIsCreateModalOpen(false)} />
-          </DialogContent>
-        </Dialog>
+        
+        <div className="flex gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={generateBulkImportTemplate}
+          >
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Descargar Plantilla
+          </Button>
+          
+          <Button
+            variant="outline"
+            disabled={isImporting}
+            onClick={() => document.getElementById('file-import')?.click()}
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {isImporting ? 'Importando...' : 'Importar Clientes'}
+          </Button>
+          <input
+            id="file-import"
+            type="file"
+            accept=".xlsx,.xls"
+            onChange={handleFileImport}
+            className="hidden"
+          />
+          
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Cliente
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Crear Nuevo Cliente</DialogTitle>
+              </DialogHeader>
+              <ClientForm onSave={saveClient} onFinish={() => setIsCreateModalOpen(false)} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Client List */}
