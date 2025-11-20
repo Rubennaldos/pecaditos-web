@@ -230,7 +230,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
                 e.stopPropagation();
                 inc();
               }}
-              className="h-7 w-7 p-0 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+              className="h-7 w-7 p-0 bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
               aria-label="Aumentar"
             >
               <Plus className="h-3 w-3" />
@@ -243,7 +243,7 @@ export const WholesaleProductCard = ({ product }: WholesaleProductCardProps) => 
 
           {/* PRÓXIMO TRAMO */}
           {quantity > 0 && nextTier && (
-            <p className="text-[9px] text-blue-700 text-center leading-tight">
+            <p className="text-[9px] text-amber-700 text-center leading-tight">
               +{nextTier.missing} = {nextTier.discountPct}% desc.
             </p>
           )}

@@ -200,11 +200,11 @@ export const WholesaleProductDetailModal = ({
                   <p className="text-xs font-semibold text-stone-700">Descuentos por volumen:</p>
                   <div className="space-y-1">
                     {tiers.map((tier, idx) => (
-                      <div key={idx} className="text-xs bg-blue-50 px-3 py-2 rounded flex justify-between items-center">
+                      <div key={idx} className="text-xs bg-amber-50 px-3 py-2 rounded flex justify-between items-center border border-amber-200">
                         <span className="text-stone-700">
                           {tier.from}+ unidades
                         </span>
-                        <Badge variant="outline" className="bg-white">
+                        <Badge variant="outline" className="bg-white border-amber-300 text-amber-700">
                           {tier.discountPct}% OFF
                         </Badge>
                       </div>
@@ -223,7 +223,7 @@ export const WholesaleProductDetailModal = ({
                     variant="outline"
                     size="icon"
                     onClick={dec}
-                    className="h-10 w-10"
+                    className="h-10 w-10 border-stone-300 hover:bg-stone-100"
                   >
                     <Minus className="h-4 w-4" />
                   </Button>
@@ -244,7 +244,7 @@ export const WholesaleProductDetailModal = ({
                       }
                     }}
                     onBlur={(e) => setQtyNormalized(Number(e.target.value || step))}
-                    className="flex-1 text-center h-10 text-lg font-bold"
+                    className="flex-1 text-center h-10 text-lg font-bold border-stone-300"
                     min={step}
                     step={step}
                   />
@@ -253,7 +253,7 @@ export const WholesaleProductDetailModal = ({
                     variant="outline"
                     size="icon"
                     onClick={inc}
-                    className="h-10 w-10 bg-blue-600 hover:bg-blue-700 text-white border-blue-600"
+                    className="h-10 w-10 bg-amber-600 hover:bg-amber-700 text-white border-amber-600"
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -265,8 +265,8 @@ export const WholesaleProductDetailModal = ({
 
               {/* Próximo descuento */}
               {nextTier && (
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-                  <p className="text-sm text-blue-800 font-medium">
+                <div className="bg-amber-50 p-3 rounded-lg border border-amber-200">
+                  <p className="text-sm text-amber-800 font-medium">
                     🎉 Agrega {nextTier.missing} unidades más para obtener {nextTier.discountPct}% de descuento
                   </p>
                 </div>
@@ -299,7 +299,7 @@ export const WholesaleProductDetailModal = ({
               {/* Botón agregar */}
               <Button
                 onClick={handleAddToCart}
-                className="w-full h-12 text-base font-bold bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 shadow-lg"
+                className="w-full h-12 text-base font-bold bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 shadow-lg text-white"
               >
                 <ShoppingCart className="h-5 w-5 mr-2" />
                 Agregar al carrito
@@ -309,9 +309,9 @@ export const WholesaleProductDetailModal = ({
         </div>
 
         {/* Información adicional */}
-        <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <h3 className="text-sm font-semibold text-blue-800 mb-2">💡 Información importante</h3>
-          <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside">
+        <div className="mt-6 p-4 bg-stone-50 rounded-lg border border-stone-200">
+          <h3 className="text-sm font-semibold text-stone-800 mb-2">💡 Información importante</h3>
+          <ul className="text-sm text-stone-700 space-y-1 list-disc list-inside">
             <li>Precios especiales para compras mayoristas</li>
             <li>Descuentos automáticos por volumen</li>
             <li>Pedido mínimo en múltiplos de {step} unidades</li>
