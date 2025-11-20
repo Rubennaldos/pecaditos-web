@@ -72,7 +72,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
           minMultiple: p.minMultiple || 6,
           unit: p.unit || 'und',
           imageUrl: p.imageUrl,
-          stoc  k: p.stock,
+          stock: p.stock,
         }))
         .filter((p) => p.wholesalePrice > 0 && p.name);
 
