@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Search, ShoppingCart, Cookie, Cake, Wheat, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Input } from '@/components/ui/input';
 import { WholesaleCatalog } from '@/components/wholesale/WholesaleCatalog';
 import { WholesaleStickyCart } from '@/components/wholesale/WholesaleStickyCart';
@@ -19,6 +20,7 @@ const CatalogModuleContent = ({ onBack }: CatalogModuleContentProps) => {
 
   return (
     <div className="min-h-screen bg-background">
+      {!onBack && <BackToPanelButton />}
       {/* Header */}
       <header className="sticky top-0 z-50 bg-card border-b shadow-sm">
         <div className="container mx-auto px-4 py-3">

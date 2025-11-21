@@ -177,7 +177,7 @@ useEffect(() => {
   // --- Render ---
   return (
     <div className="space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro del AdminPanel */}
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
