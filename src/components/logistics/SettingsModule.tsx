@@ -58,7 +58,7 @@ export const SettingsModule = () => {
 
   return (
     <div className="space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro de LogisticsPanel */}
       <div>
         <h1 className="text-2xl font-bold">Configuración del Sistema</h1>
         <p className="text-muted-foreground">Gestión de categorías, proveedores y configuraciones</p>

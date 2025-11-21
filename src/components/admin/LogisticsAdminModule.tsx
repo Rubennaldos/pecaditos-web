@@ -626,7 +626,7 @@ export const LogisticsAdminModule = () => {
 
   return (
     <div className="space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro del AdminPanel o LogisticsPanel */}
       <div>
         <h1 className="text-3xl font-bold text-stone-800">Panel de Logística (Admin)</h1>
         <p className="text-stone-600 mt-1">Acceso completo al sistema de logística con permisos de administrador</p>

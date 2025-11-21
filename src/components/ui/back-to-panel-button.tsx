@@ -18,7 +18,7 @@ export const BackToPanelButton = ({
       variant="ghost"
       size="sm"
       onClick={() => navigate(to)}
-      className="fixed top-4 left-4 z-50 bg-white/80 backdrop-blur-sm hover:bg-white border border-stone-200 shadow-sm"
+      className="fixed top-4 left-4 z-[100] bg-white/95 backdrop-blur-sm hover:bg-white border border-stone-300 shadow-md transition-all"
     >
       <ArrowLeft className="h-4 w-4 mr-2" />
       <span className="hidden sm:inline">{label}</span>

@@ -160,8 +160,8 @@ export const WholesaleAdminModule = () => {
     : products.filter(p => p.category === filter);
 
   return (
-    <div className="p-6 space-y-6">
-      <BackToPanelButton />
+    <div className="space-y-6">
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro del AdminPanel */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-stone-800">Administración Portal Mayorista</h1>

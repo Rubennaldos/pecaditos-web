@@ -568,7 +568,7 @@ export default function ConsolidatedAdminModule() {
 
   return (
     <div className="p-6 space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro del AdminPanel */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-stone-800">Administrador de Catálogo Mayorista</h1>

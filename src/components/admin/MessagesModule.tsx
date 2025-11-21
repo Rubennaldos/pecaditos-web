@@ -307,7 +307,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
 
   return (
     <div className="space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro del AdminPanel */}
       {/* POPUP opcional (controlado) */}
       {showPopup && activePopupMessage && (
         <Dialog

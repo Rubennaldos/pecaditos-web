@@ -13,7 +13,7 @@ export const ReportsModule = () => {
 
   return (
     <div className="space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro de LogisticsPanel */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Reportes y Estadísticas</h1>

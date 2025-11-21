@@ -296,7 +296,7 @@ export const InventoryModule = () => {
 
   return (
     <div className="space-y-6">
-      <BackToPanelButton />
+      {/* <BackToPanelButton /> - Removido porque este módulo está dentro de LogisticsPanel */}
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
