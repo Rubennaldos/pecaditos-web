@@ -9,6 +9,7 @@ import {
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BackToPanelButton } from "@/components/ui/back-to-panel-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -306,6 +307,7 @@ const MessagesModule: React.FC<Props> = ({ usuarioActual }) => {
 
   return (
     <div className="space-y-6">
+      <BackToPanelButton />
       {/* POPUP opcional (controlado) */}
       {showPopup && activePopupMessage && (
         <Dialog

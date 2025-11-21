@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BackToPanelButton } from "@/components/ui/back-to-panel-button";
 
 import { BillingSidebar } from "@/components/billing/BillingSidebar";
 import { BillingDashboard } from "@/components/billing/BillingDashboard";
@@ -66,6 +67,7 @@ const BillingPanel = () => {
   return (
     <AdminBillingProvider>
       <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
+        <BackToPanelButton />
         {/* Header */}
         <div className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 py-4">

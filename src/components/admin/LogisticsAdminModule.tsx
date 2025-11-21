@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -625,6 +626,7 @@ export const LogisticsAdminModule = () => {
 
   return (
     <div className="space-y-6">
+      <BackToPanelButton />
       <div>
         <h1 className="text-3xl font-bold text-stone-800">Panel de Logística (Admin)</h1>
         <p className="text-stone-600 mt-1">Acceso completo al sistema de logística con permisos de administrador</p>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminDeliveryProvider, useAdminDelivery } from '@/contexts/AdminDeliveryContext';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -231,6 +232,7 @@ const DeliveryPanelContent = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
+      <BackToPanelButton />
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
