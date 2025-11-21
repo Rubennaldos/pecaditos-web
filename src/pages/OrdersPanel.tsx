@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import {
   Package,
   QrCode,
@@ -491,6 +492,7 @@ const OrdersPanel = () => {
 
   return (
     <div className="min-h-screen bg-neutral-50">
+      <BackToPanelButton />
       {/* Estilos locales para parpadeo */}
       <style>{`
         @keyframes pulseYellow { 0%,100% { opacity:.25 } 50% { opacity:1 } }

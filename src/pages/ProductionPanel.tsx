@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import {
   Package2,
   Plus,
@@ -157,6 +158,7 @@ const ProductionPanelContent = () => {
   // ----- Ejemplo de renderizado (adaptado):
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
+      <BackToPanelButton />
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">

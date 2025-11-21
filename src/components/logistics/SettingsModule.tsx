@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -57,6 +58,7 @@ export const SettingsModule = () => {
 
   return (
     <div className="space-y-6">
+      <BackToPanelButton />
       <div>
         <h1 className="text-2xl font-bold">Configuración del Sistema</h1>
         <p className="text-muted-foreground">Gestión de categorías, proveedores y configuraciones</p>

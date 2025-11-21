@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -176,6 +177,7 @@ useEffect(() => {
   // --- Render ---
   return (
     <div className="space-y-6">
+      <BackToPanelButton />
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>

@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { BarChart3, TrendingUp, AlertTriangle, Download } from 'lucide-react';
 import { useLogistics } from '@/contexts/LogisticsContext';
 
@@ -12,6 +13,7 @@ export const ReportsModule = () => {
 
   return (
     <div className="space-y-6">
+      <BackToPanelButton />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold">Reportes y Estadísticas</h1>

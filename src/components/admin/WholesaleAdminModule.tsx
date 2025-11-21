@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -160,6 +161,7 @@ export const WholesaleAdminModule = () => {
 
   return (
     <div className="p-6 space-y-6">
+      <BackToPanelButton />
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-stone-800">Administración Portal Mayorista</h1>

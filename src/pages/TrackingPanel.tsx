@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { 
   Users, 
   Phone, 
@@ -173,6 +174,7 @@ const TrackingPanel = () => {
 
   return (
     <div className="min-h-screen bg-stone-50">
+      <BackToPanelButton />
       {/* Header del Panel */}
       <header className="bg-white border-b border-stone-200 px-6 py-4">
         <div className="flex items-center justify-between">
