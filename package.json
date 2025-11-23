@@ -46,6 +46,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "firebase": "^11.10.0",
+    "firebase-admin": "^13.6.0",
     "input-otp": "^1.2.4",
     "jspdf": "^3.0.4",
     "jspdf-autotable": "^5.0.2",
@@ -99,5 +100,18 @@
     "tailwindcss": "^3.4.11",
     "typescript": "^5.5.3",
     "vite": "^5.4.1"
-  }
+  },
+  "description": "Página de bienvenida moderna y responsive para **Pecaditos Integrales**, una marca de galletas artesanales integrales.",
+  "main": ".eslintrc.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rubennaldos/pecaditos-web.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Rubennaldos/pecaditos-web/issues"
+  },
+  "homepage": "https://github.com/Rubennaldos/pecaditos-web#readme"
 }
