@@ -16,6 +16,7 @@ import {
   update,
   runTransaction,
 } from 'firebase/database';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Product, Order, User } from '@/data/mockData';
 
 /* ===========================
@@ -175,7 +176,31 @@ export const createOrder = async (
     // 2) correlativo global ORD-###
     const orderNumber = await ensureOrderNumber(id);
 
-    // 3) devolver con id + correlativo
+    // 3) Integración de Facturación Electrónica (asíncrona, no bloqueante)
+    const functions = getFunctions();
+    const issueInvoice = httpsCallable(functions, 'issueElectronicInvoice');
+    
+    issueInvoice({ ...dataToSave, orderNumber, id })
+      .then((result: any) => {
+        console.log('✅ Factura electrónica emitida:', result.data);
+        // Opcional: Guardar el resultado en Firebase
+        update(ref(db, `orders/${id}/billing`), {
+          invoiceIssued: true,
+          invoiceData: result.data,
+          invoiceIssuedAt: new Date().toISOString(),
+        }).catch(err => console.error('Error al actualizar billing:', err));
+      })
+      .catch((error: any) => {
+        console.error('⚠️ Error al emitir factura electrónica:', error.message);
+        // Opcional: Marcar como pendiente de facturación
+        update(ref(db, `orders/${id}/billing`), {
+          invoiceIssued: false,
+          invoiceError: error.message,
+          invoiceAttemptedAt: new Date().toISOString(),
+        }).catch(err => console.error('Error al actualizar billing:', err));
+      });
+
+    // 4) devolver con id + correlativo (sin esperar facturación)
     return { ...dataToSave, orderNumber, id } as Order;
   } catch (error) {
     console.error('Error al crear pedido:', error);
