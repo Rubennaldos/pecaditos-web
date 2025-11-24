@@ -13,6 +13,9 @@ const API_ENDPOINT = defineString("FACTURACION_ENDPOINT");
 const API_TOKEN = defineString("FACTURACION_TOKEN");
 const API_SECRET = defineString("FACTURACION_SECRET");
 
+// Token para consultas de RUC/DNI (APIs públicas de Perú)
+const CONSULTAS_TOKEN = defineString("CONSULTAS_TOKEN");
+
 // --- TIPOS COMPATIBLES CON OrderRT ---
 type OrderItem = {
   name?: string;
@@ -166,6 +169,174 @@ export const issueElectronicInvoice = onCall(
         throw new HttpsError(
           "internal",
           `Error de integración: ${error.message}`
+        );
+      }
+    }
+  }
+);
+
+/**
+ * Cloud Function para consultar datos de RUC o DNI desde APIs externas.
+ * @param data - { tipo: 'ruc' | 'dni', numero: string }
+ * @returns { success: true, data: { ... } } con los datos encontrados
+ */
+export const consultarDocumento = onCall(
+  { region: "us-central1" },
+  async (req) => {
+    const { tipo, numero } = req.data as { tipo?: string; numero?: string };
+
+    // Validar parámetros
+    if (!tipo || !numero) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Debe proporcionar 'tipo' (ruc|dni) y 'numero'"
+      );
+    }
+
+    if (tipo !== "ruc" && tipo !== "dni") {
+      throw new HttpsError(
+        "invalid-argument",
+        "El tipo debe ser 'ruc' o 'dni'"
+      );
+    }
+
+    // Validar longitud del documento
+    if (tipo === "ruc" && numero.length !== 11) {
+      throw new HttpsError(
+        "invalid-argument",
+        "El RUC debe tener 11 dígitos"
+      );
+    }
+
+    if (tipo === "dni" && numero.length !== 8) {
+      throw new HttpsError(
+        "invalid-argument",
+        "El DNI debe tener 8 dígitos"
+      );
+    }
+
+    const token = CONSULTAS_TOKEN.value();
+
+    try {
+      let apiUrl = "";
+      let response;
+
+      if (tipo === "ruc") {
+        // API para consultar RUC (ejemplo usando apis.net.pe)
+        apiUrl = `https://api.apis.net.pe/v2/sunat/ruc?numero=${numero}`;
+        
+        response = await axios.get(apiUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          timeout: 10000,
+        });
+
+        // Estructura típica de respuesta de RUC:
+        // {
+        //   "numeroDocumento": "20123456789",
+        //   "razonSocial": "EMPRESA SAC",
+        //   "estado": "ACTIVO",
+        //   "condicion": "HABIDO",
+        //   "direccion": "AV. EJEMPLO 123",
+        //   "ubigeo": "150101",
+        //   "departamento": "LIMA",
+        //   "provincia": "LIMA",
+        //   "distrito": "LIMA"
+        // }
+
+        if (response.data) {
+          return {
+            success: true,
+            data: {
+              numeroDocumento: response.data.numeroDocumento || numero,
+              razonSocial: response.data.razonSocial || response.data.nombre || "",
+              estado: response.data.estado || "ACTIVO",
+              condicion: response.data.condicion || "",
+              direccion: response.data.direccion || "",
+              departamento: response.data.departamento || "",
+              provincia: response.data.provincia || "",
+              distrito: response.data.distrito || "",
+              ubigeo: response.data.ubigeo || "",
+            },
+          };
+        }
+      } else {
+        // API para consultar DNI (ejemplo usando apis.net.pe)
+        apiUrl = `https://api.apis.net.pe/v2/reniec/dni?numero=${numero}`;
+        
+        response = await axios.get(apiUrl, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+          timeout: 10000,
+        });
+
+        // Estructura típica de respuesta de DNI:
+        // {
+        //   "numeroDocumento": "12345678",
+        //   "nombres": "JUAN CARLOS",
+        //   "apellidoPaterno": "PEREZ",
+        //   "apellidoMaterno": "GOMEZ"
+        // }
+
+        if (response.data) {
+          const nombreCompleto = [
+            response.data.nombres || "",
+            response.data.apellidoPaterno || "",
+            response.data.apellidoMaterno || "",
+          ]
+            .filter((n) => n)
+            .join(" ");
+
+          return {
+            success: true,
+            data: {
+              numeroDocumento: response.data.numeroDocumento || numero,
+              nombreCompleto,
+              nombres: response.data.nombres || "",
+              apellidoPaterno: response.data.apellidoPaterno || "",
+              apellidoMaterno: response.data.apellidoMaterno || "",
+            },
+          };
+        }
+      }
+
+      // Si no hay data en la respuesta
+      throw new HttpsError(
+        "not-found",
+        `No se encontraron datos para el ${tipo.toUpperCase()} ${numero}`
+      );
+    } catch (error: any) {
+      console.error(`Error consultando ${tipo}:`, error.message);
+
+      // Manejar errores específicos
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || error.message;
+
+        if (status === 404) {
+          throw new HttpsError(
+            "not-found",
+            `${tipo.toUpperCase()} no encontrado en los registros`
+          );
+        } else if (status === 401 || status === 403) {
+          throw new HttpsError(
+            "permission-denied",
+            "Token de API inválido o sin permisos"
+          );
+        } else {
+          throw new HttpsError(
+            "failed-precondition",
+            `Error en la API de consultas: ${message}`
+          );
+        }
+      } else {
+        throw new HttpsError(
+          "internal",
+          `Error de conexión: ${error.message}`
         );
       }
     }

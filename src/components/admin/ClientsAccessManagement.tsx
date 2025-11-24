@@ -19,6 +19,7 @@ import {
   equalTo
 } from 'firebase/database';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Services & Hooks
 import { formatAuthCredentials } from '@/services/auth';
@@ -1243,6 +1244,7 @@ const ClientForm = ({
   const [tipoCliente, setTipoCliente] = useState<string>('RUC');
   const [pin, setPin] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [accessModules, setAccessModules] = useState<string[]>(client?.accessModules || []);
   const [formData, setFormData] = useState({
     id: client?.id || '',
@@ -1269,6 +1271,96 @@ const ClientForm = ({
     setAccessModules(prev =>
       prev.includes(id) ? prev.filter(m => m !== id) : [...prev, id]
     );
+  };
+
+  const handleSearch = async () => {
+    if (!formData.rucDni) {
+      toast({
+        title: 'Error',
+        description: 'Ingrese el número de RUC o DNI',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const tipo = tipoCliente === 'RUC' ? 'ruc' : 'dni';
+    const numero = formData.rucDni.trim();
+
+    // Validar longitud
+    if (tipo === 'ruc' && numero.length !== 11) {
+      toast({
+        title: 'RUC inválido',
+        description: 'El RUC debe tener 11 dígitos',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (tipo === 'dni' && numero.length !== 8) {
+      toast({
+        title: 'DNI inválido',
+        description: 'El DNI debe tener 8 dígitos',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setIsSearching(true);
+
+    try {
+      const functions = getFunctions();
+      const consultarDocumento = httpsCallable(functions, 'consultarDocumento');
+      
+      const result = await consultarDocumento({ tipo, numero });
+      const data = (result.data as any).data;
+
+      if (!data) {
+        throw new Error('No se recibieron datos');
+      }
+
+      // Actualizar el formulario según el tipo de documento
+      if (tipo === 'ruc') {
+        setFormData(prev => ({
+          ...prev,
+          razonSocial: data.razonSocial || prev.razonSocial,
+          direccionFiscal: data.direccion || prev.direccionFiscal,
+          estado: data.estado === 'ACTIVO' ? 'activo' : prev.estado,
+          departamento: data.departamento || prev.departamento,
+          provincia: data.provincia || prev.provincia,
+          distrito: data.distrito || prev.distrito
+        }));
+
+        toast({
+          title: 'Datos encontrados',
+          description: `RUC: ${data.razonSocial}`,
+        });
+      } else {
+        // DNI
+        setFormData(prev => ({
+          ...prev,
+          razonSocial: data.nombreCompleto || prev.razonSocial
+        }));
+
+        toast({
+          title: 'Datos encontrados',
+          description: `Nombre: ${data.nombreCompleto}`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error buscando documento:', error);
+      
+      const errorMessage = error.message || 
+        error.details?.message || 
+        'No se pudo consultar el documento';
+
+      toast({
+        title: 'Error en la búsqueda',
+        description: errorMessage,
+        variant: 'destructive'
+      });
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleSave = async () => {
@@ -1382,15 +1474,41 @@ const ClientForm = ({
                   placeholder="20123456789"
                 />
                 {tipoCliente === 'RUC' && (
-                  <Button variant="outline">
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    SUNAT
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSearch}
+                    disabled={isSearching || !formData.rucDni}
+                  >
+                    {isSearching ? (
+                      <>
+                        <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                        Buscando...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        SUNAT
+                      </>
+                    )}
                   </Button>
                 )}
                 {tipoCliente === 'DNI' && (
-                  <Button variant="outline">
-                    <ExternalLink className="h-4 w-4 mr-1" />
-                    RENIEC
+                  <Button 
+                    variant="outline" 
+                    onClick={handleSearch}
+                    disabled={isSearching || !formData.rucDni}
+                  >
+                    {isSearching ? (
+                      <>
+                        <div className="h-4 w-4 mr-1 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                        Buscando...
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="h-4 w-4 mr-1" />
+                        RENIEC
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
