@@ -177,7 +177,7 @@ export const issueElectronicInvoice = onCall(
 
 /**
  * Cloud Function para consultar datos de RUC o DNI desde APIs externas.
- * Usa la API de apis.net.pe V2 con formato correcto de URL y headers.
+ * Implementa estrategia de fallback: intenta V2 primero, si falla usa V1 (legacy).
  * Configurado para usar Firebase Secrets de forma correcta.
  * 
  * @param data - { tipo: 'ruc' | 'dni', numero: string }
@@ -192,7 +192,7 @@ export const consultarDocumento = onCall(
     const { tipo, numero } = req.data as { tipo?: string; numero?: string };
 
     // Obtener el token del secreto con fallback a variable de entorno
-    const token = consultasToken.value()
+    const token = consultasToken.value() || process.env.CONSULTAS_TOKEN;
     
     // Log de debug para verificar si el token existe
     console.log("[consultarDocumento] Debug Token:", token ? "Token existe ✓" : "Token es NULL ✗");
@@ -237,31 +237,41 @@ export const consultarDocumento = onCall(
       );
     }
 
-    try {
-      let apiUrl: string;
+    /**
+     * Función auxiliar para intentar consulta con fallback V2 → V1
+     */
+    const consultarConFallback = async (urlV2: string, urlV1: string, tipoDoc: string) => {
       let response;
 
-      if (tipo === "ruc") {
-        // URL correcta para API V2 de SUNAT (sin query params, numero en la ruta)
-        apiUrl = `https://api.apis.net.pe/v2/sunat/ruc/${numero}`;
+      try {
+        // INTENTO 1: API V2 (formato moderno)
+        console.log(`[consultarDocumento] Intentando ${tipoDoc} V2: ${urlV2}`);
         
-        console.log(`[consultarDocumento] Consultando RUC: ${numero}`);
-        console.log(`[consultarDocumento] URL: ${apiUrl}`);
-        
-        response = await axios.get(apiUrl, {
+        response = await axios.get(urlV2, {
           headers: {
             "Authorization": `Bearer ${token}`,
             "Accept": "application/json",
             "Content-Type": "application/json",
           },
-          timeout: 15000, // 15 segundos de timeout
-          validateStatus: (status) => status < 500, // No lanzar error en 4xx
+          timeout: 15000,
+          validateStatus: (status) => status < 500,
         });
 
-        console.log(`[consultarDocumento] Status: ${response.status}`);
-        console.log(`[consultarDocumento] Data:`, response.data);
+        console.log(`[consultarDocumento] V2 Status: ${response.status}`);
 
-        // Verificar si hay error en la respuesta
+        // Si V2 funciona (200), usamos esa respuesta
+        if (response.status === 200 && response.data) {
+          console.log(`[consultarDocumento] ✓ V2 exitosa`);
+          return { response, apiVersion: "V2" };
+        }
+
+        // Si V2 devuelve 404, intentamos V1
+        if (response.status === 404) {
+          console.log(`[consultarDocumento] V2 devolvió 404, intentando V1...`);
+          throw new Error("V2_NOT_FOUND"); // Trigger fallback
+        }
+
+        // Otros errores de V2 (401, 403, etc.)
         if (response.status === 401 || response.status === 403) {
           throw new HttpsError(
             "permission-denied",
@@ -269,171 +279,177 @@ export const consultarDocumento = onCall(
           );
         }
 
-        if (response.status === 404) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Error en API V2 (${response.status}): ${response.data?.message || "Sin datos"}`
+        );
+
+      } catch (errorV2: any) {
+        // Si el error es 404 o error de conexión de V2, intentamos V1
+        if (errorV2.message === "V2_NOT_FOUND" || errorV2.response?.status === 404 || errorV2.code === "ENOTFOUND") {
+          console.log(`[consultarDocumento] Fallback: Intentando ${tipoDoc} V1: ${urlV1}`);
+          
+          try {
+            // INTENTO 2: API V1 (formato legacy con query params)
+            response = await axios.get(urlV1, {
+              headers: {
+                "Authorization": `Bearer ${token}`,
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+              },
+              timeout: 15000,
+              validateStatus: (status) => status < 500,
+            });
+
+            console.log(`[consultarDocumento] V1 Status: ${response.status}`);
+
+            if (response.status === 200 && response.data) {
+              console.log(`[consultarDocumento] ✓ V1 exitosa (fallback)`);
+              return { response, apiVersion: "V1" };
+            }
+
+            // Errores de V1
+            if (response.status === 404) {
+              throw new HttpsError(
+                "not-found",
+                `${tipoDoc} ${numero} no encontrado en los registros`
+              );
+            }
+
+            if (response.status === 401 || response.status === 403) {
+              throw new HttpsError(
+                "permission-denied",
+                "Token de API inválido o sin permisos"
+              );
+            }
+
+            throw new HttpsError(
+              "failed-precondition",
+              `Error en API V1 (${response.status}): ${response.data?.message || "Sin datos"}`
+            );
+
+          } catch (errorV1: any) {
+            console.error(`[consultarDocumento] Error V1:`, errorV1.message);
+            
+            // Si V1 también falla, lanzar el error
+            if (errorV1 instanceof HttpsError) {
+              throw errorV1;
+            }
+
+            throw new HttpsError(
+              "internal",
+              `Error en ambas versiones de API (V2 y V1): ${errorV1.message}`
+            );
+          }
+        } else {
+          // Si no es un error 404, lanzar el error original de V2
+          if (errorV2 instanceof HttpsError) {
+            throw errorV2;
+          }
           throw new HttpsError(
-            "not-found",
-            `RUC ${numero} no encontrado en los registros de SUNAT`
+            "internal",
+            `Error en API V2: ${errorV2.message}`
           );
         }
+      }
+    };
 
-        if (response.status !== 200 || !response.data) {
-          throw new HttpsError(
-            "failed-precondition",
-            `Error en la API: ${response.data?.message || "Sin datos"}`
-          );
-        }
+    try {
+      let result;
 
-        // Estructura de respuesta de RUC:
-        // {
-        //   "numeroDocumento": "20123456789",
-        //   "razonSocial": "EMPRESA SAC",
-        //   "estado": "ACTIVO",
-        //   "condicion": "HABIDO",
-        //   "direccion": "AV. EJEMPLO 123",
-        //   "ubigeo": "150101",
-        //   "departamento": "LIMA",
-        //   "provincia": "LIMA",
-        //   "distrito": "LIMA"
-        // }
+      if (tipo === "ruc") {
+        const urlV2 = `https://api.apis.net.pe/v2/sunat/ruc/${numero}`;
+        const urlV1 = `https://api.apis.net.pe/v1/ruc?numero=${numero}`;
+        
+        result = await consultarConFallback(urlV2, urlV1, "RUC");
+        
+        console.log(`[consultarDocumento] Respuesta RUC (${result.apiVersion}):`, result.response.data);
 
+        // Normalizar respuesta (funciona para V1 y V2)
+        const data = result.response.data;
+        
         return {
           success: true,
+          apiVersion: result.apiVersion,
           data: {
-            numeroDocumento: response.data.numeroDocumento || numero,
-            razonSocial: response.data.razonSocial || response.data.nombre || "",
-            estado: response.data.estado || "ACTIVO",
-            condicion: response.data.condicion || "",
-            direccion: response.data.direccion || "",
-            departamento: response.data.departamento || "",
-            provincia: response.data.provincia || "",
-            distrito: response.data.distrito || "",
-            ubigeo: response.data.ubigeo || "",
+            numeroDocumento: data.numeroDocumento || data.ruc || numero,
+            razonSocial: data.razonSocial || data.nombre || data.nombre_o_razon_social || "",
+            estado: data.estado || data.estado_del_contribuyente || "ACTIVO",
+            condicion: data.condicion || data.condicion_de_domicilio || "",
+            direccion: data.direccion || data.direccion_completa || "",
+            departamento: data.departamento || data.ubigeo?.[0] || "",
+            provincia: data.provincia || data.ubigeo?.[1] || "",
+            distrito: data.distrito || data.ubigeo?.[2] || "",
+            ubigeo: data.ubigeo || "",
           },
         };
 
       } else {
-        // URL correcta para API V2 de RENIEC (sin query params, numero en la ruta)
-        apiUrl = `https://api.apis.net.pe/v2/reniec/dni/${numero}`;
+        // DNI
+        const urlV2 = `https://api.apis.net.pe/v2/reniec/dni/${numero}`;
+        const urlV1 = `https://api.apis.net.pe/v1/dni?numero=${numero}`;
         
-        console.log(`[consultarDocumento] Consultando DNI: ${numero}`);
-        console.log(`[consultarDocumento] URL: ${apiUrl}`);
+        result = await consultarConFallback(urlV2, urlV1, "DNI");
         
-        response = await axios.get(apiUrl, {
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-          },
-          timeout: 15000, // 15 segundos de timeout
-          validateStatus: (status) => status < 500, // No lanzar error en 4xx
-        });
+        console.log(`[consultarDocumento] Respuesta DNI (${result.apiVersion}):`, result.response.data);
 
-        console.log(`[consultarDocumento] Status: ${response.status}`);
-        console.log(`[consultarDocumento] Data:`, response.data);
-
-        // Verificar si hay error en la respuesta
-        if (response.status === 401 || response.status === 403) {
-          throw new HttpsError(
-            "permission-denied",
-            "Token de API inválido o sin permisos. Verifica tu token en apis.net.pe"
-          );
-        }
-
-        if (response.status === 404) {
-          throw new HttpsError(
-            "not-found",
-            `DNI ${numero} no encontrado en los registros de RENIEC`
-          );
-        }
-
-        if (response.status !== 200 || !response.data) {
-          throw new HttpsError(
-            "failed-precondition",
-            `Error en la API: ${response.data?.message || "Sin datos"}`
-          );
-        }
-
-        // Estructura de respuesta de DNI:
-        // {
-        //   "numeroDocumento": "12345678",
-        //   "nombres": "JUAN CARLOS",
-        //   "apellidoPaterno": "PEREZ",
-        //   "apellidoMaterno": "GOMEZ"
-        // }
-
+        // Normalizar respuesta (funciona para V1 y V2)
+        const data = result.response.data;
+        
         const nombreCompleto = [
-          response.data.nombres || "",
-          response.data.apellidoPaterno || "",
-          response.data.apellidoMaterno || "",
+          data.nombres || data.primer_nombre || "",
+          data.apellidoPaterno || data.apellido_paterno || "",
+          data.apellidoMaterno || data.apellido_materno || "",
         ]
           .filter((n) => n)
           .join(" ");
 
         return {
           success: true,
+          apiVersion: result.apiVersion,
           data: {
-            numeroDocumento: response.data.numeroDocumento || numero,
+            numeroDocumento: data.numeroDocumento || data.dni || numero,
             nombreCompleto,
-            nombres: response.data.nombres || "",
-            apellidoPaterno: response.data.apellidoPaterno || "",
-            apellidoMaterno: response.data.apellidoMaterno || "",
+            nombres: data.nombres || data.primer_nombre || "",
+            apellidoPaterno: data.apellidoPaterno || data.apellido_paterno || "",
+            apellidoMaterno: data.apellidoMaterno || data.apellido_materno || "",
           },
         };
       }
 
     } catch (error: any) {
       // Log del error completo para debugging
-      console.error(`[consultarDocumento] Error consultando ${tipo}:`, {
+      console.error(`[consultarDocumento] Error final consultando ${tipo}:`, {
         message: error.message,
+        code: error.code,
         status: error.response?.status,
         data: error.response?.data,
-        headers: error.response?.headers,
       });
 
       // Si ya es un HttpsError, re-lanzarlo
-      if (error.code && error.message) {
+      if (error.code && error.message && error.code.includes('/')) {
         throw error;
       }
 
-      // Manejar errores de axios
-      if (error.response) {
-        const status = error.response.status;
-        const apiMessage = error.response.data?.message || 
-                          error.response.data?.error || 
-                          "Error desconocido";
-
-        if (status === 404) {
-          throw new HttpsError(
-            "not-found",
-            `${tipo.toUpperCase()} no encontrado en los registros`
-          );
-        } else if (status === 401 || status === 403) {
-          throw new HttpsError(
-            "permission-denied",
-            `Token de API inválido o sin permisos (${status}). Mensaje: ${apiMessage}`
-          );
-        } else if (status === 429) {
-          throw new HttpsError(
-            "resource-exhausted",
-            "Límite de consultas alcanzado. Intenta más tarde."
-          );
-        } else {
-          throw new HttpsError(
-            "failed-precondition",
-            `Error en la API (${status}): ${apiMessage}`
-          );
-        }
-      } else if (error.code === "ECONNABORTED") {
+      // Errores genéricos
+      if (error.code === "ECONNABORTED") {
         throw new HttpsError(
           "deadline-exceeded",
           "Timeout: La API tardó demasiado en responder"
         );
-      } else {
+      }
+
+      if (error.response?.status === 429) {
         throw new HttpsError(
-          "internal",
-          `Error de conexión: ${error.message}`
+          "resource-exhausted",
+          "Límite de consultas alcanzado. Intenta más tarde."
         );
       }
+
+      throw new HttpsError(
+        "internal",
+        `Error de conexión: ${error.message}`
+      );
     }
   }
 );
