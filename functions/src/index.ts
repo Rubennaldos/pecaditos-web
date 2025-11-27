@@ -177,6 +177,8 @@ export const issueElectronicInvoice = onCall(
 
 /**
  * Cloud Function para consultar datos de RUC o DNI desde APIs externas.
+ * Usa la API de apis.net.pe V2 con formato correcto de URL y headers.
+ * 
  * @param data - { tipo: 'ruc' | 'dni', numero: string }
  * @returns { success: true, data: { ... } } con los datos encontrados
  */
@@ -215,25 +217,63 @@ export const consultarDocumento = onCall(
       );
     }
 
+    // Obtener el token de configuración
     const token = CONSULTAS_TOKEN.value();
 
+    if (!token) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Token de API no configurado. Ejecuta: firebase functions:secrets:set CONSULTAS_TOKEN"
+      );
+    }
+
     try {
-      let apiUrl = "";
+      let apiUrl: string;
       let response;
 
       if (tipo === "ruc") {
-        // API para consultar RUC (ejemplo usando apis.net.pe)
-        apiUrl = `https://api.apis.net.pe/v2/sunat/ruc?numero=${numero}`;
+        // URL correcta para API V2 de SUNAT (sin query params, numero en la ruta)
+        apiUrl = `https://api.apis.net.pe/v2/sunat/ruc/${numero}`;
+        
+        console.log(`[consultarDocumento] Consultando RUC: ${numero}`);
+        console.log(`[consultarDocumento] URL: ${apiUrl}`);
         
         response = await axios.get(apiUrl, {
           headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
           },
-          timeout: 10000,
+          timeout: 15000, // 15 segundos de timeout
+          validateStatus: (status) => status < 500, // No lanzar error en 4xx
         });
 
-        // Estructura típica de respuesta de RUC:
+        console.log(`[consultarDocumento] Status: ${response.status}`);
+        console.log(`[consultarDocumento] Data:`, response.data);
+
+        // Verificar si hay error en la respuesta
+        if (response.status === 401 || response.status === 403) {
+          throw new HttpsError(
+            "permission-denied",
+            "Token de API inválido o sin permisos. Verifica tu token en apis.net.pe"
+          );
+        }
+
+        if (response.status === 404) {
+          throw new HttpsError(
+            "not-found",
+            `RUC ${numero} no encontrado en los registros de SUNAT`
+          );
+        }
+
+        if (response.status !== 200 || !response.data) {
+          throw new HttpsError(
+            "failed-precondition",
+            `Error en la API: ${response.data?.message || "Sin datos"}`
+          );
+        }
+
+        // Estructura de respuesta de RUC:
         // {
         //   "numeroDocumento": "20123456789",
         //   "razonSocial": "EMPRESA SAC",
@@ -246,35 +286,64 @@ export const consultarDocumento = onCall(
         //   "distrito": "LIMA"
         // }
 
-        if (response.data) {
-          return {
-            success: true,
-            data: {
-              numeroDocumento: response.data.numeroDocumento || numero,
-              razonSocial: response.data.razonSocial || response.data.nombre || "",
-              estado: response.data.estado || "ACTIVO",
-              condicion: response.data.condicion || "",
-              direccion: response.data.direccion || "",
-              departamento: response.data.departamento || "",
-              provincia: response.data.provincia || "",
-              distrito: response.data.distrito || "",
-              ubigeo: response.data.ubigeo || "",
-            },
-          };
-        }
+        return {
+          success: true,
+          data: {
+            numeroDocumento: response.data.numeroDocumento || numero,
+            razonSocial: response.data.razonSocial || response.data.nombre || "",
+            estado: response.data.estado || "ACTIVO",
+            condicion: response.data.condicion || "",
+            direccion: response.data.direccion || "",
+            departamento: response.data.departamento || "",
+            provincia: response.data.provincia || "",
+            distrito: response.data.distrito || "",
+            ubigeo: response.data.ubigeo || "",
+          },
+        };
+
       } else {
-        // API para consultar DNI (ejemplo usando apis.net.pe)
-        apiUrl = `https://api.apis.net.pe/v2/reniec/dni?numero=${numero}`;
+        // URL correcta para API V2 de RENIEC (sin query params, numero en la ruta)
+        apiUrl = `https://api.apis.net.pe/v2/reniec/dni/${numero}`;
+        
+        console.log(`[consultarDocumento] Consultando DNI: ${numero}`);
+        console.log(`[consultarDocumento] URL: ${apiUrl}`);
         
         response = await axios.get(apiUrl, {
           headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/json",
+            "Authorization": `Bearer ${token}`,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
           },
-          timeout: 10000,
+          timeout: 15000, // 15 segundos de timeout
+          validateStatus: (status) => status < 500, // No lanzar error en 4xx
         });
 
-        // Estructura típica de respuesta de DNI:
+        console.log(`[consultarDocumento] Status: ${response.status}`);
+        console.log(`[consultarDocumento] Data:`, response.data);
+
+        // Verificar si hay error en la respuesta
+        if (response.status === 401 || response.status === 403) {
+          throw new HttpsError(
+            "permission-denied",
+            "Token de API inválido o sin permisos. Verifica tu token en apis.net.pe"
+          );
+        }
+
+        if (response.status === 404) {
+          throw new HttpsError(
+            "not-found",
+            `DNI ${numero} no encontrado en los registros de RENIEC`
+          );
+        }
+
+        if (response.status !== 200 || !response.data) {
+          throw new HttpsError(
+            "failed-precondition",
+            `Error en la API: ${response.data?.message || "Sin datos"}`
+          );
+        }
+
+        // Estructura de respuesta de DNI:
         // {
         //   "numeroDocumento": "12345678",
         //   "nombres": "JUAN CARLOS",
@@ -282,40 +351,46 @@ export const consultarDocumento = onCall(
         //   "apellidoMaterno": "GOMEZ"
         // }
 
-        if (response.data) {
-          const nombreCompleto = [
-            response.data.nombres || "",
-            response.data.apellidoPaterno || "",
-            response.data.apellidoMaterno || "",
-          ]
-            .filter((n) => n)
-            .join(" ");
+        const nombreCompleto = [
+          response.data.nombres || "",
+          response.data.apellidoPaterno || "",
+          response.data.apellidoMaterno || "",
+        ]
+          .filter((n) => n)
+          .join(" ");
 
-          return {
-            success: true,
-            data: {
-              numeroDocumento: response.data.numeroDocumento || numero,
-              nombreCompleto,
-              nombres: response.data.nombres || "",
-              apellidoPaterno: response.data.apellidoPaterno || "",
-              apellidoMaterno: response.data.apellidoMaterno || "",
-            },
-          };
-        }
+        return {
+          success: true,
+          data: {
+            numeroDocumento: response.data.numeroDocumento || numero,
+            nombreCompleto,
+            nombres: response.data.nombres || "",
+            apellidoPaterno: response.data.apellidoPaterno || "",
+            apellidoMaterno: response.data.apellidoMaterno || "",
+          },
+        };
       }
 
-      // Si no hay data en la respuesta
-      throw new HttpsError(
-        "not-found",
-        `No se encontraron datos para el ${tipo.toUpperCase()} ${numero}`
-      );
     } catch (error: any) {
-      console.error(`Error consultando ${tipo}:`, error.message);
+      // Log del error completo para debugging
+      console.error(`[consultarDocumento] Error consultando ${tipo}:`, {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        headers: error.response?.headers,
+      });
 
-      // Manejar errores específicos
+      // Si ya es un HttpsError, re-lanzarlo
+      if (error.code && error.message) {
+        throw error;
+      }
+
+      // Manejar errores de axios
       if (error.response) {
         const status = error.response.status;
-        const message = error.response.data?.message || error.message;
+        const apiMessage = error.response.data?.message || 
+                          error.response.data?.error || 
+                          "Error desconocido";
 
         if (status === 404) {
           throw new HttpsError(
@@ -325,14 +400,24 @@ export const consultarDocumento = onCall(
         } else if (status === 401 || status === 403) {
           throw new HttpsError(
             "permission-denied",
-            "Token de API inválido o sin permisos"
+            `Token de API inválido o sin permisos (${status}). Mensaje: ${apiMessage}`
+          );
+        } else if (status === 429) {
+          throw new HttpsError(
+            "resource-exhausted",
+            "Límite de consultas alcanzado. Intenta más tarde."
           );
         } else {
           throw new HttpsError(
             "failed-precondition",
-            `Error en la API de consultas: ${message}`
+            `Error en la API (${status}): ${apiMessage}`
           );
         }
+      } else if (error.code === "ECONNABORTED") {
+        throw new HttpsError(
+          "deadline-exceeded",
+          "Timeout: La API tardó demasiado en responder"
+        );
       } else {
         throw new HttpsError(
           "internal",
