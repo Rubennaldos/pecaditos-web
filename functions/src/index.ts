@@ -3,7 +3,7 @@ import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
 import { getDatabase } from "firebase-admin/database";
-import { defineString } from "firebase-functions/params";
+import { defineString, defineSecret } from "firebase-functions/params";
 import axios from "axios";
 
 initializeApp();
@@ -13,8 +13,8 @@ const API_ENDPOINT = defineString("FACTURACION_ENDPOINT");
 const API_TOKEN = defineString("FACTURACION_TOKEN");
 const API_SECRET = defineString("FACTURACION_SECRET");
 
-// Token para consultas de RUC/DNI (APIs públicas de Perú)
-const CONSULTAS_TOKEN = defineString("CONSULTAS_TOKEN");
+// Token para consultas de RUC/DNI (APIs públicas de Perú) - USANDO SECRETO
+const consultasToken = defineSecret("CONSULTAS_TOKEN");
 
 // --- TIPOS COMPATIBLES CON OrderRT ---
 type OrderItem = {
@@ -178,14 +178,25 @@ export const issueElectronicInvoice = onCall(
 /**
  * Cloud Function para consultar datos de RUC o DNI desde APIs externas.
  * Usa la API de apis.net.pe V2 con formato correcto de URL y headers.
+ * Configurado para usar Firebase Secrets de forma correcta.
  * 
  * @param data - { tipo: 'ruc' | 'dni', numero: string }
  * @returns { success: true, data: { ... } } con los datos encontrados
  */
 export const consultarDocumento = onCall(
-  { region: "us-central1" },
+  { 
+    region: "us-central1",
+    secrets: [consultasToken] // Declarar el secreto que usa esta función
+  },
   async (req) => {
     const { tipo, numero } = req.data as { tipo?: string; numero?: string };
+
+    // Obtener el token del secreto con fallback a variable de entorno
+    const token = consultasToken.value()
+    
+    // Log de debug para verificar si el token existe
+    console.log("[consultarDocumento] Debug Token:", token ? "Token existe ✓" : "Token es NULL ✗");
+    console.log("[consultarDocumento] Tipo:", tipo, "| Numero:", numero);
 
     // Validar parámetros
     if (!tipo || !numero) {
@@ -217,10 +228,9 @@ export const consultarDocumento = onCall(
       );
     }
 
-    // Obtener el token de configuración
-    const token = CONSULTAS_TOKEN.value();
-
+    // Validar que el token esté configurado
     if (!token) {
+      console.error("[consultarDocumento] ERROR: Token no configurado");
       throw new HttpsError(
         "failed-precondition",
         "Token de API no configurado. Ejecuta: firebase functions:secrets:set CONSULTAS_TOKEN"
@@ -427,4 +437,3 @@ export const consultarDocumento = onCall(
     }
   }
 );
-// Actualizando secretos
