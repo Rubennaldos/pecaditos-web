@@ -1,6 +1,0 @@
-dist/
-node_modules/
-functions/lib/
-!.vscode/
-.DS_Store
-.env

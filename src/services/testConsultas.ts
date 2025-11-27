@@ -135,51 +135,18 @@ export async function runAllTests() {
  * 
  * 1. Abre la aplicación en el navegador
  * 2. Abre la consola de desarrollador (F12)
- * 3. Importa este módulo (ya debería estar disponible si lo importas en tu app)
- * 4. Ejecuta las pruebas:
+ * 3. Importa este módulo en algún componente de tu app:
+ *    import * as TestConsultas from '@/services/testConsultas';
+ *    window.TestConsultas = TestConsultas;
  * 
- * // Probar un RUC específico
- * testConsultaRUC('20131312955')
+ * 4. Desde la consola del navegador, ejecuta:
  * 
- * // Probar un DNI específico
- * testConsultaDNI('43837522')
+ *    // Probar un RUC específico
+ *    TestConsultas.testConsultaRUC('20131312955')
  * 
- * // Ejecutar todas las pruebas
- * runAllTests()
+ *    // Probar un DNI específico
+ *    TestConsultas.testConsultaDNI('43837522')
+ * 
+ *    // Ejecutar todas las pruebas
+ *    TestConsultas.runAllTests()
  */
-
-// Para uso desde componentes React
-export const TestConsultas = () => {
-  return (
-    <div className="p-4 space-y-4">
-      <h2 className="text-2xl font-bold">Pruebas de Consulta RUC/DNI</h2>
-      
-      <div className="space-y-2">
-        <button
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          onClick={() => testConsultaRUC()}
-        >
-          Probar RUC
-        </button>
-        
-        <button
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-          onClick={() => testConsultaDNI()}
-        >
-          Probar DNI
-        </button>
-        
-        <button
-          className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
-          onClick={runAllTests}
-        >
-          Ejecutar Todas las Pruebas
-        </button>
-      </div>
-      
-      <div className="text-sm text-gray-600">
-        <p>Abre la consola del navegador (F12) para ver los resultados.</p>
-      </div>
-    </div>
-  );
-};
