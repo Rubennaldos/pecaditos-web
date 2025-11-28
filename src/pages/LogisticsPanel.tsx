@@ -4,6 +4,7 @@ import { LogisticsLogin } from '@/components/logistics/LogisticsLogin';
 import { useLogistics } from '@/contexts/LogisticsContext';
 import { Sidebar, SidebarContent, SidebarProvider } from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { 
   Package, 
@@ -341,6 +342,7 @@ const LogisticsPanelContent = () => {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gray-50">
+        <BackToPanelButton />
         {/* Sidebar Desktop */}
         <Sidebar className="hidden md:flex w-72 border-r border-gray-200 bg-white">
           <SidebarContent className="p-6">
