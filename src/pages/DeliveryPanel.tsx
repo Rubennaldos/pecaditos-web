@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminDeliveryProvider, useAdminDelivery } from '@/contexts/AdminDeliveryContext';
@@ -10,10 +10,16 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { toast } from '@/hooks/use-toast';
 import {
   Truck, Package, CheckCircle, QrCode, MapPin, Phone, User, LogOut,
   History, Edit, Trash2
 } from 'lucide-react';
+
+// Firebase imports
+import { db } from '@/config/firebase';
+import { ref, onValue } from 'firebase/database';
+import { updateDeliveryStatus } from '@/services/firebaseService';
 
 import DeliveryPersonLogin from '@/components/delivery/DeliveryPersonLogin';
 import DeliveryQRReader from '@/components/delivery/DeliveryQRReader';
@@ -24,11 +30,6 @@ import { DeliveryHistoryModal } from '@/components/delivery/DeliveryHistoryModal
 import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
 import { DeliveryPersonsModal } from '@/components/delivery/DeliveryPersonsModal';
 import { SendMessageModal } from '@/components/delivery/SendMessageModal';
-
-// INTEGRACIÓN CON FIREBASE:
-// Descomenta e implementa según tu tipo de base de datos
-// import { database } from '@/firebase';
-// import { ref, onValue } from "firebase/database";
 
 const DeliveryPanelContent = () => {
   const navigate = useNavigate();
@@ -53,26 +54,40 @@ const DeliveryPanelContent = () => {
   const [showDeliveryModal, setShowDeliveryModal] = useState<string | null>(null);
   const [deliveryNotes, setDeliveryNotes] = useState('');
 
-  // --------------------------
-  // INTEGRACIÓN FIREBASE AQUÍ:
-  // --------------------------
-  // Descomenta y ajusta según tu base
-  /*
+  // ✅ INTEGRACIÓN FIREBASE PROFESIONALIZADA
   useEffect(() => {
-    // Ejemplo con Realtime Database
-    const personsRef = ref(database, "deliveryPersons");
-    onValue(personsRef, (snapshot) => {
+    // Suscripción a pedidos listos para entrega (status: 'listo')
+    const ordersRef = ref(db, 'orders');
+    const unsubOrders = onValue(ordersRef, (snapshot) => {
       const data = snapshot.val();
-      setDeliveryPersons(data ? Object.values(data) : []);
+      if (data) {
+        // Convertir a array y filtrar solo pedidos relevantes para delivery
+        const ordersArray = Object.keys(data).map(key => ({
+          id: key,
+          ...data[key]
+        })).filter(order => 
+          // Mostrar pedidos listos, en ruta o entregados
+          ['listo', 'en_ruta', 'entregado'].includes(order.status)
+        );
+        setOrders(ordersArray);
+      } else {
+        setOrders([]);
+      }
     });
 
-    const ordersRef = ref(database, "deliveryOrders");
-    onValue(ordersRef, (snapshot) => {
-      const data = snapshot.val();
-      setOrders(data ? Object.values(data) : []);
-    });
+    // TODO: Implementar suscripción a repartidores cuando se cree la estructura
+    // const personsRef = ref(db, "deliveryPersons");
+    // const unsubPersons = onValue(personsRef, (snapshot) => {
+    //   const data = snapshot.val();
+    //   setDeliveryPersons(data ? Object.values(data) : []);
+    // });
+
+    // Cleanup
+    return () => {
+      unsubOrders();
+      // unsubPersons();
+    };
   }, []);
-  */
 
   // Filtros
   const pendingOrders = orders.filter(o => o.status === 'listo' && !o.assignedTo);
@@ -99,33 +114,56 @@ const DeliveryPanelContent = () => {
     }
   };
 
-  // Toma de pedidos (puedes reemplazarlo por tu lógica de update en Firebase)
-  const takeOrder = (orderId: string) => {
-    // Aquí tu update en la base
-    // Actualizar en Firebase, luego refrescar
-    setOrders(prev => prev.map(order =>
-      order.id === orderId
-        ? { ...order, status: 'en_ruta', assignedTo: currentUser, takenAt: new Date().toISOString() }
-        : order
-    ));
+  /**
+   * ✅ PROFESIONALIZADO: Toma de pedidos con persistencia en Firebase
+   * Actualiza el estado a 'en_ruta' y registra el repartidor asignado
+   */
+  const takeOrder = async (orderId: string) => {
+    try {
+      await updateDeliveryStatus(orderId, 'en_ruta', {
+        assignedTo: currentUser,
+      });
+
+      toast({
+        title: '✅ Pedido tomado',
+        description: `Pedido ${orderId} asignado a ${currentUser}`,
+      });
+    } catch (error) {
+      console.error('Error al tomar pedido:', error);
+      toast({
+        title: '❌ Error',
+        description: 'No se pudo tomar el pedido. Intenta nuevamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleDeliveryConfirm = (orderId: string) => {
-    // Aquí tu update en la base
-    // Actualizar en Firebase, luego refrescar
-    setOrders(prev => prev.map(order =>
-      order.id === orderId
-        ? {
-          ...order,
-          status: 'entregado',
-          deliveredAt: new Date().toISOString(),
-          deliveryNotes: deliveryNotes
-        }
-        : order
-    ));
+  /**
+   * ✅ PROFESIONALIZADO: Confirmación de entrega con persistencia
+   * Actualiza el estado a 'entregado' y guarda notas de entrega
+   */
+  const handleDeliveryConfirm = async (orderId: string) => {
+    try {
+      await updateDeliveryStatus(orderId, 'entregado', {
+        deliveryNotes: deliveryNotes,
+        deliveredBy: currentUser,
+      });
 
-    setDeliveryNotes('');
-    setShowDeliveryModal(null);
+      toast({
+        title: '✅ Pedido entregado',
+        description: `Pedido ${orderId} marcado como entregado exitosamente`,
+      });
+
+      setDeliveryNotes('');
+      setShowDeliveryModal(null);
+    } catch (error) {
+      console.error('Error al confirmar entrega:', error);
+      toast({
+        title: '❌ Error',
+        description: 'No se pudo confirmar la entrega. Intenta nuevamente.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleLogout = async () => {

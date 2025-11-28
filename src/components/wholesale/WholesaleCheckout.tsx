@@ -212,7 +212,27 @@ export const WholesaleCheckout = ({ isOpen, onClose }: WholesaleCheckoutProps) =
     setStep('confirmation');
   };
 
-  // === GUARDA EL PEDIDO EN RTDB ===
+  /**
+   * === GUARDA EL PEDIDO MAYORISTA EN RTDB ===
+   * 
+   * NOTA IMPORTANTE: WholesaleCheckout NO usa createOrder() centralizado.
+   * Esto es INTENCIONAL y CORRECTO por las siguientes razones:
+   * 
+   * 1. Pedidos mayoristas se guardan en /wholesale/orders (estructura especializada)
+   * 2. Se crea un "espejo" en /orders para que aparezca en panel admin
+   * 3. Usa número de orden diferente: MW-{ID} (Mayorista) vs ORD-### (Retail)
+   * 4. Tiene estructura de datos extendida (timeline, site, ubicaciones, etc.)
+   * 5. Requiere lógica de negocio específica para clientes mayoristas
+   * 
+   * El espejo en /orders permite:
+   * - Visualización unificada en AdminPanel
+   * - Tracking general del negocio
+   * - Reportes consolidados
+   * 
+   * Si en el futuro se requiere unificar, considerar:
+   * - createOrder() debería aceptar opciones para estructura wholesaleSpecific
+   * - O mantener esta separación por claridad de arquitectura
+   */
   const handleConfirmOrder = async () => {
     const auth = getAuth();
     const uid = auth.currentUser?.uid;

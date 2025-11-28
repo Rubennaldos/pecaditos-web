@@ -14,6 +14,7 @@ import {
   get,
   push,
   update,
+  remove,
   runTransaction,
 } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
@@ -153,57 +154,90 @@ const buildInvoiceFromOrder = (o: any) => {
    PEDIDOS
    =========================== */
 
-/** Crea un pedido y le asigna correlativo global ORD-### */
+/**
+ * FUNCIÓN CENTRALIZADA PARA CREAR PEDIDOS
+ * Esta es la única fuente de verdad para crear pedidos en el sistema.
+ * 
+ * Características:
+ * - Asigna correlativo transaccional (ORD-001, ORD-002, etc.)
+ * - Inicializa estructura de billing
+ * - Reindexa en /ordersByStatus para consultas rápidas
+ * - Emite factura electrónica de forma asíncrona (no bloqueante)
+ * 
+ * @param orderData - Datos del pedido (sin id, orderNumber ni createdAt)
+ * @param options - Opciones adicionales { skipInvoice?: boolean, channel?: string }
+ * @returns Pedido creado con id, orderNumber y createdAt
+ */
 export const createOrder = async (
-  orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>
+  orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>,
+  options?: { skipInvoice?: boolean; channel?: string }
 ) => {
   try {
-    // 1) crear nodo /orders y obtener id
+    // 1) Crear nodo /orders y obtener ID único
     const ordersRef = ref(db, 'orders');
     const newRef = push(ordersRef);
     const id = newRef.key!;
     const createdAt = new Date().toISOString();
 
+    // 2) Preparar datos del pedido con valores por defecto seguros
     const dataToSave = {
       ...orderData,
       id,
       createdAt,
       status: (orderData as any)?.status ?? 'pendiente',
+      channel: options?.channel || 'retail', // retail, wholesale, quick, etc.
+      // Inicializar estructura de billing para evitar problemas posteriores
+      billing: {
+        status: 'pending',
+        invoiceIssued: false,
+        ...(orderData as any)?.billing,
+      },
     };
 
+    // 3) Guardar pedido en Firebase
     await set(newRef, dataToSave);
 
-    // 2) correlativo global ORD-###
+    // 4) Asignar correlativo transaccional ORD-###
     const orderNumber = await ensureOrderNumber(id);
 
-    // 3) Integración de Facturación Electrónica (asíncrona, no bloqueante)
-    const functions = getFunctions();
-    const issueInvoice = httpsCallable(functions, 'issueElectronicInvoice');
-    
-    issueInvoice({ ...dataToSave, orderNumber, id })
-      .then((result: any) => {
-        console.log('✅ Factura electrónica emitida:', result.data);
-        // Opcional: Guardar el resultado en Firebase
-        update(ref(db, `orders/${id}/billing`), {
-          invoiceIssued: true,
-          invoiceData: result.data,
-          invoiceIssuedAt: new Date().toISOString(),
-        }).catch(err => console.error('Error al actualizar billing:', err));
-      })
-      .catch((error: any) => {
-        console.error('⚠️ Error al emitir factura electrónica:', error.message);
-        // Opcional: Marcar como pendiente de facturación
-        update(ref(db, `orders/${id}/billing`), {
-          invoiceIssued: false,
-          invoiceError: error.message,
-          invoiceAttemptedAt: new Date().toISOString(),
-        }).catch(err => console.error('Error al actualizar billing:', err));
-      });
+    // 5) Reindexar en /ordersByStatus para consultas rápidas
+    const status = dataToSave.status;
+    await set(ref(db, `ordersByStatus/${status}/${id}`), true);
 
-    // 4) devolver con id + correlativo (sin esperar facturación)
+    // 6) Integración de Facturación Electrónica (asíncrona, no bloqueante)
+    if (!options?.skipInvoice) {
+      const functions = getFunctions();
+      const issueInvoice = httpsCallable(functions, 'issueElectronicInvoice');
+      
+      issueInvoice({ ...dataToSave, orderNumber, id })
+        .then((result: any) => {
+          console.log('✅ Factura electrónica emitida:', result.data);
+          // Guardar el resultado exitoso en Firebase
+          update(ref(db, `orders/${id}/billing`), {
+            invoiceIssued: true,
+            invoiceData: result.data,
+            invoiceIssuedAt: new Date().toISOString(),
+            status: 'invoiced',
+          }).catch(err => console.error('Error al actualizar billing:', err));
+        })
+        .catch((error: any) => {
+          console.error('⚠️ Error al emitir factura electrónica:', error.message);
+          // Marcar como pendiente de facturación para retry manual
+          update(ref(db, `orders/${id}/billing`), {
+            invoiceIssued: false,
+            invoiceError: error.message,
+            invoiceAttemptedAt: new Date().toISOString(),
+            status: 'error',
+          }).catch(err => console.error('Error al actualizar billing:', err));
+        });
+    }
+
+    console.log(`✅ Pedido creado exitosamente: ${orderNumber} (ID: ${id})`);
+
+    // 7) Devolver pedido completo con id + correlativo (sin esperar facturación)
     return { ...dataToSave, orderNumber, id } as Order;
   } catch (error) {
-    console.error('Error al crear pedido:', error);
+    console.error('❌ Error al crear pedido:', error);
     throw error;
   }
 };
@@ -252,8 +286,10 @@ export const getOrderByNumber = async (orderNumber: string): Promise<Order | nul
 };
 
 /**
- * Actualiza el estado del pedido y “marca tiempos” cuando corresponde.
+ * Actualiza el estado del pedido y "marca tiempos" cuando corresponde.
  * Se acepta cualquier string para evitar conflictos de tipos (es/inglés).
+ * 
+ * @deprecated Usar updateDeliveryStatus para cambios de delivery o changeOrderStatus del contexto
  */
 export const updateOrderStatus = async (orderId: string, status: string) => {
   try {
@@ -278,6 +314,129 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
     await update(ref(db, `orders/${orderId}`), updates);
   } catch (error) {
     console.error('Error al actualizar estado del pedido:', error);
+    throw error;
+  }
+};
+
+/**
+ * FUNCIÓN PROFESIONAL PARA ACTUALIZAR ESTADO DE DELIVERY
+ * Maneja el flujo de entrega de pedidos con persistencia completa en Firebase.
+ * 
+ * Estados soportados:
+ * - 'en_ruta': Pedido tomado por repartidor
+ * - 'entregado': Pedido entregado al cliente
+ * 
+ * Características:
+ * - Persiste cambios en Firebase RTDB
+ * - Actualiza índices /ordersByStatus
+ * - Registra timestamps (takenAt, deliveredAt)
+ * - Guarda metadata (assignedTo, deliveryNotes, etc.)
+ * - Inicializa billing si no existe (para pedidos que no lo tengan)
+ * 
+ * @param orderId - ID del pedido
+ * @param status - Nuevo estado ('en_ruta' o 'entregado')
+ * @param metadata - Datos adicionales { assignedTo, deliveryNotes, etc. }
+ */
+export const updateDeliveryStatus = async (
+  orderId: string,
+  status: 'en_ruta' | 'entregado',
+  metadata?: {
+    assignedTo?: string;
+    deliveryNotes?: string;
+    deliveryLocation?: { lat: number; lng: number };
+    [key: string]: any;
+  }
+) => {
+  try {
+    if (!orderId) {
+      throw new Error('orderId es requerido');
+    }
+
+    const now = new Date().toISOString();
+    const nowTimestamp = Date.now();
+
+    // 1) Obtener estado anterior del pedido
+    const orderRef = ref(db, `orders/${orderId}`);
+    const snapshot = await get(orderRef);
+    
+    if (!snapshot.exists()) {
+      throw new Error(`Pedido ${orderId} no encontrado`);
+    }
+
+    const currentOrder = snapshot.val();
+    const previousStatus = currentOrder?.status;
+
+    // 2) Preparar actualizaciones según el nuevo estado
+    const updates: Record<string, any> = {
+      status,
+      updatedAt: now,
+    };
+
+    // Metadata específica según el estado
+    if (status === 'en_ruta') {
+      updates.takenAt = now;
+      updates.takenAtTimestamp = nowTimestamp;
+      if (metadata?.assignedTo) {
+        updates.assignedTo = metadata.assignedTo;
+      }
+    }
+
+    if (status === 'entregado') {
+      updates.deliveredAt = now;
+      updates.deliveredAtTimestamp = nowTimestamp;
+      if (metadata?.deliveryNotes) {
+        updates.deliveryNotes = metadata.deliveryNotes;
+      }
+      if (metadata?.deliveryLocation) {
+        updates.deliveryLocation = metadata.deliveryLocation;
+      }
+
+      // PASO 3: Blindar el flujo - Inicializar billing si no existe
+      if (!currentOrder.billing) {
+        updates.billing = {
+          status: 'pending',
+          invoiceIssued: false,
+          pendingManualInvoice: true,
+          note: 'Billing inicializado automáticamente al entregar pedido',
+        };
+        console.log(`⚠️ Pedido ${orderId}: billing no existía, se inicializó automáticamente`);
+      }
+    }
+
+    // Agregar cualquier metadata adicional
+    if (metadata) {
+      Object.keys(metadata).forEach(key => {
+        if (!['assignedTo', 'deliveryNotes', 'deliveryLocation'].includes(key)) {
+          updates[key] = metadata[key];
+        }
+      });
+    }
+
+    // 3) Actualizar pedido en Firebase
+    await update(orderRef, updates);
+
+    // 4) Actualizar índices /ordersByStatus
+    if (previousStatus && previousStatus !== status) {
+      // Remover del índice anterior
+      await remove(ref(db, `ordersByStatus/${previousStatus}/${orderId}`));
+      console.log(`📍 Removido de ordersByStatus/${previousStatus}/${orderId}`);
+    }
+
+    // Agregar al índice nuevo
+    await set(ref(db, `ordersByStatus/${status}/${orderId}`), true);
+    console.log(`📍 Agregado a ordersByStatus/${status}/${orderId}`);
+
+    console.log(`✅ Delivery actualizado: ${orderId} → ${status}`);
+
+    return {
+      success: true,
+      orderId,
+      status,
+      previousStatus,
+      updates,
+    };
+  } catch (error) {
+    console.error('❌ Error al actualizar delivery:', error);
     throw error;
   }
 };

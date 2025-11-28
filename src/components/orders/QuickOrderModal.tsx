@@ -7,8 +7,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
-import { ref, onValue, push, set, update } from 'firebase/database';
+import { ref, onValue } from 'firebase/database';
 import { db } from '@/config/firebase';
+import { createOrder } from '@/services/firebaseService';
 import { computeLine, type QtyDiscount } from '@/lib/wholesale/pricing';
 
 type Product = {
@@ -370,13 +371,14 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
     setLoading(true);
 
     try {
-      // Crear pedido en Firebase
-      const ordersRef = ref(db, 'orders');
-      const newOrderRef = push(ordersRef);
-
+      // ✅ USAR FUNCIÓN CENTRALIZADA createOrder (Profesionalizado)
+      // Esto garantiza:
+      // - Correlativo correcto (ORD-001, ORD-002, etc.)
+      // - Facturación electrónica automática
+      // - Reindexación en ordersByStatus
+      // - Inicialización de billing
+      
       const orderData = {
-        status: 'pendiente',
-        createdAt: new Date().toISOString(),
         client: {
           ruc: clientData.ruc || '',
           legalName: clientData.legalName || '',
@@ -384,6 +386,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
         },
         customerAddress: clientData.address || '',
         customerPhone: clientData.phone || '',
+        customerName: clientData.commercialName || clientData.legalName || 'Cliente',
         items: orderItems.map((item) => ({
           product: item.productName,
           name: item.productName,
@@ -392,17 +395,17 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
         })),
         total: calculateTotal(),
         notes: 'Pedido rápido',
+        paymentMethod: 'Por definir',
       };
 
-      await set(newOrderRef, orderData);
-
-      // Generar número de orden
-      const orderNumber = `ORD-${String(Date.now()).slice(-6)}`;
-      await update(newOrderRef, { orderNumber });
+      // Llamar a la función centralizada
+      const createdOrder = await createOrder(orderData as any, {
+        channel: 'quick', // Identificar que viene de pedido rápido
+      });
 
       toast({
         title: '¡Pedido creado!',
-        description: `Orden ${orderNumber} registrada exitosamente`,
+        description: `Orden ${createdOrder.orderNumber} registrada exitosamente`,
       });
 
       // Limpiar carrito del localStorage
@@ -410,7 +413,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
         localStorage.removeItem(`${CART_STORAGE_KEY}_${clientData.ruc}`);
       }
 
-      onOrderCreated(newOrderRef.key!, orderNumber);
+      onOrderCreated(createdOrder.id, createdOrder.orderNumber);
       
       // Limpiar y cerrar
       setOrderItems([]);
@@ -421,7 +424,7 @@ export const QuickOrderModal = ({ isOpen, onClose, clientData, onOrderCreated }:
       console.error('Error al crear pedido:', error);
       toast({
         title: 'Error',
-        description: 'No se pudo crear el pedido',
+        description: 'No se pudo crear el pedido. Intenta nuevamente.',
         variant: 'destructive',
       });
     } finally {

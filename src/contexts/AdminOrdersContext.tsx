@@ -148,21 +148,51 @@ export const AdminOrdersProvider = ({ children }: { children: ReactNode }) => {
     setOrderHistory((prev) => [newEntry, ...prev]);
   };
 
-  /** Acciones */
+  /** 
+   * ✅ BLINDADO: Cambio de estado con validaciones de seguridad
+   * - Verifica e inicializa billing si es necesario
+   * - Actualiza timestamps apropiados
+   * - Reindexa en ordersByStatus
+   * - Registra en historial
+   */
   const changeOrderStatus = async (orderId: string, newStatus: string) => {
-    const prev = orders.find((o) => o.id === orderId)?.status;
+    const currentOrder = orders.find((o) => o.id === orderId);
+    const prev = currentOrder?.status;
     const updates: any = { status: newStatus };
     const now = Date.now();
+    
+    // Marcar timestamps según el estado
     if (newStatus === "en_preparacion") updates.acceptedAt = now;
     if (newStatus === "listo") updates.readyAt = now;
+    if (newStatus === "entregado") {
+      updates.deliveredAt = now;
+      
+      // ✅ PASO 3: Blindar el flujo - Inicializar billing si no existe
+      const orderSnapshot = await get(ref(db, `orders/${orderId}`));
+      if (orderSnapshot.exists()) {
+        const orderData = orderSnapshot.val();
+        if (!orderData.billing) {
+          updates.billing = {
+            status: 'pending',
+            invoiceIssued: false,
+            pendingManualInvoice: true,
+            note: 'Billing inicializado automáticamente al cambiar estado a entregado',
+          };
+          console.log(`⚠️ Pedido ${orderId}: billing no existía, se inicializó automáticamente`);
+        }
+      }
+    }
 
+    // Actualizar pedido
     await update(ref(db, `orders/${orderId}`), updates);
 
+    // Reindexar en ordersByStatus
     if (prev && prev !== newStatus) {
       await set(ref(db, `ordersByStatus/${newStatus}/${orderId}`), true);
       await remove(ref(db, `ordersByStatus/${prev}/${orderId}`));
     }
 
+    // Registrar en historial
     addHistoryEntry({
       orderId,
       user: "Usuario Pedidos",
