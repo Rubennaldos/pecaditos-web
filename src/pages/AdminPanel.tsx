@@ -10,6 +10,8 @@ import { ClientsManagement } from '@/components/clients/ClientsManagement';
 import { ClientsAccessManagement } from '@/components/admin/ClientsAccessManagement';
 import { ModuleCard } from '@/components/admin/ModuleCard';
 import { Button } from '@/components/ui/button';
+import { BackToPanelButton } from '@/components/ui/back-to-panel-button';
+import { ArrowLeft } from 'lucide-react';
 import LogisticsModule from './LogisticsModule';
 import {
   LogOut,
@@ -212,6 +214,23 @@ const DashboardContent = () => {
     window.location.href = '/';
   };
 
+  /**
+   * Botón consistente para volver al selector de módulos
+   * Usa el mismo estilo que BackToPanelButton para consistencia
+   */
+  const BackToModulesButton = () => (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => setActiveSection('modules')}
+      className="fixed top-4 left-4 z-[100] bg-white/95 backdrop-blur-sm hover:bg-white border border-stone-200 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+      title="Volver a Módulos"
+    >
+      <ArrowLeft className="h-4 w-4 mr-2" />
+      <span className="hidden sm:inline font-medium">Volver a Módulos</span>
+    </Button>
+  );
+
   const renderContent = () => {
     switch (activeSection) {
       case 'modules':
@@ -267,157 +286,132 @@ const DashboardContent = () => {
           </div>
         );
       case 'dashboard':
-        return <AdminDashboard />;
+        return (
+          <>
+            <BackToModulesButton />
+            <AdminDashboard />
+          </>
+        );
       case 'clients-access':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <ClientsAccessManagement />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <ClientsAccessManagement />
+            </div>
+          </>
         );
       case 'orders-admin':
         return (
           <div className="relative">
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveSection('modules')}
-                className="bg-white"
-              >
-                Volver a Módulos
-              </Button>
-            </div>
+            {/* Ocultar el BackToPanelButton original del OrdersPanel */}
+            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+            <BackToModulesButton />
             <OrdersPanel />
           </div>
         );
       case 'delivery-admin':
         return (
           <div className="relative">
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveSection('modules')}
-                className="bg-white"
-              >
-                Volver a Módulos
-              </Button>
-            </div>
+            {/* Ocultar el BackToPanelButton original del DeliveryPanel */}
+            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+            <BackToModulesButton />
             <DeliveryPanel />
           </div>
         );
       case 'production-admin':
         return (
           <div className="relative">
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveSection('modules')}
-                className="bg-white"
-              >
-                Volver a Módulos
-              </Button>
-            </div>
+            {/* Ocultar el BackToPanelButton original del ProductionPanel */}
+            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+            <BackToModulesButton />
             <ProductionPanel />
           </div>
         );
       case 'billing-admin':
         return (
           <div className="relative">
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveSection('modules')}
-                className="bg-white"
-              >
-                Volver a Módulos
-              </Button>
-            </div>
+            {/* Ocultar el BackToPanelButton original del BillingPanel */}
+            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+            <BackToModulesButton />
             <BillingPanel />
           </div>
         );
       case 'customers-admin':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <ClientsManagement />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <ClientsManagement />
+            </div>
+          </>
         );
       case 'catalogs-admin':
         return (
-          <CatalogModule onBack={() => setActiveSection('modules')} />
+          <>
+            {/* Ocultar botón interno de CatalogModule */}
+            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+            <BackToModulesButton />
+            <CatalogModule onBack={() => setActiveSection('modules')} />
+          </>
         );
       case 'business-admin':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <ConsolidatedAdminModule />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <ConsolidatedAdminModule />
+            </div>
+          </>
         );
       case 'system-config':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <SystemConfiguration />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <SystemConfiguration />
+            </div>
+          </>
         );
       case 'locations':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <LocationsManagement />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <LocationsManagement />
+            </div>
+          </>
         );
       case 'audit':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <AuditModule />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <AuditModule />
+            </div>
+          </>
         );
       case 'messages':
         return (
-          <div className="p-8">
-            <Button variant="outline" size="sm" onClick={() => setActiveSection('modules')} className="mb-4">
-              Volver a Módulos
-            </Button>
-            <MessagesModule
-              usuarioActual={{
-                id: user.uid || '',
-                rol: (perfil?.rol as 'admin' | 'cliente') || 'cliente',
-                email: user.email || '',
-              }}
-            />
-          </div>
+          <>
+            <BackToModulesButton />
+            <div className="p-8">
+              <MessagesModule
+                usuarioActual={{
+                  id: user.uid || '',
+                  rol: (perfil?.rol as 'admin' | 'cliente') || 'cliente',
+                  email: user.email || '',
+                }}
+              />
+            </div>
+          </>
         );
       case 'logistics':
         return (
           <div className="relative">
-            <div className="absolute top-4 right-4 z-50">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveSection('modules')}
-                className="bg-white"
-              >
-                Volver a Módulos
-              </Button>
-            </div>
+            {/* Ocultar el BackToPanelButton original del LogisticsModule */}
+            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+            <BackToModulesButton />
             <LogisticsModule />
           </div>
         );
