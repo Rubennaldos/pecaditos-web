@@ -1,24 +1,33 @@
+# 🍪 Pecaditos Integrales - Sistema CRM
 
-# 🍪 Pecaditos Integrales - Landing Page
+Sistema de gestión integral (CRM) para **Pecaditos Integrales**, una marca de galletas artesanales integrales. Incluye gestión de pedidos, delivery, producción, cobranzas, y portal mayorista.
 
-Página de bienvenida moderna y responsive para **Pecaditos Integrales**, una marca de galletas artesanales integrales.
+## ✨ Módulos del Sistema
 
-## ✨ Características
+### 📦 Módulos Implementados
 
-### 🎨 Diseño
+| Módulo | Estado | Descripción |
+|--------|--------|-------------|
+| **Dashboard Global** | ✅ Completo | Vista completa del sistema con métricas |
+| **Pedidos** | ✅ Completo | Crear, editar, rechazar, historial, QR |
+| **Reparto/Delivery** | ✅ Completo | Asignación, tracking, entregas |
+| **Producción** | ✅ Completo | Control de inventario y stock |
+| **Cobranzas** | ✅ Completo | Facturas, pagos, reportes |
+| **Portal Mayorista** | ✅ Completo | Portal dedicado con checkout |
+| **Catálogo** | ✅ Completo | Productos minoristas |
+| **Catálogos por Cliente** | ✅ Completo | Catálogos personalizados |
+| **Ubicaciones** | ✅ Completo | Puntos de venta |
+| **Logística** | ✅ Completo | Inventario y compras |
+| **Mensajes** | ✅ Completo | Comunicación interna |
+| **Auditoría** | ✅ Completo | Logs y seguimiento |
+| **Configuración** | ✅ Completo | Sistema y parámetros |
+
+### 🎨 Características de la Landing Page
+
 - **Responsive**: Optimizado para desktop, tablet y móvil
 - **Modo oscuro/claro**: Detección automática con toggle manual
 - **Animaciones suaves**: Efectos hover, transiciones y micro-interacciones
 - **Colores marca**: Paleta tierra y amber (beige, naranja, rojo)
-- **Tipografía**: Inter (sans-serif) + Playfair Display (display)
-
-### 🚀 Funcionalidades
-- **Landing principal** con logo, eslogan y texto editable
-- **Cards animadas** para Catálogo y Login (con efectos hover)
-- **Modal de seguimiento** de pedidos por número (simulado)
-- **Redes sociales** con enlaces a WhatsApp, Instagram, Facebook, TikTok
-- **Footer completo** con información legal y contacto
-- **Configuración Firebase** lista para implementar
 
 ## 🛠️ Tecnologías
 
@@ -26,156 +35,72 @@ Página de bienvenida moderna y responsive para **Pecaditos Integrales**, una ma
 - **Vite** (build tool)
 - **Tailwind CSS** (estilos)
 - **Shadcn/ui** (componentes)
+- **Radix UI** (primitivas)
 - **Lucide React** (iconos)
-- **Firebase** (preparado para auth + database)
+- **Firebase** (Auth + Realtime Database + Storage + Functions)
+- **TanStack Query** (gestión de estado servidor)
+- **React Hook Form** + **Zod** (formularios y validación)
+- **Recharts** (gráficos)
 
 ## 📁 Estructura del Proyecto
 
 ```
 src/
 ├── components/
-│   ├── layout/
-│   │   ├── Header.tsx          # Header móvil
-│   │   └── Footer.tsx          # Footer con info legal
-│   ├── sections/
-│   │   ├── HeroSection.tsx     # Logo, eslogan, texto
-│   │   ├── MainCards.tsx       # Cards catálogo y login
-│   │   ├── OrderTracking.tsx   # Botón seguimiento
-│   │   └── SocialMedia.tsx     # Redes sociales
-│   └── modals/
-│       └── OrderTrackingModal.tsx # Modal seguimiento
+│   ├── admin/          # Componentes del panel de administración
+│   ├── auth/           # Autenticación y rutas protegidas
+│   ├── billing/        # Módulo de cobranzas
+│   ├── catalog/        # Catálogo de productos
+│   ├── clients/        # Gestión de clientes
+│   ├── delivery/       # Módulo de delivery
+│   ├── layout/         # Header, Footer
+│   ├── logistics/      # Módulo de logística
+│   ├── orders/         # Gestión de pedidos
+│   ├── production/     # Módulo de producción
+│   ├── sections/       # Secciones de landing
+│   ├── ui/             # Componentes UI (Shadcn)
+│   └── wholesale/      # Portal mayorista
 ├── config/
-│   └── firebase.ts             # Configuración Firebase
-├── services/
-│   └── firebaseService.ts      # Servicios Firebase
-├── data/
-│   └── mockData.ts             # Datos de prueba
-├── hooks/
-│   └── useAuth.tsx             # Hook autenticación
-└── pages/
-    └── Index.tsx               # Página principal
+│   └── firebase.ts     # Configuración Firebase
+├── contexts/           # Contextos de React (estado global)
+├── hooks/              # Custom hooks
+├── lib/                # Utilidades y constantes
+│   ├── adminConstants.ts  # Constantes del panel admin
+│   ├── logger.ts       # Logger configurable
+│   └── utils.ts        # Utilidades generales
+├── pages/              # Páginas/Rutas principales
+├── services/           # Servicios de Firebase
+├── types/              # Tipos TypeScript
+└── data/               # Configuración y datos base
 ```
 
 ## 🚀 Instalación y Uso
 
-1. **Clonar e instalar dependencias**:
+### Requisitos Previos
+- Node.js 18+
+- npm o yarn
+
+### Instalación
+
 ```bash
+# Clonar el repositorio
+git clone https://github.com/Rubennaldos/pecaditos-web.git
+
+# Instalar dependencias
+cd pecaditos-web
 npm install
 ```
 
-2. **Ejecutar en desarrollo**:
+### Desarrollo
+
 ```bash
+# Iniciar servidor de desarrollo
 npm run dev
 ```
 
-3. **Ver en el navegador**:
-```
-http://localhost:8080
-```
+Abrir en el navegador: `http://localhost:5173`
 
-## ⚙️ Configuración
-
-### 🔥 Firebase (Próxima Etapa)
-Para habilitar autenticación y base de datos:
-
-1. Crear proyecto en [Firebase Console](https://console.firebase.google.com)
-2. Activar **Authentication** (Email/Password)
-3. Activar **Realtime Database**
-4. Copiar configuración en `src/config/firebase.ts`
-5. Configurar reglas de seguridad
-
-### 🎨 Personalización
-
-#### Textos Editables
-En `src/components/sections/HeroSection.tsx`:
-```tsx
-// Cambiar eslogan principal
-<h1>Pecaditos Integrales</h1>
-<p>Sabor auténtico, salud natural</p>
-
-// Cambiar texto de bienvenida  
-<p>Descubre nuestras galletas artesanales...</p>
-
-// Cambiar frase motivacional
-<blockquote>"Porque cuidarte nunca fue tan delicioso"</blockquote>
-```
-
-#### Colores de Marca
-En `src/index.css` - variables CSS:
-```css
-:root {
-  --primary: 35 91% 48%; /* Amber principal */
-  --secondary: 37 39% 91%; /* Amber claro */
-  /* ... más colores */
-}
-```
-
-#### Redes Sociales
-En `src/components/sections/SocialMedia.tsx`:
-```tsx
-const socialLinks = [
-  {
-    name: 'WhatsApp',
-    url: 'https://wa.me/51999999999', // ← Cambiar número
-    // ...
-  }
-  // ... más redes
-];
-```
-
-## 🧪 Datos de Prueba
-
-### Seguimiento de Pedidos
-Números para probar el modal:
-- `ORD001` - Pedido en camino
-- `ORD002` - Pedido entregado
-
-### Mock Data
-Ver `src/data/mockData.ts` para:
-- Productos de ejemplo
-- Usuarios de prueba  
-- Pedidos simulados
-- Configuración de descuentos
-
-## 📱 Funcionalidades Implementadas
-
-### ✅ Completado
-- [x] Landing page responsive
-- [x] Cards animadas (Catálogo + Login)
-- [x] Modal seguimiento pedidos
-- [x] Redes sociales interactivas
-- [x] Footer completo con enlaces legales
-- [x] Modo oscuro/claro automático
-- [x] Configuración Firebase base
-- [x] Mock data y estructura modular
-
-### 🔄 Próxima Etapa
-- [ ] Página de catálogo de productos
-- [ ] Carrito de compras sticky
-- [ ] Sistema de login/registro
-- [ ] Checkout y pasarela de pagos
-- [ ] Dashboard de pedidos
-
-## 🎯 Notas de Desarrollo
-
-### Mock Data
-Los datos de prueba están en `src/data/mockData.ts`. Incluye:
-- **Productos**: galletas con precios, categorías, ingredientes
-- **Usuarios**: datos de ejemplo con historial
-- **Pedidos**: estados, números de seguimiento
-- **Configuración**: descuentos, distritos permitidos
-
-### Servicios Firebase
-En `src/services/firebaseService.ts` están preparadas las funciones:
-- Autenticación (login, registro, logout)
-- Productos (obtener, filtrar)
-- Pedidos (crear, actualizar, buscar)
-- Usuarios (perfil, historial)
-
-### Componentes Modulares
-Cada sección está en su propio archivo para fácil mantenimiento y personalización.
-
-## 🚀 Deploy
+### Producción
 
 ```bash
 # Build para producción
@@ -185,10 +110,110 @@ npm run build
 npm run preview
 ```
 
+## ⚙️ Configuración de Firebase
+
+El proyecto está configurado con Firebase para:
+- **Authentication**: Email/Password
+- **Realtime Database**: Datos en tiempo real
+- **Storage**: Imágenes de productos
+- **Functions**: Facturación electrónica
+
+## 🔐 Sistema de Roles y Permisos
+
+### Roles Disponibles
+- **admin/adminGeneral**: Acceso completo a todos los módulos
+- **cliente**: Acceso a catálogo y seguimiento de pedidos
+- **mayorista**: Acceso a portal mayorista
+- **repartidor**: Acceso a módulo de delivery
+- **produccion**: Acceso a módulo de producción
+
+### Módulos de Acceso
+```typescript
+const allModules = [
+  'dashboard',
+  'catalog',
+  'catalogs-admin',
+  'orders',
+  'tracking',
+  'delivery',
+  'production',
+  'billing',
+  'logistics',
+  'locations',
+  'reports',
+  'wholesale'
+];
+```
+
+## 📊 Flujo de Pedidos
+
+El sistema maneja un flujo profesionalizado de pedidos:
+
+```
+Pendiente → En Preparación → Listo → En Ruta → Entregado
+                                          ↓
+                                      Rechazado
+```
+
+### Características del Flujo
+- ✅ Correlativo transaccional único (ORD-001, ORD-002...)
+- ✅ Facturación electrónica asíncrona
+- ✅ Persistencia completa en Firebase RTDB
+- ✅ Reindexación automática por estado
+- ✅ Inicialización automática de billing
+
+## 🧪 Testing
+
+El proyecto incluye datos de prueba para desarrollo:
+
+### Seguimiento de Pedidos
+- `ORD001` - Pedido en camino
+- `ORD002` - Pedido entregado
+
+## 📱 PWA Support
+
+El proyecto incluye:
+- `manifest.json` configurado
+- Iconos para diferentes tamaños
+- Configuración de tema
+
+## 🔧 Scripts Disponibles
+
+```bash
+npm run dev        # Desarrollo
+npm run build      # Build producción
+npm run preview    # Preview del build
+npm run lint       # Linter
+```
+
+## 📝 Logging
+
+El sistema incluye un logger configurable (`src/lib/logger.ts`):
+- En desarrollo: muestra todos los logs
+- En producción: solo errores críticos
+
+```typescript
+import logger from '@/lib/logger';
+
+logger.info('Operación exitosa');
+logger.error('Error crítico', error);
+logger.orderCreated('ORD-001', 'abc123');
+logger.delivery('abc123', 'entregado');
+```
+
+## 🚧 Próximas Mejoras Planificadas
+
+- [ ] Tests unitarios y de integración
+- [ ] PWA Service Worker completo
+- [ ] Integración con pasarela de pagos
+- [ ] Notificaciones push
+- [ ] Reportes exportables avanzados
+
 ---
 
 ## 📞 Contacto y Soporte
 
 Para preguntas sobre implementación o personalización, contactar al equipo de desarrollo.
 
-**¡Listo para la siguiente etapa!** 🎉
+**Desarrollado por**: Alberto Naldos  
+**Última actualización**: Diciembre 2025

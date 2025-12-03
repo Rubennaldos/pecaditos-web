@@ -19,6 +19,14 @@ import {
 } from 'firebase/database';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { Product, Order, User } from '@/data/mockData';
+import type {
+  UserRegistrationData,
+  CreateOrderOptions,
+  DeliveryUpdateMetadata,
+  DeliveryUpdateResult,
+  DeliveryStatus,
+} from '@/types/firebase';
+import logger from '@/lib/logger';
 
 /* ===========================
    AUTENTICACIÓN
@@ -27,14 +35,19 @@ import { Product, Order, User } from '@/data/mockData';
 export const loginUser = async (email: string, password: string) => {
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    logger.auth(`Login exitoso: ${email}`);
     return userCredential.user;
   } catch (error) {
-    console.error('Error al iniciar sesión:', error);
+    logger.error('Error al iniciar sesión:', error);
     throw error;
   }
 };
 
-export const registerUser = async (email: string, password: string, userData: any) => {
+export const registerUser = async (
+  email: string, 
+  password: string, 
+  userData: UserRegistrationData
+) => {
   try {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
@@ -45,9 +58,10 @@ export const registerUser = async (email: string, password: string, userData: an
       createdAt: new Date().toISOString(),
     });
 
+    logger.auth(`Usuario registrado: ${email}`);
     return user;
   } catch (error) {
-    console.error('Error al registrar usuario:', error);
+    logger.error('Error al registrar usuario:', error);
     throw error;
   }
 };
@@ -55,8 +69,9 @@ export const registerUser = async (email: string, password: string, userData: an
 export const logoutUser = async () => {
   try {
     await signOut(auth);
+    logger.auth('Sesión cerrada');
   } catch (error) {
-    console.error('Error al cerrar sesión:', error);
+    logger.error('Error al cerrar sesión:', error);
     throw error;
   }
 };
@@ -68,9 +83,11 @@ export const logoutUser = async () => {
 export const getProducts = async (): Promise<Product[]> => {
   try {
     const snapshot = await get(ref(db, 'products'));
-    return snapshot.exists() ? (Object.values(snapshot.val()) as Product[]) : [];
+    const products = snapshot.exists() ? (Object.values(snapshot.val()) as Product[]) : [];
+    logger.debug(`Productos cargados: ${products.length}`);
+    return products;
   } catch (error) {
-    console.error('Error al obtener productos:', error);
+    logger.error('Error al obtener productos:', error);
     return [];
   }
 };
@@ -80,7 +97,7 @@ export const getProductById = async (id: string): Promise<Product | null> => {
     const snapshot = await get(ref(db, `products/${id}`));
     return snapshot.exists() ? (snapshot.val() as Product) : null;
   } catch (error) {
-    console.error('Error al obtener producto:', error);
+    logger.error('Error al obtener producto:', error);
     return null;
   }
 };
@@ -170,7 +187,7 @@ const buildInvoiceFromOrder = (o: any) => {
  */
 export const createOrder = async (
   orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>,
-  options?: { skipInvoice?: boolean; channel?: string }
+  options?: CreateOrderOptions
 ) => {
   try {
     // 1) Crear nodo /orders y obtener ID único
@@ -185,7 +202,7 @@ export const createOrder = async (
       id,
       createdAt,
       status: (orderData as any)?.status ?? 'pendiente',
-      channel: options?.channel || 'retail', // retail, wholesale, quick, etc.
+      channel: options?.channel || 'retail',
       // Inicializar estructura de billing para evitar problemas posteriores
       billing: {
         status: 'pending',
@@ -196,6 +213,7 @@ export const createOrder = async (
 
     // 3) Guardar pedido en Firebase
     await set(newRef, dataToSave);
+    logger.database(`Pedido guardado en /orders/${id}`);
 
     // 4) Asignar correlativo transaccional ORD-###
     const orderNumber = await ensureOrderNumber(id);
@@ -203,6 +221,7 @@ export const createOrder = async (
     // 5) Reindexar en /ordersByStatus para consultas rápidas
     const status = dataToSave.status;
     await set(ref(db, `ordersByStatus/${status}/${id}`), true);
+    logger.database(`Indexado en /ordersByStatus/${status}/${id}`);
 
     // 6) Integración de Facturación Electrónica (asíncrona, no bloqueante)
     if (!options?.skipInvoice) {
@@ -211,33 +230,31 @@ export const createOrder = async (
       
       issueInvoice({ ...dataToSave, orderNumber, id })
         .then((result: any) => {
-          console.log('✅ Factura electrónica emitida:', result.data);
-          // Guardar el resultado exitoso en Firebase
+          logger.billing(`Factura electrónica emitida para ${orderNumber}`);
           update(ref(db, `orders/${id}/billing`), {
             invoiceIssued: true,
             invoiceData: result.data,
             invoiceIssuedAt: new Date().toISOString(),
             status: 'invoiced',
-          }).catch(err => console.error('Error al actualizar billing:', err));
+          }).catch(err => logger.error('Error al actualizar billing:', err));
         })
         .catch((error: any) => {
-          console.error('⚠️ Error al emitir factura electrónica:', error.message);
-          // Marcar como pendiente de facturación para retry manual
+          logger.warn(`Error al emitir factura electrónica: ${error.message}`);
           update(ref(db, `orders/${id}/billing`), {
             invoiceIssued: false,
             invoiceError: error.message,
             invoiceAttemptedAt: new Date().toISOString(),
             status: 'error',
-          }).catch(err => console.error('Error al actualizar billing:', err));
+          }).catch(err => logger.error('Error al actualizar billing:', err));
         });
     }
 
-    console.log(`✅ Pedido creado exitosamente: ${orderNumber} (ID: ${id})`);
+    logger.orderCreated(orderNumber, id);
 
     // 7) Devolver pedido completo con id + correlativo (sin esperar facturación)
     return { ...dataToSave, orderNumber, id } as Order;
   } catch (error) {
-    console.error('❌ Error al crear pedido:', error);
+    logger.error('Error al crear pedido:', error);
     throw error;
   }
 };
@@ -275,12 +292,14 @@ export const getOrderByNumber = async (orderNumber: string): Promise<Order | nul
     const ordersObj = snapshot.val() as Record<string, any>;
     for (const [id, v] of Object.entries(ordersObj)) {
       if ((v as any)?.orderNumber === orderNumber) {
+        logger.debug(`Pedido encontrado: ${orderNumber}`);
         return { id, ...(v as any) } as Order;
       }
     }
+    logger.debug(`Pedido no encontrado: ${orderNumber}`);
     return null;
   } catch (error) {
-    console.error('Error al buscar pedido:', error);
+    logger.error('Error al buscar pedido:', error);
     return null;
   }
 };
@@ -339,14 +358,9 @@ export const updateOrderStatus = async (orderId: string, status: string) => {
  */
 export const updateDeliveryStatus = async (
   orderId: string,
-  status: 'en_ruta' | 'entregado',
-  metadata?: {
-    assignedTo?: string;
-    deliveryNotes?: string;
-    deliveryLocation?: { lat: number; lng: number };
-    [key: string]: any;
-  }
-) => {
+  status: DeliveryStatus,
+  metadata?: DeliveryUpdateMetadata
+): Promise<DeliveryUpdateResult> => {
   try {
     if (!orderId) {
       throw new Error('orderId es requerido');
@@ -391,7 +405,7 @@ export const updateDeliveryStatus = async (
         updates.deliveryLocation = metadata.deliveryLocation;
       }
 
-      // PASO 3: Blindar el flujo - Inicializar billing si no existe
+      // Blindar el flujo - Inicializar billing si no existe
       if (!currentOrder.billing) {
         updates.billing = {
           status: 'pending',
@@ -399,7 +413,7 @@ export const updateDeliveryStatus = async (
           pendingManualInvoice: true,
           note: 'Billing inicializado automáticamente al entregar pedido',
         };
-        console.log(`⚠️ Pedido ${orderId}: billing no existía, se inicializó automáticamente`);
+        logger.warn(`Pedido ${orderId}: billing no existía, se inicializó automáticamente`);
       }
     }
 
@@ -417,16 +431,14 @@ export const updateDeliveryStatus = async (
 
     // 4) Actualizar índices /ordersByStatus
     if (previousStatus && previousStatus !== status) {
-      // Remover del índice anterior
       await remove(ref(db, `ordersByStatus/${previousStatus}/${orderId}`));
-      console.log(`📍 Removido de ordersByStatus/${previousStatus}/${orderId}`);
+      logger.database(`Removido de ordersByStatus/${previousStatus}/${orderId}`);
     }
 
-    // Agregar al índice nuevo
     await set(ref(db, `ordersByStatus/${status}/${orderId}`), true);
-    console.log(`📍 Agregado a ordersByStatus/${status}/${orderId}`);
+    logger.database(`Agregado a ordersByStatus/${status}/${orderId}`);
 
-    console.log(`✅ Delivery actualizado: ${orderId} → ${status}`);
+    logger.delivery(orderId, status);
 
     return {
       success: true,
@@ -436,7 +448,7 @@ export const updateDeliveryStatus = async (
       updates,
     };
   } catch (error) {
-    console.error('❌ Error al actualizar delivery:', error);
+    logger.error('Error al actualizar delivery:', error);
     throw error;
   }
 };
@@ -450,7 +462,7 @@ export const getUserData = async (userId: string): Promise<User | null> => {
     const snapshot = await get(ref(db, `users/${userId}`));
     return snapshot.exists() ? (snapshot.val() as User) : null;
   } catch (error) {
-    console.error('Error al obtener datos del usuario:', error);
+    logger.error('Error al obtener datos del usuario:', error);
     return null;
   }
 };
@@ -458,8 +470,9 @@ export const getUserData = async (userId: string): Promise<User | null> => {
 export const updateUserProfile = async (userId: string, userData: Partial<User>) => {
   try {
     await update(ref(db, `users/${userId}`), userData);
+    logger.info(`Perfil actualizado: ${userId}`);
   } catch (error) {
-    console.error('Error al actualizar perfil:', error);
+    logger.error('Error al actualizar perfil:', error);
     throw error;
   }
 };
