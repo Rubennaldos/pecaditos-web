@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
+import { BackToPanelButton } from "@/components/ui/back-to-panel-button";
 import {
   Pencil,
   Trash2,
@@ -149,7 +150,13 @@ const userName = "admin";
 /* =========================
    MÓDULO
    ========================= */
-export default function LogisticsModule() {
+
+interface LogisticsModuleProps {
+  /** Si es true, oculta el botón de volver (para cuando está embebido en AdminPanel) */
+  embedded?: boolean;
+}
+
+export default function LogisticsModule({ embedded = false }: LogisticsModuleProps) {
   // --- STATES ---
   const [tab, setTab] = useState("vista");
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -428,6 +435,7 @@ export default function LogisticsModule() {
      ========================= */
   return (
     <div className="container mx-auto py-8 px-2">
+      {!embedded && <BackToPanelButton />}
       <h1 className="text-3xl font-bold mb-6">Panel de Logística</h1>
 
       {/* Tabs */}

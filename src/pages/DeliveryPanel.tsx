@@ -31,7 +31,12 @@ import { DeliveryDeleteModal } from '@/components/delivery/DeliveryDeleteModal';
 import { DeliveryPersonsModal } from '@/components/delivery/DeliveryPersonsModal';
 import { SendMessageModal } from '@/components/delivery/SendMessageModal';
 
-const DeliveryPanelContent = () => {
+interface DeliveryPanelContentProps {
+  /** Si es true, oculta el botón de volver (para cuando está embebido en AdminPanel) */
+  embedded?: boolean;
+}
+
+const DeliveryPanelContent = ({ embedded = false }: DeliveryPanelContentProps) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { isAdminMode } = useAdminDelivery();
@@ -270,7 +275,7 @@ const DeliveryPanelContent = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
-      <BackToPanelButton />
+      {!embedded && <BackToPanelButton />}
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -487,9 +492,14 @@ const DeliveryPanelContent = () => {
   );
 };
 
-const DeliveryPanel = () => (
+interface DeliveryPanelProps {
+  /** Si es true, oculta el botón de volver (para cuando está embebido en AdminPanel) */
+  embedded?: boolean;
+}
+
+const DeliveryPanel = ({ embedded = false }: DeliveryPanelProps) => (
   <AdminDeliveryProvider>
-    <DeliveryPanelContent />
+    <DeliveryPanelContent embedded={embedded} />
   </AdminDeliveryProvider>
 );
 

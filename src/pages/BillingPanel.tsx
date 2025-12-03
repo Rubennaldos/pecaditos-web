@@ -18,13 +18,18 @@ import { BillingReports } from "@/components/billing/BillingReports";
 import { AdminBillingProvider } from "@/contexts/AdminBillingContext";
 import type { Section } from "@/components/billing/types";
 
+interface BillingPanelProps {
+  /** Si es true, oculta el botón de volver (para cuando está embebido en AdminPanel) */
+  embedded?: boolean;
+}
+
 /**
  * Panel principal de Cobranzas:
  * - Sidebar con secciones
  * - Contenido por sección (dashboard, orders, to-be-paid, paid, clients, history, reports)
  * - Cierre de sesión seguro
  */
-const BillingPanel = () => {
+const BillingPanel = ({ embedded = false }: BillingPanelProps) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
 
@@ -67,7 +72,7 @@ const BillingPanel = () => {
   return (
     <AdminBillingProvider>
       <div className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-stone-50">
-        <BackToPanelButton />
+        {!embedded && <BackToPanelButton />}
         {/* Header */}
         <div className="bg-white shadow-sm border-b">
           <div className="max-w-7xl mx-auto px-4 py-4">

@@ -94,7 +94,12 @@ const ensureOrderNumber = async (orderId: string) => {
   return orderNumber;
 };
 
-const OrdersPanel = () => {
+interface OrdersPanelProps {
+  /** Si es true, oculta el botón de volver (para cuando está embebido en AdminPanel) */
+  embedded?: boolean;
+}
+
+const OrdersPanel = ({ embedded = false }: OrdersPanelProps) => {
   const navigate = useNavigate();
   const { logout } = useAuth();
   const { isAdminMode, changeOrderStatus } = useAdminOrders();
@@ -492,7 +497,7 @@ const OrdersPanel = () => {
 
   return (
     <div className="min-h-screen bg-neutral-50">
-      <BackToPanelButton />
+      {!embedded && <BackToPanelButton />}
       {/* Estilos locales para parpadeo */}
       <style>{`
         @keyframes pulseYellow { 0%,100% { opacity:.25 } 50% { opacity:1 } }

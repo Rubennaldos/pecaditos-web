@@ -132,39 +132,31 @@ const DashboardContent = () => {
         );
       case 'orders-admin':
         return (
-          <div className="relative">
-            {/* Ocultar el BackToPanelButton original del OrdersPanel */}
-            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+          <>
             <BackToModulesButton />
-            <OrdersPanel />
-          </div>
+            <OrdersPanel embedded />
+          </>
         );
       case 'delivery-admin':
         return (
-          <div className="relative">
-            {/* Ocultar el BackToPanelButton original del DeliveryPanel */}
-            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+          <>
             <BackToModulesButton />
-            <DeliveryPanel />
-          </div>
+            <DeliveryPanel embedded />
+          </>
         );
       case 'production-admin':
         return (
-          <div className="relative">
-            {/* Ocultar el BackToPanelButton original del ProductionPanel */}
-            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+          <>
             <BackToModulesButton />
-            <ProductionPanel />
-          </div>
+            <ProductionPanel embedded />
+          </>
         );
       case 'billing-admin':
         return (
-          <div className="relative">
-            {/* Ocultar el BackToPanelButton original del BillingPanel */}
-            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+          <>
             <BackToModulesButton />
-            <BillingPanel />
-          </div>
+            <BillingPanel embedded />
+          </>
         );
       case 'customers-admin':
         return (
@@ -178,8 +170,6 @@ const DashboardContent = () => {
       case 'catalogs-admin':
         return (
           <>
-            {/* Ocultar botón interno de CatalogModule */}
-            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
             <BackToModulesButton />
             <CatalogModule onBack={() => setActiveSection('modules')} />
           </>
@@ -237,12 +227,10 @@ const DashboardContent = () => {
         );
       case 'logistics':
         return (
-          <div className="relative">
-            {/* Ocultar el BackToPanelButton original del LogisticsModule */}
-            <style>{`[class*="BackToPanelButton"] { display: none !important; }`}</style>
+          <>
             <BackToModulesButton />
-            <LogisticsModule />
-          </div>
+            <LogisticsModule embedded />
+          </>
         );
       default:
         // Reutiliza el mismo componente para el caso default
