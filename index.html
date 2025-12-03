@@ -4,22 +4,86 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Pecaditos Integrales - Galletas Artesanales Saludables</title>
-    <meta name="description" content="Deliciosas galletas integrales artesanales. Sin preservantes, con ingredientes naturales." />
+    
+    <!-- SEO Básico -->
+    <meta name="description" content="Descubre las deliciosas galletas integrales artesanales de Pecaditos. Sin preservantes, hechas con ingredientes 100% naturales. Pedidos al por mayor y menor." />
+    <meta name="keywords" content="galletas integrales, galletas artesanales, galletas saludables, snacks naturales, pecaditos integrales, galletas sin preservantes, Lima, Perú" />
     <meta name="author" content="Pecaditos Integrales" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://pecaditos.com" />
 
-    <!-- SEO social (opcional) -->
+    <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://pecaditos.com" />
     <meta property="og:title" content="Pecaditos Integrales - Galletas Artesanales Saludables" />
-    <meta property="og:description" content="Galletas integrales con ingredientes naturales." />
+    <meta property="og:description" content="Deliciosas galletas integrales artesanales. Sin preservantes, con ingredientes 100% naturales." />
+    <meta property="og:image" content="https://pecaditos.com/og-image.jpg" />
+    <meta property="og:locale" content="es_PE" />
+    <meta property="og:site_name" content="Pecaditos Integrales" />
 
-    <!-- Favicon / Manifest (archivos en public/) -->
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Pecaditos Integrales - Galletas Artesanales Saludables" />
+    <meta name="twitter:description" content="Deliciosas galletas integrales artesanales. Sin preservantes, con ingredientes naturales." />
+    <meta name="twitter:image" content="https://pecaditos.com/og-image.jpg" />
+
+    <!-- Favicon / Manifest -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
     <link rel="manifest" href="manifest.json" />
 
+    <!-- PWA y móvil -->
     <meta name="theme-color" content="#f59e0b" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Pecaditos" />
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Preconnect para performance -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+
+    <!-- Structured Data / JSON-LD para SEO local -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "LocalBusiness",
+      "name": "Pecaditos Integrales",
+      "description": "Galletas integrales artesanales sin preservantes",
+      "url": "https://pecaditos.com",
+      "telephone": "+51999999999",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Lima",
+        "addressCountry": "PE"
+      },
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": "-12.0464",
+        "longitude": "-77.0428"
+      },
+      "openingHours": "Mo-Fr 08:00-20:00, Sa 09:00-18:00",
+      "priceRange": "$$",
+      "image": "https://pecaditos.com/logo.png",
+      "sameAs": [
+        "https://instagram.com/pecaditosintegrales",
+        "https://facebook.com/pecaditosintegrales"
+      ]
+    }
+    </script>
   </head>
 
   <body>
+    <!-- Noscript fallback -->
+    <noscript>
+      <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+        <h1>Pecaditos Integrales</h1>
+        <p>Esta aplicación requiere JavaScript para funcionar correctamente.</p>
+        <p>Por favor, habilita JavaScript en tu navegador.</p>
+      </div>
+    </noscript>
+    
     <div id="root"></div>
     <!-- IMPORTANTE: ruta relativa para que Pages no cargue desde la raíz -->
     <script type="module" src="src/main.tsx"></script>
