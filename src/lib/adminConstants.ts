@@ -247,3 +247,5 @@ export const getModuleColorClass = (color: ModuleColor): string => {
   return MODULE_COLOR_MAP[color] || MODULE_COLOR_MAP.blue;
 };
 
+
+
