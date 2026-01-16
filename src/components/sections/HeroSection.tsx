@@ -49,15 +49,7 @@ const HeroSection = () => {
 
   return (
     <section className="relative container mx-auto px-4 py-8 lg:py-16 flex flex-col items-center justify-center">
-      {/* Botón Admin (usa BASE_URL para GitHub Pages) */}
-      <div className="absolute top-4 left-4">
-        <button
-          onClick={() => (window.location.href = `${import.meta.env.BASE_URL}login?type=admin`)}
-          className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full hover:bg-gray-200 transition-all duration-200"
-        >
-          Usuario administrador
-        </button>
-      </div>
+      {/* 🔴 BOTÓN DE ADMIN ELIMINADO - Ya no es necesario */}
 
       <div className="flex flex-col items-center space-y-6 w-full">
         {logoSrc ? (
