@@ -5,16 +5,6 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "devCommand": "npm run dev",
-  "env": {
-    "VITE_SUPABASE_URL": "https://rgpoocdjmajsrksotlce.supabase.co",
-    "VITE_SUPABASE_ANON_KEY": "@supabase_anon_key"
-  },
-  "build": {
-    "env": {
-      "VITE_SUPABASE_URL": "https://rgpoocdjmajsrksotlce.supabase.co",
-      "VITE_SUPABASE_ANON_KEY": "@supabase_anon_key"
-    }
-  },
   "routes": [
     {
       "src": "/assets/(.*)",
