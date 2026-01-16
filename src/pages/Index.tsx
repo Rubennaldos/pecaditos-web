@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { Header } from '@/components/layout/Header';
 import { Footer } from '@/components/layout/Footer';
 import HeroSection from '@/components/sections/HeroSection'; // import default
@@ -8,6 +9,7 @@ import { SocialMedia } from '@/components/sections/SocialMedia';
 import { OrderTrackingModal } from '@/components/modals/OrderTrackingModal';
 
 const Index = () => {
+  const { user } = useAuth();
   const [isTrackingModalOpen, setIsTrackingModalOpen] = useState(false);
 
   const handleOpenTrackingModal = () => setIsTrackingModalOpen(true);
@@ -15,7 +17,8 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      {/* 🔴 Solo mostrar Header si NO hay usuario logueado */}
+      {!user && <Header />}
       <main>
         <HeroSection />
         <MainCards />
