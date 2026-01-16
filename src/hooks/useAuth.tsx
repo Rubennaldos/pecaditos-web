@@ -117,12 +117,35 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
       if (error) {
         console.error('[useAuth] Error al cargar perfil:', error);
-        setPerfil(null);
+        // 🔴 ERROR CRÍTICO: Logout forzado
+        await supabase.auth.signOut();
         setUserData(null);
+        setPerfil(null);
+        setUser(null);
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/';
+        alert('❌ Error al cargar tu perfil. Por favor, contacta al administrador.');
         return;
       }
 
       if (profileData) {
+        // 🔴 VALIDACIÓN ESTRICTA: Solo roles administrativos pueden acceder
+        const validAdminRoles = ['admin', 'adminGeneral', 'pedidos', 'reparto', 'produccion', 'cobranzas', 'logistica'];
+        if (!profileData.rol || !validAdminRoles.includes(profileData.rol)) {
+          console.warn('[useAuth] Usuario sin rol administrativo válido:', profileData.rol);
+          // Logout forzado
+          await supabase.auth.signOut();
+          setUserData(null);
+          setPerfil(null);
+          setUser(null);
+          localStorage.clear();
+          sessionStorage.clear();
+          window.location.href = '/';
+          alert('⚠️ No tienes permisos para acceder al panel administrativo.');
+          return;
+        }
+
         // Convertir formato de Supabase a formato esperado
         const userDataConverted: User = {
           id: profileData.id,
@@ -143,19 +166,33 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         setUserData(userDataConverted);
         setPerfil(ensureAllModulesForAdmin(perfilConverted));
         
-        console.log('[useAuth] Perfil cargado:', {
+        console.log('[useAuth] ✅ Perfil válido cargado:', {
           rol: perfilConverted.rol,
           modules: perfilConverted.accessModules?.length || 0
         });
       } else {
         console.warn('[useAuth] No se encontró perfil para el usuario:', userId);
-        setPerfil(null);
+        // 🔴 SIN PERFIL: Logout forzado
+        await supabase.auth.signOut();
         setUserData(null);
+        setPerfil(null);
+        setUser(null);
+        localStorage.clear();
+        sessionStorage.clear();
+        window.location.href = '/';
+        alert('⚠️ No se encontró tu perfil en el sistema. Contacta al administrador.');
       }
     } catch (error) {
       console.error('[useAuth] Error al obtener datos del usuario:', error);
+      // 🔴 ERROR INESPERADO: Logout forzado
+      await supabase.auth.signOut();
       setPerfil(null);
       setUserData(null);
+      setUser(null);
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+      alert('❌ Error inesperado. Por favor, intenta nuevamente.');
     } finally {
       setLoading(false);
     }

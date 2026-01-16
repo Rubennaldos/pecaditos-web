@@ -104,35 +104,8 @@ export const Header = () => {
       {isMenuOpen && (
         <div className="bg-background border-t border-border px-4 py-3">
           <nav className="space-y-2">
-            {/* Usuario logueado */}
-            {currentUser ? (
-              <>
-                <div className="py-2 px-3 bg-muted rounded-lg mb-3">
-                  <p className="text-sm font-medium text-foreground">
-                    {userName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {userType}
-                  </p>
-                </div>
-                
-                <button 
-                  onClick={navigateToProfile}
-                  className="block w-full text-left py-2 text-foreground hover:text-primary transition-colors"
-                >
-                  Mi Panel
-                </button>
-                
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center w-full py-2 text-destructive hover:text-destructive/80 transition-colors"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Cerrar Sesión
-                </button>
-              </>
-            ) : (
-              /* Usuario no logueado */
+            {/* Usuario NO logueado */}
+            {!currentUser && (
               <>
                 <button 
                   onClick={() => {
@@ -147,7 +120,7 @@ export const Header = () => {
             )}
             
             {/* Enlaces comunes */}
-            <hr className="border-border my-3" />
+            {!currentUser && <hr className="border-border my-3" />}
             
             <button 
               onClick={() => {
