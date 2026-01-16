@@ -217,7 +217,7 @@ const DashboardContent = () => {
             <div className="p-8">
               <MessagesModule
                 usuarioActual={{
-                  id: user.uid || '',
+                  id: user.id || '',
                   rol: (perfil?.rol as 'admin' | 'cliente') || 'cliente',
                   email: user.email || '',
                 }}
