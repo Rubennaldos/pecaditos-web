@@ -1,7 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { signInWithEmailAndPassword, signOut, User as FirebaseUser } from 'firebase/auth';
-import { ref, get } from 'firebase/database';
-import { auth, db } from '../config/firebase';
+import { supabase } from '../config/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 
 export type AdminProfile =
   | 'admin'
@@ -60,11 +59,24 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     }
   }, []);
 
-  // Mantener sincronizado el contexto con Firebase Auth
+  // Mantener sincronizado el contexto con Supabase Auth
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged(async (firebaseUser) => {
-      if (firebaseUser) {
-        const adminData = await getAdminProfile(firebaseUser);
+    // Verificar sesión actual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        getAdminProfile(session.user).then(adminData => {
+          if (adminData) {
+            setUser(adminData);
+            localStorage.setItem('adminUser', JSON.stringify(adminData));
+          }
+        });
+      }
+    });
+
+    // Suscribirse a cambios de auth
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session?.user) {
+        const adminData = await getAdminProfile(session.user);
         if (adminData) {
           setUser(adminData);
           localStorage.setItem('adminUser', JSON.stringify(adminData));
@@ -74,16 +86,25 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
         localStorage.removeItem('adminUser');
       }
     });
-    return unsubscribe;
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // ----------- LOGIN CON FIREBASE AUTH + PERFIL EN REALTIME DATABASE -----------
+  // ----------- LOGIN CON SUPABASE AUTH + PERFIL EN POSTGRESQL -----------
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
-      const adminData = await getAdminProfile(firebaseUser);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      if (!data.user) return false;
+
+      const adminData = await getAdminProfile(data.user);
       if (adminData && adminData.isActive) {
         setUser(adminData);
         localStorage.setItem('adminUser', JSON.stringify(adminData));
@@ -99,50 +120,49 @@ export const AdminProvider = ({ children }: AdminProviderProps) => {
     }
   };
 
-  // ----------- TRAER PERFIL ADMIN DESDE REALTIME DATABASE -----------
-  const getAdminProfile = async (firebaseUser: FirebaseUser): Promise<AdminUser | null> => {
+  // ----------- TRAER PERFIL ADMIN DESDE POSTGRESQL -----------
+  const getAdminProfile = async (supabaseUser: SupabaseUser): Promise<AdminUser | null> => {
     try {
-      // Evita consultar la DB si aún no hay uid (previene "Permission denied" en login)
-      if (!firebaseUser?.uid) return null;
+      if (!supabaseUser?.id) return null;
 
-      const userRef = ref(db, `usuarios/${firebaseUser.uid}`);
-      const snapshot = await get(userRef);
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', supabaseUser.id)
+        .single();
 
-      if (snapshot.exists()) {
-        const data = snapshot.val();
+      if (error) throw error;
+      if (!data) return null;
 
-        // Mapea tus campos: correo, nombre, rol, activo
-        const profile: AdminProfile =
-          (data.rol as AdminProfile) && ['admin', 'adminGeneral', 'pedidos', 'reparto', 'produccion', 'seguimiento', 'cobranzas'].includes(data.rol)
-            ? (data.rol as AdminProfile)
-            : 'adminGeneral';
+      // Mapear rol
+      const profile: AdminProfile =
+        (data.rol as AdminProfile) && ['admin', 'adminGeneral', 'pedidos', 'reparto', 'produccion', 'seguimiento', 'cobranzas'].includes(data.rol)
+          ? (data.rol as AdminProfile)
+          : 'adminGeneral';
 
-        return {
-          id: firebaseUser.uid,
-          email: data.correo || firebaseUser.email || '',
-          name: data.nombre || '',
-          profile,
-          permissions: Array.isArray(data.permissions) ? data.permissions : ['all'],
-          lastLogin: new Date().toISOString(),
-          isActive: data.activo !== false,
-        };
-      }
-
-      return null;
+      return {
+        id: supabaseUser.id,
+        email: data.email || supabaseUser.email || '',
+        name: data.nombre || '',
+        profile,
+        permissions: Array.isArray(data.permissions) ? data.permissions : ['all'],
+        lastLogin: new Date().toISOString(),
+        isActive: data.activo !== false,
+      };
     } catch (e) {
       console.error('No se pudo traer el perfil admin:', e);
       return null;
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (user) {
       logActivity('logout', { profile: user.profile });
     }
     setUser(null);
     setOriginalProfile(null);
     localStorage.removeItem('adminUser');
-    signOut(auth);
+    await supabase.auth.signOut();
   };
 
   // Impersonate (solo si el perfil actual es 'admin' o 'adminGeneral')
