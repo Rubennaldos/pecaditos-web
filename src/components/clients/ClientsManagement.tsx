@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db, auth } from '@/config/firebase';
-import { ref, onValue, push, set, update, remove } from 'firebase/database';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { supabase } from '@/config/supabase';
 import { formatAuthCredentials } from '@/services/auth';
 import { useToast } from '@/hooks/use-toast';
 
@@ -88,6 +85,8 @@ interface ClientSede {
   telefono: string;
   principal: boolean;
   googleMapsUrl?: string;
+  latitud?: string;
+  longitud?: string;
   distrito?: string;
   comentarios?: SedeComment[];
 }
@@ -508,116 +507,97 @@ export const ClientsManagement = () => {
   const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
-    const clientsRef = ref(db, 'clients');
-    const unsubscribe = onValue(clientsRef, snapshot => {
-      const data = snapshot.val();
-      if (!data) {
-        setClients([]);
+    const fetchClients = async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('*');
+      
+      if (error) {
+        console.error(error);
         return;
       }
-      const arr: Client[] = Object.entries(data).map(([id, client]: any) => ({
+
+      const arr: Client[] = (data || []).map((client: any) => ({
         ...client,
-        id,
-        sedes: client.sedes
-          ? Object.entries(client.sedes).map(([sid, sede]: any) => ({
-              ...sede,
-              id: sid,
-              comentarios: sede.comentarios ? Object.values(sede.comentarios) : []
-            }))
-          : []
+        id: client.id,
+        razonSocial: client.razon_social,
+        rucDni: client.ruc,
+        direccionFiscal: client.direccion,
+        emailFacturacion: client.email,
+        sedes: client.sedes || [],
+        contactos: client.contactos || [],
+        montoDeuda: client.credito_usado || 0,
       }));
       setClients(arr);
-    });
-    return () => unsubscribe();
+    };
+
+    fetchClients();
+
+    // Suscripción a cambios
+    const subscription = supabase
+      .channel('public:clientes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, fetchClients)
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const saveClient = async (client: Partial<Client>, isEdit?: boolean) => {
-    const clientsRef = ref(db, 'clients');
-
-    if (isEdit && client.id) {
-      if (!client.authUid && client.rucDni && client.pin && client.pin.length === 4) {
-        try {
-          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
-            const credential = await createUserWithEmailAndPassword(auth, email, password);
-          await set(ref(db, `usuarios/${credential.user.uid}`), {
-            nombre: client.razonSocial,
-            correo: email,
-            rol: 'retailUser',
-            activo: true,
-            accessModules: client.accessModules || [],
-            portalLoginRuc: client.rucDni
-          });
-          await update(ref(db, `clients/${client.id}`), {
-            ...client,
-            authUid: credential.user.uid,
-            portalLoginRuc: client.rucDni
-          });
-          toast({ title: 'Acceso creado', description: 'Credenciales generadas (RUC + PIN)' });
-        } catch (err: any) {
-          toast({
-            title: 'Error creando acceso',
-            description: err.message || 'No se pudo crear el usuario',
-            variant: 'destructive'
-          });
-        }
-      } else {
-        await update(ref(db, `clients/${client.id}`), { ...client });
-        toast({ title: 'Cliente actualizado', description: 'Actualizado correctamente' });
-      }
-      return;
-    }
-
     try {
-      let authUid: string | undefined;
-      if (client.rucDni && client.pin && client.pin.length === 4) {
-        try {
-          const { email, password } = formatAuthCredentials(client.rucDni, client.pin);
-          const credential = await createUserWithEmailAndPassword(auth, email, password);
-          authUid = credential.user.uid;
-          await set(ref(db, `usuarios/${authUid}`), {
-            nombre: client.razonSocial,
-            correo: email,
-            rol: 'retailUser',
-            activo: true,
-            accessModules: client.accessModules || [],
-            portalLoginRuc: client.rucDni
-          });
-          toast({ title: 'Usuario portal creado', description: 'Acceso habilitado (RUC + PIN)' });
-        } catch (authError: any) {
-          if (authError.code === 'auth/email-already-in-use') {
-            toast({
-              title: 'Email interno existente',
-              description: 'Se continúa sin crear nuevo usuario',
-              variant: 'default'
-            });
-          } else {
-            throw authError;
-          }
-        }
-      } else {
-        toast({ title: 'Cliente sin acceso', description: 'No se asignó PIN válido' });
-      }
+      const payload = {
+        razon_social: client.razonSocial,
+        nombre_comercial: client.razonSocial || '',
+        ruc: client.rucDni,
+        direccion: client.direccionFiscal,
+        email: client.emailFacturacion,
+        estado: client.estado,
+        departamento: client.departamento,
+        provincia: client.provincia,
+        distrito: client.distrito,
+        notas: client.observaciones,
+        sedes: client.sedes,
+        contactos: client.contactos,
+        condicion_pago: client.condicionPago || 'contado',
+        credito_limite: client.limiteCredito || 0,
+      };
 
-      const newClientRef = push(clientsRef);
-      await set(newClientRef, {
-        ...client,
-        authUid,
-        portalLoginRuc: client.rucDni,
-        fechaCreacion: Date.now()
-      });
-      toast({ title: 'Cliente creado', description: 'Registro almacenado correctamente' });
+      if (isEdit && client.id) {
+        const { error } = await supabase
+          .from('clientes')
+          .update(payload)
+          .eq('id', client.id);
+        if (error) throw error;
+        toast({ title: 'Cliente actualizado', description: 'Actualizado correctamente' });
+      } else {
+        const { error } = await supabase
+          .from('clientes')
+          .insert([payload]);
+        if (error) throw error;
+        toast({ title: 'Cliente creado', description: 'Registro almacenado correctamente' });
+      }
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.message || 'No se pudo crear el cliente',
+        description: error.message || 'No se pudo guardar el cliente',
         variant: 'destructive'
       });
     }
   };
 
-  const deleteClient = (id: string) => {
-    remove(ref(db, `clients/${id}`));
-    toast({ title: 'Cliente eliminado' });
+  const deleteClient = async (id: string) => {
+    if (window.confirm('¿Seguro de eliminar este cliente?')) {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', id);
+      if (error) {
+        toast({ title: 'Error al eliminar', description: error.message, variant: 'destructive' });
+      } else {
+        toast({ title: 'Cliente eliminado' });
+      }
+    }
   };
 
   const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -1045,6 +1025,8 @@ const ClientForm = ({
         telefono: '',
         principal: sedes.length === 0,
         googleMapsUrl: '',
+        latitud: '',
+        longitud: '',
         distrito: '',
         comentarios: []
       }
@@ -1324,6 +1306,32 @@ const ClientForm = ({
                         }}
                         placeholder="https://maps.google.com/..."
                       />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                      <div className="space-y-2">
+                        <Label>Latitud</Label>
+                        <Input
+                          value={sede.latitud}
+                          onChange={e => {
+                            const newSedes = [...sedes];
+                            newSedes[idx].latitud = e.target.value;
+                            setSedes(newSedes);
+                          }}
+                          placeholder="-12.046374"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Longitud</Label>
+                        <Input
+                          value={sede.longitud}
+                          onChange={e => {
+                            const newSedes = [...sedes];
+                            newSedes[idx].longitud = e.target.value;
+                            setSedes(newSedes);
+                          }}
+                          placeholder="-77.042793"
+                        />
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
@@ -1693,6 +1701,11 @@ const ClientDetails = ({ client }: { client: Client }) => {
                     </div>
                     {sede.distrito && (
                       <div className="text-xs text-stone-500">Distrito: {sede.distrito}</div>
+                    )}
+                    {(sede.latitud || sede.longitud) && (
+                      <div className="text-xs text-stone-500 mt-1">
+                        Coordenadas: {sede.latitud || '0'}, {sede.longitud || '0'}
+                      </div>
                     )}
                     {sede.googleMapsUrl && (
                       <div className="mt-2">

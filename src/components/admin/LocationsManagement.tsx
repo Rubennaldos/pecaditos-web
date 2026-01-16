@@ -1,7 +1,6 @@
 // src/components/admin/LocationsManagement.tsx
 import React, { useEffect, useState } from "react";
-import { ref, onValue, push, update, remove } from "firebase/database";
-import { db } from "@/config/firebase";
+import { supabase } from "@/config/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,6 +90,8 @@ interface Location {
   direccion: string;
   telefono: string;
   mapsUrl: string;
+  latitud?: string;
+  longitud?: string;
   departamento?: string;
   provincia?: string;
   distrito?: string;
@@ -121,6 +122,8 @@ export const LocationsManagement = () => {
     direccion: "",
     telefono: "",
     mapsUrl: "",
+    latitud: "",
+    longitud: "",
     departamento: "",
     provincia: "",
     distrito: "",
@@ -132,17 +135,45 @@ export const LocationsManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    const locRef = ref(db, "locations");
-    return onValue(locRef, (snap) => {
-      const data = snap.val() || {};
-      const arr: Location[] = Object.entries(data).map(([id, value]: any) => ({
-        id,
-        ...value,
-        comentarios: value.comentarios ? Object.values(value.comentarios) : [],
+    const fetchLocations = async () => {
+      const { data, error } = await supabase
+        .from('ubicaciones')
+        .select('*');
+      
+      if (error) {
+        console.error(error);
+        return;
+      }
+
+      const arr: Location[] = (data || []).map((loc: any) => ({
+        id: loc.id,
+        nombre: loc.nombre,
+        direccion: loc.direccion,
+        telefono: loc.telefono,
+        mapsUrl: loc.maps_url || "",
+        latitud: loc.latitud?.toString() || "",
+        longitud: loc.longitud?.toString() || "",
+        departamento: loc.departamento || "",
+        provincia: loc.provincia || "",
+        distrito: loc.distrito || "",
+        logoDataUrl: loc.logo_url || "",
+        comentarios: loc.comentarios || [],
       }));
       setLocations(arr);
       setFiltered(arr);
-    });
+    };
+
+    fetchLocations();
+
+    // Suscripción a cambios
+    const subscription = supabase
+      .channel('public:ubicaciones')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ubicaciones' }, fetchLocations)
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -169,6 +200,8 @@ export const LocationsManagement = () => {
             direccion: location.direccion,
             telefono: location.telefono,
             mapsUrl: location.mapsUrl,
+            latitud: location.latitud || "",
+            longitud: location.longitud || "",
             departamento: location.departamento || "",
             provincia: location.provincia || "",
             distrito: location.distrito || "",
@@ -196,6 +229,8 @@ export const LocationsManagement = () => {
       direccion: "",
       telefono: "",
       mapsUrl: "",
+      latitud: "",
+      longitud: "",
       departamento: "",
       provincia: "",
       distrito: "",
@@ -216,24 +251,53 @@ export const LocationsManagement = () => {
       return;
     }
     try {
+      const payload = {
+        nombre: form.nombre,
+        direccion: form.direccion,
+        telefono: form.telefono,
+        maps_url: form.mapsUrl,
+        latitud: form.latitud ? parseFloat(form.latitud) : null,
+        longitud: form.longitud ? parseFloat(form.longitud) : null,
+        departamento: form.departamento,
+        provincia: form.provincia,
+        distrito: form.distrito,
+        logo_url: form.logoDataUrl,
+        tipo: 'sede', // default
+        codigo: `LOC-${Date.now()}`, // default
+      };
+
       if (editLocation) {
-        await update(ref(db, `locations/${editLocation.id}`), { ...form });
+        const { error } = await supabase
+          .from('ubicaciones')
+          .update(payload)
+          .eq('id', editLocation.id);
+        if (error) throw error;
         toast({ title: "Ubicación actualizada" });
       } else {
-        await push(ref(db, "locations"), { ...form, active: true });
+        const { error } = await supabase
+          .from('ubicaciones')
+          .insert([payload]);
+        if (error) throw error;
         toast({ title: "Ubicación agregada" });
       }
       handleCloseModal();
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
-      toast({ title: "Error al guardar", description: "Intenta nuevamente.", variant: "destructive" });
+      toast({ title: "Error al guardar", description: e.message || "Intenta nuevamente.", variant: "destructive" });
     }
   };
 
   const handleDelete = async (loc: Location) => {
     if (window.confirm(`¿Seguro de eliminar ${loc.nombre}?`)) {
-      await remove(ref(db, `locations/${loc.id}`));
-      toast({ title: "Ubicación eliminada", variant: "destructive" });
+      const { error } = await supabase
+        .from('ubicaciones')
+        .delete()
+        .eq('id', loc.id);
+      if (error) {
+        toast({ title: "Error al eliminar", description: error.message, variant: "destructive" });
+      } else {
+        toast({ title: "Ubicación eliminada", variant: "destructive" });
+      }
     }
   };
 
@@ -317,6 +381,11 @@ export const LocationsManagement = () => {
                   {loc.provincia && <span>› {loc.provincia}</span>}
                   {loc.distrito && <span>› {loc.distrito}</span>}
                 </div>
+                {(loc.latitud || loc.longitud) && (
+                  <div className="text-[10px] text-stone-400 mt-0.5">
+                    Coordenadas: {loc.latitud || '0'}, {loc.longitud || '0'}
+                  </div>
+                )}
                 {loc.mapsUrl && (
                   <a
                     href={loc.mapsUrl}
@@ -393,6 +462,25 @@ export const LocationsManagement = () => {
               value={form.mapsUrl}
               onChange={(e) => setForm((f) => ({ ...f, mapsUrl: e.target.value }))}
             />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Latitud</Label>
+                <Input
+                  placeholder="-12.046374"
+                  value={form.latitud}
+                  onChange={(e) => setForm((f) => ({ ...f, latitud: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Longitud</Label>
+                <Input
+                  placeholder="-77.042793"
+                  value={form.longitud}
+                  onChange={(e) => setForm((f) => ({ ...f, longitud: e.target.value }))}
+                />
+              </div>
+            </div>
 
             {/* LOGO / FOTO */}
             <div className="space-y-2">
