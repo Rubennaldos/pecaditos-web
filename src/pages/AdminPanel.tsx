@@ -48,8 +48,16 @@ const DashboardContent = () => {
   const modules = ADMIN_MODULES;
 
   const handleLogout = async () => {
-    await logout();
-    window.location.href = '/';
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error);
+    } finally {
+      // SIEMPRE limpiar y redirigir, incluso si hay error
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
+    }
   };
 
   /**

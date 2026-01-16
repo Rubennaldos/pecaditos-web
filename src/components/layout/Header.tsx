@@ -28,14 +28,26 @@ export const Header = () => {
   const handleLogout = async () => {
     try {
       // Cerrar sesión según el tipo de usuario
-      if (wholesaleUser) await wholesaleLogout();
-      else if (retailUser) await retailLogout();
+      if (wholesaleUser) {
+        await wholesaleLogout();
+      } else if (retailUser) {
+        await retailLogout();
+      }
+      
+      // FALLBACK: Si por alguna razón el logout no funciona, forzar limpieza
+      localStorage.clear();
+      sessionStorage.clear();
       
       // Redirigir al inicio
-      navigate('/');
+      window.location.href = '/';
       setIsMenuOpen(false);
     } catch (error) {
       console.error('Error al cerrar sesión:', error);
+      
+      // FALLBACK DE EMERGENCIA: Forzar recarga en la raíz
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/';
     }
   };
 
