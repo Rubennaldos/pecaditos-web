@@ -1,24 +1,22 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User as FirebaseUser, onAuthStateChanged } from 'firebase/auth';
-import { ref, get, onValue, off, DataSnapshot } from 'firebase/database';
-import { auth, db } from '@/config/firebase';
-import { loginUser, registerUser, logoutUser, getUserData } from '@/services/firebaseService';
+import { supabase } from '@/config/supabase';
+import type { User as SupabaseUser } from '@supabase/supabase-js';
 import { User } from '@/data/mockData';
 
 type Perfil = {
-  rol?: string;     // es-ES
-  role?: string;    // en-US
+  rol?: string;
+  role?: string;
   activo?: boolean;
   [k: string]: any;
 } | null;
 
 interface AuthContextType {
-  user: FirebaseUser | null;
+  user: SupabaseUser | null;
   userData: User | null;
   perfil: Perfil;
   loading: boolean;
-  login: (email: string, password: string) => Promise<FirebaseUser>;
-  register: (email: string, password: string, additionalData: any) => Promise<FirebaseUser>;
+  login: (email: string, password: string) => Promise<SupabaseUser>;
+  register: (email: string, password: string, additionalData: any) => Promise<SupabaseUser>;
   logout: () => Promise<void>;
 }
 
@@ -38,148 +36,143 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
   const [userData, setUserData] = useState<User | null>(null);
   const [perfil, setPerfil] = useState<Perfil>(null);
   const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
+
+  // Helper: usuarios con rol admin tienen acceso a TODOS los módulos automáticamente
+  const ensureAllModulesForAdmin = (p: any) => {
+    if (!p) return p;
+    const isAdminRole =
+      p.rol === 'admin' ||
+      p.rol === 'adminGeneral' ||
+      p.role === 'admin';
+    
+    if (!isAdminRole) return p;
+
+    // Lista completa de módulos disponibles en el sistema
+    const allModules = [
+      'dashboard',
+      'catalog',
+      'catalogs-admin',
+      'orders',
+      'tracking',
+      'delivery',
+      'production',
+      'billing',
+      'logistics',
+      'locations',
+      'reports',
+      'wholesale'
+    ];
+
+    // Asignar todos los módulos a usuarios admin
+    return {
+      ...p,
+      accessModules: allModules,
+      permissions: allModules,
+    };
+  };
 
   useEffect(() => {
-    setMounted(true);
-    let detachRTDB: (() => void) | null = null;
+    // Cargar sesión inicial
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        loadUserProfile(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
 
-    // Helper: usuarios con rol admin tienen acceso a TODOS los módulos automáticamente
-    const ensureAllModulesForAdmin = (p: any) => {
-      if (!p) return p;
-      const isAdminRole =
-        p.rol === 'admin' ||
-        p.rol === 'adminGeneral' ||
-        p.role === 'admin';
+    // Escuchar cambios de autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setUser(session?.user ?? null);
       
-      if (!isAdminRole) return p;
-
-      // clonamos para no mutar el objeto original
-      const copy = { ...p };
-
-      // Lista completa de módulos disponibles en el sistema
-      const allModules = [
-        'dashboard',
-        'catalog',
-        'catalogs-admin',
-        'orders',
-        'tracking',
-        'delivery',
-        'production',
-        'billing',
-        'logistics',
-        'locations',
-        'reports',
-        'wholesale'
-      ];
-
-      // Asignar todos los módulos a usuarios admin
-      copy.accessModules = allModules;
-      copy.permissions = allModules;
-
-      return copy;
-    };
-
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      try {
-        setUser(firebaseUser);
-
-        // Limpia listener anterior si existía
-        if (detachRTDB) {
-          try { detachRTDB(); } catch { /* no-op */ }
-          detachRTDB = null;
-        }
-
-        if (!firebaseUser) {
-          setUserData(null);
-          setPerfil(null);
-          setLoading(false);
-          return;
-        }
-
-        setLoading(true);
-
-        try {
-          // 1) Intento con tu servicio (si trae rol/role, perfecto)
-          let dataFromService: User | null = null;
-          try {
-            dataFromService = await getUserData(firebaseUser.uid);
-          } catch (e) {
-            console.warn('getUserData falló o no devolvió datos, continúo con RTDB:', e);
-          }
-          setUserData(dataFromService);
-
-          const serviceHasRole =
-            !!dataFromService &&
-            (typeof (dataFromService as any).rol === 'string' || typeof (dataFromService as any).role === 'string');
-
-          if (serviceHasRole) {
-            setPerfil(ensureAllModulesForAdmin(dataFromService as any));
-            setLoading(false);
-            return;
-          }
-
-          // 2) Fallback: buscar perfil en RTDB en rutas conocidas
-          const tryPaths = [
-            `usuarios/${firebaseUser.uid}`,
-            `users/${firebaseUser.uid}`,
-            `${firebaseUser.uid}`,
-          ];
-
-          let foundPath: string | null = null;
-          for (const path of tryPaths) {
-            const r = ref(db, path);
-            const snap = await get(r);
-            if (snap.exists()) {
-              foundPath = path;
-              // Aplicar acceso completo para admins
-              const raw = snap.val() || null;
-              const adjusted = ensureAllModulesForAdmin(raw);
-              setPerfil(adjusted);
-
-              // Suscripción en tiempo real — guardamos el callback para unmount correcto
-              const cb = (s: DataSnapshot) => setPerfil(ensureAllModulesForAdmin(s.val() || null));
-              onValue(r, cb);
-              detachRTDB = () => off(r, 'value', cb);
-
-              break;
-            }
-          }
-
-          if (!foundPath) {
-            console.warn('useAuth: no encontré perfil en RTDB para uid', firebaseUser.uid);
-            setPerfil(null);
-          }
-        } catch (error) {
-          console.error('Error al obtener datos/perfil del usuario:', error);
-          setPerfil(null);
-        } finally {
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('Error crítico en AuthProvider:', error);
+      if (session?.user) {
+        await loadUserProfile(session.user.id);
+      } else {
+        setUserData(null);
+        setPerfil(null);
         setLoading(false);
       }
     });
 
     return () => {
-      setMounted(false);
-      unsubscribe();
-      if (detachRTDB) {
-        try { detachRTDB(); } catch { /* no-op */ }
-      }
+      subscription.unsubscribe();
     };
   }, []);
+
+  const loadUserProfile = async (userId: string) => {
+    try {
+      setLoading(true);
+      
+      // Cargar perfil desde tabla usuarios
+      const { data: profileData, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('[useAuth] Error al cargar perfil:', error);
+        setPerfil(null);
+        setUserData(null);
+        return;
+      }
+
+      if (profileData) {
+        // Convertir formato de Supabase a formato esperado
+        const userDataConverted: User = {
+          id: profileData.id,
+          email: profileData.email || '',
+          name: profileData.nombre || '',
+          phone: profileData.telefono || '',
+          address: profileData.direccion || '',
+        };
+
+        const perfilConverted = {
+          ...profileData,
+          rol: profileData.rol,
+          activo: profileData.activo,
+          accessModules: profileData.access_modules || [],
+          permissions: Array.isArray(profileData.permissions) ? profileData.permissions : [],
+        };
+
+        setUserData(userDataConverted);
+        setPerfil(ensureAllModulesForAdmin(perfilConverted));
+        
+        console.log('[useAuth] Perfil cargado:', {
+          rol: perfilConverted.rol,
+          modules: perfilConverted.accessModules?.length || 0
+        });
+      } else {
+        console.warn('[useAuth] No se encontró perfil para el usuario:', userId);
+        setPerfil(null);
+        setUserData(null);
+      }
+    } catch (error) {
+      console.error('[useAuth] Error al obtener datos del usuario:', error);
+      setPerfil(null);
+      setUserData(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const user = await loginUser(email, password);
-      return user;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error('No se pudo iniciar sesión');
+
+      return data.user;
     } catch (error) {
       console.error('Error en login:', error);
       throw error;
@@ -191,8 +184,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const register = async (email: string, password: string, additionalData: any) => {
     setLoading(true);
     try {
-      const user = await registerUser(email, password, additionalData);
-      return user;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: additionalData,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.user) throw new Error('No se pudo registrar el usuario');
+
+      return data.user;
     } catch (error) {
       console.error('Error en registro:', error);
       throw error;
@@ -204,7 +207,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = async () => {
     setLoading(true);
     try {
-      await logoutUser();
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
     } catch (error) {
       console.error('Error en logout:', error);
       throw error;
@@ -223,10 +227,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     logout,
   };
 
-  // Siempre renderizar el Provider, incluso si hay errores
   return (
     <AuthContext.Provider value={value}>
-      {mounted && children}
+      {children}
     </AuthContext.Provider>
   );
 };
