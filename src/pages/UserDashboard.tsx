@@ -143,7 +143,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 via-purple-50 to-stone-50">
-      <Header />
+      {/* 🔴 Header removido - El usuario ya está autenticado */}
       <main className="py-8 px-4">
         <div className="max-w-7xl mx-auto">
           {/* Encabezado de bienvenida */}

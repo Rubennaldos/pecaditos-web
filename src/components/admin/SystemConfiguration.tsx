@@ -2,8 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import LivePreview from '../LivePreview';
 
-import { ref, onValue, update } from 'firebase/database';
-import { db } from '../../config/firebase';
+import { supabase } from '@/config/supabase';
 
 import { LandingConfig } from './LandingConfig';
 import UsersAdmin from './UsersAdmin';
@@ -37,18 +36,11 @@ type AuditLog = {
 };
 
 export const SystemConfiguration = () => {
-  const [companyInfo, setCompanyInfo] = useState<any>({});
-  const [loadingCompany, setLoadingCompany] = useState(true);
-
-  // Cargar /empresa (para la previsualización)
-  useEffect(() => {
-    const refEmpresa = ref(db, 'empresa');
-    const unsub = onValue(refEmpresa, (snap) => {
-      setCompanyInfo(snap.val() || {});
-      setLoadingCompany(false);
-    });
-    return () => unsub();
-  }, []);
+  const [companyInfo, setCompanyInfo] = useState<any>({
+    nombre: 'Pecaditos',
+    descripcion: 'Sistema CRM/ERP',
+  });
+  const [loadingCompany, setLoadingCompany] = useState(false);
 
   // Parámetros (solo UI)
   const [systemSettings, setSystemSettings] = useState({
@@ -61,21 +53,9 @@ export const SystemConfiguration = () => {
     emailNotifications: true,
   });
 
-  // Auditoría
+  // Auditoría (deshabilitado por ahora - se migrará después)
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditFilter, setAuditFilter] = useState({ user: '', module: 'all', dateFrom: '', dateTo: '' });
-
-  useEffect(() => {
-    const auditRef = ref(db, 'auditLogs');
-    const off = onValue(auditRef, (snapshot) => {
-      const data = snapshot.val();
-      const logs = data
-        ? Object.entries(data).map(([id, value]: [string, any]) => ({ id, ...(value as AuditLog) }))
-        : [];
-      setAuditLogs(logs);
-    });
-    return () => off();
-  }, []);
 
   const filteredAuditLogs = auditLogs.filter((log) => {
     return (
@@ -87,18 +67,16 @@ export const SystemConfiguration = () => {
   });
 
   const handleSaveCompany = async () => {
-    try {
-      await update(ref(db, 'empresa'), companyInfo);
-      toast({ title: 'Configuración guardada', description: 'Los datos se han actualizado.' });
-    } catch {
-      toast({ title: 'Error al guardar', description: 'Intenta nuevamente.', variant: 'destructive' });
-    }
+    toast({
+      title: 'Función no disponible',
+      description: 'La configuración de empresa se migrará próximamente',
+    });
   };
 
-  if (loadingCompany || !companyInfo) {
+  if (loadingCompany) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-lg text-gray-500">Cargando configuración de empresa...</div>
+        <div className="text-lg text-gray-500">Cargando configuración...</div>
       </div>
     );
   }

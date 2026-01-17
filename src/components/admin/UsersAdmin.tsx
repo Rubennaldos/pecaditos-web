@@ -1,8 +1,6 @@
 // src/components/admin/UsersAdmin.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import { db, functions } from '@/config/firebase';
-import { ref, onValue, update, remove, get, set } from 'firebase/database';
-import { httpsCallable } from 'firebase/functions';
+import { supabase } from '@/config/supabase';
 
 import {
   Users,
@@ -45,68 +43,44 @@ const ROLE_LABEL: Record<Rol, string> = {
 };
 
 type UserRecord = {
-  id: string;           // uid en RTDB (coincide con Auth cuando lo crea la Function)
+  id: string;           // UUID en Supabase Auth
   nombre: string;
   correo: string;
+  email: string;        // campo adicional para compatibilidad
   rol: Rol;
   activo: boolean;
-  createdAt?: string | number | null;
+  access_modules?: string[];
+  created_at?: string;
 };
 
 const emptyUser: Omit<UserRecord, 'id'> = {
   nombre: '',
   correo: '',
+  email: '',
   rol: 'adminGeneral',
   activo: true,
-  createdAt: null,
+  access_modules: [],
+  created_at: '',
 };
 
-// ==== Tipos y helpers Mayorista ====
-type WholesaleClient = {
-  id: string;
-  name: string;
-  ruc?: string;
-};
-type InternalWholesaleRole = 'comprador' | 'aprobador' | 'visor';
-
-// Lee clientId actual de un usuario (si existiera)
-async function getUserClientId(uid: string): Promise<string | undefined> {
-  const snap = await get(ref(db, `wholesale/users/${uid}`));
-  return snap.val()?.clientId;
-}
-
-// Enlaza usuario -> cliente (y cliente -> usuario). Desenlaza del anterior si cambió.
-async function linkUserToClient(
-  uid: string,
-  clientId: string,
-  internalRole: InternalWholesaleRole
-) {
-  const prev = await getUserClientId(uid);
-  const ops: Promise<any>[] = [];
-
-  if (prev && prev !== clientId) {
-    ops.push(remove(ref(db, `wholesale/clients/${prev}/users/${uid}`)));
-  }
-
-  ops.push(set(ref(db, `wholesale/users/${uid}`), { clientId, role: internalRole }));
-  ops.push(set(ref(db, `wholesale/clients/${clientId}/users/${uid}`), { role: internalRole }));
-
-  await Promise.all(ops);
-}
-
-// Elimina por completo el vínculo
-async function unlinkUserFromClient(uid: string) {
-  const prev = await getUserClientId(uid);
-  if (!prev) return;
-  await Promise.all([
-    remove(ref(db, `wholesale/users/${uid}`)),
-    remove(ref(db, `wholesale/clients/${prev}/users/${uid}`)),
-  ]);
-}
+// 🔥 MÓDULOS DISPONIBLES - usado para admin/adminGeneral
+const ALL_MODULES = [
+  'dashboard',
+  'catalog',
+  'catalogs-admin',
+  'orders',
+  'tracking',
+  'delivery',
+  'production',
+  'billing',
+  'logistics',
+  'locations',
+  'reports',
+  'wholesale'
+];
 
 const UsersAdmin: React.FC = () => {
   const [users, setUsers] = useState<UserRecord[]>([]);
-  const [clients, setClients] = useState<WholesaleClient[]>([]); // <-- clientes mayoristas
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<UserRecord | null>(null);
@@ -121,42 +95,54 @@ const UsersAdmin: React.FC = () => {
   const [form, setForm] = useState<Omit<UserRecord, 'id'>>({ ...emptyUser });
   const [saving, setSaving] = useState(false);
 
-  // Campos de vínculo mayorista (solo si rol === 'mayorista')
-  const [clientId, setClientId] = useState<string>(''); // cliente seleccionado
-  const [internalRole, setInternalRole] = useState<InternalWholesaleRole>('comprador');
+  // 🔥 Cargar usuarios desde Supabase
+  const loadUsers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('usuarios')
+        .select('*')
+        .order('nombre', { ascending: true });
 
-  // Carga usuarios
-  useEffect(() => {
-    const r = ref(db, 'usuarios');
-    const off = onValue(r, (snap) => {
-      const val = snap.val() || {};
-      const list: UserRecord[] = Object.entries(val).map(([id, u]: [string, any]) => ({
-        id,
+      if (error) {
+        console.error('Error cargando usuarios:', error);
+        return;
+      }
+
+      const list: UserRecord[] = (data || []).map((u: any) => ({
+        id: u.id,
         nombre: u.nombre || '',
-        correo: u.correo || '',
+        correo: u.email || u.correo || '',
+        email: u.email || u.correo || '',
         rol: (u.rol || 'adminGeneral') as Rol,
         activo: u.activo !== false,
-        createdAt: u.createdAt ?? null,
+        access_modules: u.access_modules || [],
+        created_at: u.created_at || '',
       }));
-      list.sort((a, b) => a.nombre.localeCompare(b.nombre));
-      setUsers(list);
-    });
-    return () => off();
-  }, []);
 
-  // Carga clientes mayoristas
+      setUsers(list);
+    } catch (err) {
+      console.error('Error inesperado:', err);
+    }
+  };
+
   useEffect(() => {
-    const r = ref(db, 'wholesale/clients');
-    return onValue(r, (snap) => {
-      const val = snap.val() || {};
-      const list: WholesaleClient[] = Object.entries(val).map(([id, c]: [string, any]) => ({
-        id,
-        name: c?.name || c?.razonSocial || id,
-        ruc: c?.ruc || '',
-      }));
-      list.sort((a, b) => a.name.localeCompare(b.name));
-      setClients(list);
-    });
+    loadUsers();
+    
+    // 🔥 Realtime: escuchar cambios en tabla usuarios
+    const channel = supabase
+      .channel('usuarios-changes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'usuarios',
+      }, () => {
+        loadUsers();
+      })
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+    };
   }, []);
 
   const filtered = useMemo(() => {
@@ -177,42 +163,26 @@ const UsersAdmin: React.FC = () => {
     setPwd2('');
     setSeePwd(false);
     setSeePwd2(false);
-    // limpiar vínculo mayorista
-    setClientId('');
-    setInternalRole('comprador');
     setModalOpen(true);
   };
 
   const openEdit = async (u: UserRecord) => {
     setEditing(u);
-    setForm({ nombre: u.nombre, correo: u.correo, rol: u.rol, activo: u.activo, createdAt: u.createdAt ?? null });
+    setForm({
+      nombre: u.nombre,
+      correo: u.correo,
+      email: u.email || u.correo,
+      rol: u.rol,
+      activo: u.activo,
+      access_modules: u.access_modules || [],
+      created_at: u.created_at || '',
+    });
     setPwd('');
     setPwd2('');
     setSeePwd(false);
     setSeePwd2(false);
-
-    // precarga vínculo si es mayorista
-    if (u.rol === 'mayorista') {
-      const currentClient = await getUserClientId(u.id);
-      setClientId(currentClient || '');
-      setInternalRole('comprador');
-    } else {
-      setClientId('');
-      setInternalRole('comprador');
-    }
-
     setModalOpen(true);
   };
-
-  // Busca uid por correo en /usuarios (cuando createUser no devuelve uid)
-  async function findUidByEmail(email: string): Promise<string | null> {
-    const snap = await get(ref(db, 'usuarios'));
-    const val = snap.val() || {};
-    for (const [id, u] of Object.entries<any>(val)) {
-      if ((u?.correo || '').toLowerCase() === email.toLowerCase()) return id;
-    }
-    return null;
-  }
 
   const saveUser = async () => {
     // Validaciones mínimas
@@ -225,40 +195,42 @@ const UsersAdmin: React.FC = () => {
       return;
     }
 
-    // Si es mayorista, debe elegir cliente
-    if (form.rol === 'mayorista' && !clientId) {
-      toast({ title: 'Selecciona el Cliente Mayorista', description: 'Este usuario debe pertenecer a un cliente.', variant: 'destructive' });
-      return;
-    }
-
     setSaving(true);
     try {
       if (editing) {
-        // ACTUALIZAR (solo RTDB)
-        await update(ref(db, `usuarios/${editing.id}`), {
-          nombre: form.nombre,
-          correo: form.correo,
-          rol: form.rol,
-          activo: form.activo,
-        });
+        // 🔥 ACTUALIZAR usuario existente
+        const { error } = await supabase
+          .from('usuarios')
+          .update({
+            nombre: form.nombre,
+            email: form.correo,
+            rol: form.rol,
+            activo: form.activo,
+            access_modules: form.rol === 'admin' || form.rol === 'adminGeneral' ? ALL_MODULES : (form.access_modules || []),
+          })
+          .eq('id', editing.id);
 
-        // Vinculación/desvinculación
-        if (form.rol === 'mayorista') {
-          await linkUserToClient(editing.id, clientId, internalRole);
-        } else {
-          await unlinkUserFromClient(editing.id);
-        }
+        if (error) throw error;
 
-        if (pwd || pwd2) {
-          toast({
-            title: 'Contraseña no cambiada',
-            description: 'Para cambiar contraseña en Auth creamos otra función en el siguiente paso.',
+        // 🔴 Cambiar contraseña en Auth (si se ingresó)
+        if (pwd && pwd2 && pwd === pwd2) {
+          const { error: authError } = await supabase.auth.admin.updateUserById(editing.id, {
+            password: pwd,
           });
+          if (authError) {
+            console.warn('No se pudo cambiar contraseña:', authError);
+            toast({
+              title: 'Usuario actualizado',
+              description: 'Datos guardados, pero no se pudo cambiar la contraseña (permisos insuficientes)',
+            });
+          } else {
+            toast({ title: 'Usuario actualizado', description: 'Datos y contraseña actualizados' });
+          }
+        } else {
+          toast({ title: 'Usuario actualizado', description: 'Los datos fueron guardados' });
         }
-
-        toast({ title: 'Usuario actualizado', description: 'Los datos fueron guardados' });
       } else {
-        // CREAR → Cloud Function para Auth + RTDB
+        // 🔥 CREAR usuario nuevo
         if (!pwd || !pwd2) {
           toast({ title: 'Falta contraseña', description: 'Debes ingresar y confirmar la contraseña', variant: 'destructive' });
           setSaving(false);
@@ -275,29 +247,34 @@ const UsersAdmin: React.FC = () => {
           return;
         }
 
-        const call = httpsCallable(functions, 'createUser');
-        const res: any = await call({
+        // Crear usuario en Supabase Auth
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email: form.correo,
           password: pwd,
-          nombre: form.nombre,
-          rol: form.rol, // puede ser 'mayorista'
         });
 
-        // intentar tomar uid retornado; si no viene, buscar por correo
-        let newUid: string | null = res?.data?.uid || res?.data?.userId || null;
-        if (!newUid) {
-          newUid = await findUidByEmail(form.correo);
-        }
+        if (authError) throw authError;
+        if (!authData.user) throw new Error('No se pudo crear el usuario en Auth');
 
-        // vincula si es mayorista
-        if (form.rol === 'mayorista' && newUid) {
-          await linkUserToClient(newUid, clientId, internalRole);
-        }
+        // Insertar en tabla usuarios
+        const { error: dbError } = await supabase
+          .from('usuarios')
+          .insert({
+            id: authData.user.id,
+            nombre: form.nombre,
+            email: form.correo,
+            rol: form.rol,
+            activo: true,
+            access_modules: form.rol === 'admin' || form.rol === 'adminGeneral' ? ALL_MODULES : [],
+          });
 
-        toast({ title: 'Usuario creado', description: 'Se agregó el nuevo usuario en Auth y RTDB' });
+        if (dbError) throw dbError;
+
+        toast({ title: 'Usuario creado', description: 'Se agregó el nuevo usuario correctamente' });
       }
 
       setModalOpen(false);
+      await loadUsers();
     } catch (err: any) {
       console.error(err);
       toast({
@@ -312,7 +289,13 @@ const UsersAdmin: React.FC = () => {
 
   const toggleActive = async (u: UserRecord) => {
     try {
-      await update(ref(db, `usuarios/${u.id}`), { activo: !u.activo });
+      const { error } = await supabase
+        .from('usuarios')
+        .update({ activo: !u.activo })
+        .eq('id', u.id);
+
+      if (error) throw error;
+      await loadUsers();
     } catch {
       toast({ title: 'Error', description: 'No se pudo cambiar el estado.', variant: 'destructive' });
     }
@@ -321,11 +304,16 @@ const UsersAdmin: React.FC = () => {
   const deleteUser = async (u: UserRecord) => {
     if (!confirm(`¿Eliminar a ${u.nombre}?`)) return;
     try {
-      // Borra el vínculo mayorista si lo tuviera
-      await unlinkUserFromClient(u.id);
-      // Borra el usuario de RTDB (no elimina en Auth)
-      await remove(ref(db, `usuarios/${u.id}`));
-      toast({ title: 'Eliminado', description: 'Usuario eliminado de RTDB (no borra de Auth).' });
+      // Borra el usuario de tabla usuarios
+      const { error } = await supabase
+        .from('usuarios')
+        .delete()
+        .eq('id', u.id);
+
+      if (error) throw error;
+
+      toast({ title: 'Eliminado', description: 'Usuario eliminado correctamente' });
+      await loadUsers();
     } catch {
       toast({ title: 'Error', description: 'No se pudo eliminar.', variant: 'destructive' });
     }
@@ -384,11 +372,6 @@ const UsersAdmin: React.FC = () => {
                       value={form.rol}
                       onValueChange={(rol: Rol) => {
                         setForm((p) => ({ ...p, rol }));
-                        // si cambia a no-mayorista, limpiamos selección
-                        if (rol !== 'mayorista') {
-                          setClientId('');
-                          setInternalRole('comprador');
-                        }
                       }}
                     >
                       <SelectTrigger>
@@ -448,48 +431,6 @@ const UsersAdmin: React.FC = () => {
                       </button>
                     </div>
                   </div>
-
-                  {/* Bloque de vínculo mayorista */}
-                  {form.rol === 'mayorista' && (
-                    <div className="border rounded-lg p-3">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <Label>Cliente mayorista</Label>
-                          <Select value={clientId} onValueChange={(v: any) => setClientId(v)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Selecciona el cliente" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {clients.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.name}{c.ruc ? ` · ${c.ruc}` : ''}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div>
-                          <Label>Rol interno</Label>
-                          <Select
-                            value={internalRole}
-                            onValueChange={(v: any) => setInternalRole(v as InternalWholesaleRole)}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Rol" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="comprador">Comprador</SelectItem>
-                              <SelectItem value="aprobador">Aprobador</SelectItem>
-                              <SelectItem value="visor">Visor</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <p className="text-xs text-stone-500 mt-2">
-                        Este usuario podrá operar únicamente para el cliente seleccionado.
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 <DialogFooter>
@@ -544,7 +485,7 @@ const UsersAdmin: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString('es-PE') : '—'}
+                      {u.created_at ? new Date(u.created_at).toLocaleDateString('es-PE') : '—'}
                     </TableCell>
                     <TableCell className="space-x-2">
                       <Button variant="outline" size="sm" onClick={() => toggleActive(u)}>

@@ -1,22 +1,22 @@
+// AUTH SYSTEM - SIN RPC, SOLO QUERIES DIRECTAS
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { supabase } from '@/config/supabase';
 import type { User as SupabaseUser } from '@supabase/supabase-js';
-import { User } from '@/data/mockData';
 
-type Perfil = {
-  rol?: string;
-  role?: string;
-  activo?: boolean;
-  [k: string]: any;
-} | null;
+interface UserProfile {
+  id: string;
+  email: string;
+  nombre: string;
+  rol: string;
+  activo: boolean;
+  access_modules: string[];
+}
 
 interface AuthContextType {
   user: SupabaseUser | null;
-  userData: User | null;
-  perfil: Perfil;
+  profile: UserProfile | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<SupabaseUser>;
-  register: (email: string, password: string, additionalData: any) => Promise<SupabaseUser>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -24,248 +24,156 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    console.error('useAuth fue llamado fuera del AuthProvider. Verifica que el componente esté dentro del provider.');
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
+  if (!context) {
+    throw new Error('useAuth debe usarse dentro de AuthProvider');
   }
   return context;
 };
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+const ALL_MODULES = [
+  'dashboard', 'catalog', 'catalogs-admin', 'orders', 'tracking',
+  'delivery', 'production', 'billing', 'logistics', 'locations',
+  'reports', 'wholesale'
+];
 
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
-  const [userData, setUserData] = useState<User | null>(null);
-  const [perfil, setPerfil] = useState<Perfil>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper: usuarios con rol admin tienen acceso a TODOS los módulos automáticamente
-  const ensureAllModulesForAdmin = (p: any) => {
-    if (!p) return p;
-    const isAdminRole =
-      p.rol === 'admin' ||
-      p.rol === 'adminGeneral' ||
-      p.role === 'admin';
-    
-    if (!isAdminRole) return p;
-
-    // Lista completa de módulos disponibles en el sistema
-    const allModules = [
-      'dashboard',
-      'catalog',
-      'catalogs-admin',
-      'orders',
-      'tracking',
-      'delivery',
-      'production',
-      'billing',
-      'logistics',
-      'locations',
-      'reports',
-      'wholesale'
-    ];
-
-    // Asignar todos los módulos a usuarios admin
-    return {
-      ...p,
-      accessModules: allModules,
-      permissions: allModules,
-    };
-  };
-
-  useEffect(() => {
-    // Cargar sesión inicial
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        loadUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Escuchar cambios de autenticación
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        await loadUserProfile(session.user.id);
-      } else {
-        setUserData(null);
-        setPerfil(null);
-        setLoading(false);
-      }
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const loadUserProfile = async (userId: string) => {
+  const loadProfile = async (userId: string) => {
+    setLoading(true);
     try {
-      setLoading(true);
+      console.log('[AUTH] 🔍 Iniciando carga de perfil:', userId);
+      console.log('[AUTH] 🔑 ANON_KEY:', import.meta.env.VITE_SUPABASE_ANON_KEY?.substring(0, 20) + '...');
+      console.log('[AUTH] 🌐 URL:', import.meta.env.VITE_SUPABASE_URL);
       
-      // Cargar perfil desde tabla usuarios
-      const { data: profileData, error } = await supabase
-        .from('usuarios')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      // Query usando FETCH directo (igual que el test HTML que funcionó)
+      console.log('[AUTH] ⏱️ Usando fetch directo...');
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/usuarios?id=eq.${userId}&select=*`;
+      const headers = {
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+        'Content-Type': 'application/json',
+      };
+      
+      console.log('[AUTH] 📡 URL:', url);
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout después de 8 segundos')), 8000)
+      );
+      
+      const fetchPromise = fetch(url, { headers }).then(r => r.json());
+      
+      const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
+      
+      console.log('[AUTH] ✅ Respuesta recibida:', result);
+      
+      const data = Array.isArray(result) ? result[0] : result;
+      const error = result?.error || null;
+      
+      console.log('[AUTH] ✅ Respuesta recibida:', { data, error });
 
-      if (error) {
-        console.error('[useAuth] Error al cargar perfil:', error);
-        // 🔴 ERROR CRÍTICO: Logout forzado
-        await supabase.auth.signOut();
-        setUserData(null);
-        setPerfil(null);
-        setUser(null);
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = '/';
-        alert('❌ Error al cargar tu perfil. Por favor, contacta al administrador.');
-        return;
+      if (error || !data) {
+        console.error('[AUTH] Error:', error);
+        throw new Error('Perfil no encontrado');
       }
 
-      if (profileData) {
-        // 🔴 VALIDACIÓN ESTRICTA: Solo roles administrativos pueden acceder
-        const validAdminRoles = ['admin', 'adminGeneral', 'pedidos', 'reparto', 'produccion', 'cobranzas', 'logistica'];
-        if (!profileData.rol || !validAdminRoles.includes(profileData.rol)) {
-          console.warn('[useAuth] Usuario sin rol administrativo válido:', profileData.rol);
-          // Logout forzado
-          await supabase.auth.signOut();
-          setUserData(null);
-          setPerfil(null);
-          setUser(null);
-          localStorage.clear();
-          sessionStorage.clear();
-          window.location.href = '/';
-          alert('⚠️ No tienes permisos para acceder al panel administrativo.');
-          return;
-        }
-
-        // Convertir formato de Supabase a formato esperado
-        const userDataConverted: User = {
-          id: profileData.id,
-          email: profileData.email || '',
-          name: profileData.nombre || '',
-          phone: profileData.telefono || '',
-          address: profileData.direccion || '',
-        };
-
-        const perfilConverted = {
-          ...profileData,
-          rol: profileData.rol,
-          activo: profileData.activo,
-          accessModules: profileData.access_modules || [],
-          permissions: Array.isArray(profileData.permissions) ? profileData.permissions : [],
-        };
-
-        setUserData(userDataConverted);
-        setPerfil(ensureAllModulesForAdmin(perfilConverted));
-        
-        console.log('[useAuth] ✅ Perfil válido cargado:', {
-          rol: perfilConverted.rol,
-          modules: perfilConverted.accessModules?.length || 0
-        });
-      } else {
-        console.warn('[useAuth] No se encontró perfil para el usuario:', userId);
-        // 🔴 SIN PERFIL: Logout forzado
-        await supabase.auth.signOut();
-        setUserData(null);
-        setPerfil(null);
-        setUser(null);
-        localStorage.clear();
-        sessionStorage.clear();
-        window.location.href = '/';
-        alert('⚠️ No se encontró tu perfil en el sistema. Contacta al administrador.');
+      // Verificar que esté activo
+      if (data.activo !== true) {
+        console.warn('[AUTH] Usuario inactivo');
+        throw new Error('Usuario inactivo');
       }
-    } catch (error) {
-      console.error('[useAuth] Error al obtener datos del usuario:', error);
-      // 🔴 ERROR INESPERADO: Logout forzado
+
+      // Validar rol
+      const validRoles = ['admin', 'adminGeneral', 'pedidos', 'reparto', 'produccion', 'cobranzas', 'logistica'];
+      if (!data.rol || !validRoles.includes(data.rol)) {
+        console.warn('[AUTH] Rol inv?lido:', data.rol);
+        throw new Error('Sin permisos administrativos');
+      }
+
+      // Admin = todos los m?dulos
+      const isAdmin = data.rol === 'admin' || data.rol === 'adminGeneral';
+      const modules = isAdmin ? ALL_MODULES : (data.access_modules || []);
+
+      const profileData: UserProfile = {
+        id: data.id,
+        email: data.email,
+        nombre: data.nombre,
+        rol: data.rol,
+        activo: data.activo,
+        access_modules: modules,
+      };
+
+      setProfile(profileData);
+      console.log('[AUTH] ? Perfil OK:', profileData.rol, 'M?dulos:', modules.length);
+      
+    } catch (error: any) {
+      console.error('[AUTH] ERROR:', error);
       await supabase.auth.signOut();
-      setPerfil(null);
-      setUserData(null);
       setUser(null);
-      localStorage.clear();
-      sessionStorage.clear();
+      setProfile(null);
       window.location.href = '/';
-      alert('❌ Error inesperado. Por favor, intenta nuevamente.');
+      alert(error.message || 'Error al cargar perfil');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    console.log('[AUTH] Iniciando...');
+    
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        console.log('[AUTH] Sesi?n activa');
+        setUser(session.user);
+        loadProfile(session.user.id);
+      } else {
+        console.log('[AUTH] Sin sesi?n');
+        setLoading(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AUTH] Evento:', event);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user);
+        await loadProfile(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
       if (error) throw error;
-      if (!data.user) throw new Error('No se pudo iniciar sesión');
+      if (!data.user) throw new Error('Login fallido');
 
-      return data.user;
-    } catch (error) {
-      console.error('Error en login:', error);
-      throw error;
-    } finally {
+    } catch (error: any) {
+      console.error('[AUTH] Error login:', error);
       setLoading(false);
-    }
-  };
-
-  const register = async (email: string, password: string, additionalData: any) => {
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: additionalData,
-        },
-      });
-
-      if (error) throw error;
-      if (!data.user) throw new Error('No se pudo registrar el usuario');
-
-      return data.user;
-    } catch (error) {
-      console.error('Error en registro:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
   const logout = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error en logout:', error);
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const value: AuthContextType = {
-    user,
-    userData,
-    perfil,
-    loading,
-    login,
-    register,
-    logout,
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    window.location.href = '/';
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );

@@ -25,24 +25,37 @@ import {
 } from '@/lib/adminConstants';
 
 const DashboardContent = () => {
-  const { user, perfil, logout } = useAuth();
+  const { user, profile, logout, loading } = useAuth();
   const [activeSection, setActiveSection] = useState('modules');
 
-  if (!user) {
+  // 🔴 Esperar a que termine de cargar
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user || !profile) {
     return null;
   }
 
-  const userName = perfil?.nombre || 'Usuario';
-  const userModules = (perfil?.accessModules as string[]) || (perfil?.permissions as string[]) || [];
+  const userName = profile.nombre || 'Usuario';
+  const isAdmin = profile.rol === 'admin' || profile.rol === 'adminGeneral';
+  const userModules = profile.access_modules || [];
 
-  // Verificar si es usuario administrador
-  const isAdminRole =
-    perfil?.rol === 'admin' ||
-    perfil?.rol === 'adminGeneral' ||
-    perfil?.role === 'admin';
+  console.log('[AdminPanel] Usuario:', {
+    rol: profile.rol,
+    isAdmin,
+    modulesCount: userModules.length
+  });
 
   // Usar función centralizada para verificar acceso
-  const hasAccess = (moduleId: string) => hasModuleAccess(moduleId, userModules, isAdminRole);
+  const hasAccess = (moduleId: string) => hasModuleAccess(moduleId, userModules, isAdmin);
 
   // Usar módulos desde constantes centralizadas
   const modules = ADMIN_MODULES;

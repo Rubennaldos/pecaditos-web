@@ -342,158 +342,13 @@ export const generateBulkImportTemplate = () => {
 
 // Procesar importación masiva
 export const processBulkImport = async (file: File, toast: any) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = async (e) => {
-      try {
-        const data = new Uint8Array(e.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
-
-        // Leer hoja de clientes
-        const clientsSheet = workbook.Sheets['Clientes'];
-        if (!clientsSheet) {
-          throw new Error('No se encontró la hoja "Clientes"');
-        }
-        const clientsData: any[] = XLSX.utils.sheet_to_json(clientsSheet);
-
-        // Leer hoja de sedes
-        const sedesSheet = workbook.Sheets['Sedes'];
-        const sedesData: any[] = sedesSheet ? XLSX.utils.sheet_to_json(sedesSheet) : [];
-
-        // Leer hoja de contactos
-        const contactosSheet = workbook.Sheets['Contactos'];
-        const contactosData: any[] = contactosSheet ? XLSX.utils.sheet_to_json(contactosSheet) : [];
-
-        const clientsRef = ref(db, 'clients');
-        let createdCount = 0;
-        let errorCount = 0;
-
-        for (const row of clientsData) {
-          try {
-            const rucDni = row['RUC/DNI*']?.toString().trim();
-            if (!rucDni) continue;
-
-            // Buscar sedes de este cliente
-            const clientSedes = sedesData
-              .filter(s => s['RUC/DNI Cliente*']?.toString().trim() === rucDni)
-              .map((s, idx) => ({
-                id: `sede_${Date.now()}_${idx}`,
-                nombre: s['Nombre Sede*'] || '',
-                direccion: s['Dirección*'] || '',
-                distrito: s['Distrito'] || '',
-                responsable: s['Responsable*'] || '',
-                telefono: s['Teléfono*']?.toString() || '',
-                principal: s['Principal (SI/NO)*']?.toString().toUpperCase() === 'SI',
-                googleMapsUrl: s['Google Maps URL'] || ''
-              }));
-
-            // Buscar contactos de este cliente
-            const clientContactos = contactosData
-              .filter(c => c['RUC/DNI Cliente*']?.toString().trim() === rucDni)
-              .map(c => ({
-                tipo: c['Tipo (pago/admin/pedidos)*'] || 'pedidos',
-                nombre: c['Nombre*'] || '',
-                dni: c['DNI*']?.toString() || '',
-                celular: c['Celular*']?.toString() || '',
-                correo: c['Correo*'] || ''
-              }));
-
-            // Parsear módulos de acceso
-            const modulesStr = row['Módulos de Acceso']?.toString() || '';
-            const accessModules = modulesStr
-              .split(';')
-              .map(m => m.trim())
-              .filter(m => m);
-
-            const newClient = {
-              rucDni,
-              razonSocial: row['Razón Social*'] || '',
-              direccionFiscal: row['Dirección Fiscal*'] || '',
-              departamento: row['Departamento'] || '',
-              provincia: row['Provincia'] || '',
-              distrito: row['Distrito'] || '',
-              emailFacturacion: row['Email Facturación*'] || '',
-              estado: (row['Estado*'] || 'activo').toLowerCase(),
-              listaPrecio: row['Lista de Precio'] || 'Lista A',
-              frecuenciaCompras: row['Frecuencia Compras'] || '',
-              horarioEntrega: row['Horario Entrega'] || '',
-              condicionPago: row['Condición Pago'] || '',
-              limiteCredito: parseFloat(row['Límite Crédito'] || '0'),
-              observaciones: row['Observaciones'] || '',
-              fechaCreacion: new Date().toLocaleDateString('es-PE'),
-              montoDeuda: 0,
-              sedes: clientSedes,
-              contactos: clientContactos,
-              accessModules,
-              pin: row['PIN (4 dígitos)']?.toString() || '',
-              portalLoginRuc: rucDni
-            };
-
-            // Crear cliente en Firebase
-            const newClientRef = push(clientsRef);
-            
-            // Si tiene PIN, crear usuario de autenticación
-            if (newClient.pin && newClient.pin.length === 4) {
-              try {
-                const { email, password } = formatAuthCredentials(rucDni, newClient.pin);
-                const credential = await createUserWithEmailAndPassword(auth, email, password);
-                
-                await set(ref(db, `usuarios/${credential.user.uid}`), {
-                  nombre: newClient.razonSocial,
-                  correo: email,
-                  rol: 'retailUser',
-                  activo: true,
-                  accessModules: newClient.accessModules,
-                  portalLoginRuc: rucDni
-                });
-
-                await set(newClientRef, {
-                  ...newClient,
-                  authUid: credential.user.uid
-                });
-              } catch (authError: any) {
-                // Si el usuario ya existe, crear solo el cliente
-                await set(newClientRef, newClient);
-              }
-            } else {
-              await set(newClientRef, newClient);
-            }
-
-            createdCount++;
-          } catch (error) {
-            console.error('Error procesando cliente:', error);
-            errorCount++;
-          }
-        }
-
-        toast({
-          title: 'Importación completada',
-          description: `${createdCount} clientes creados. ${errorCount} errores.`
-        });
-
-        resolve({ createdCount, errorCount });
-      } catch (error: any) {
-        toast({
-          title: 'Error en importación',
-          description: error.message,
-          variant: 'destructive'
-        });
-        reject(error);
-      }
-    };
-
-    reader.onerror = () => {
-      toast({
-        title: 'Error leyendo archivo',
-        description: 'No se pudo leer el archivo',
-        variant: 'destructive'
-      });
-      reject(new Error('Error leyendo archivo'));
-    };
-
-    reader.readAsArrayBuffer(file);
+  // 🔴 TEMPORALMENTE DESHABILITADO - Requiere migración completa a Supabase
+  toast({
+    title: 'Función no disponible',
+    description: 'La importación masiva está en proceso de migración a Supabase',
+    variant: 'destructive'
   });
+  return Promise.reject(new Error('Función no disponible'));
 };
 
 export const ClientsManagement = () => {
@@ -502,6 +357,7 @@ export const ClientsManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalMinimized, setIsCreateModalMinimized] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -695,20 +551,87 @@ export const ClientsManagement = () => {
             className="hidden"
           />
           
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+          <Dialog 
+            open={isCreateModalOpen && !isCreateModalMinimized} 
+            onOpenChange={(open) => {
+              if (!open) {
+                // En lugar de cerrar, minimizar
+                setIsCreateModalMinimized(true);
+              }
+            }}
+          >
             <DialogTrigger asChild>
-              <Button>
+              <Button onClick={() => {
+                setIsCreateModalOpen(true);
+                setIsCreateModalMinimized(false);
+              }}>
                 <Plus className="h-4 w-4 mr-2" />
                 Nuevo Cliente
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent 
+              className="max-w-4xl max-h-[90vh] overflow-y-auto"
+              onInteractOutside={(e) => {
+                // Prevenir cierre al hacer click afuera
+                e.preventDefault();
+              }}
+              onEscapeKeyDown={(e) => {
+                // Minimizar al presionar ESC
+                e.preventDefault();
+                setIsCreateModalMinimized(true);
+              }}
+            >
               <DialogHeader>
-                <DialogTitle>Crear Nuevo Cliente</DialogTitle>
+                <DialogTitle className="flex items-center justify-between">
+                  <span>Crear Nuevo Cliente</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsCreateModalMinimized(true)}
+                    className="h-8 w-8 p-0"
+                  >
+                    <span className="sr-only">Minimizar</span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                  </Button>
+                </DialogTitle>
               </DialogHeader>
-              <ClientForm onSave={saveClient} onFinish={() => setIsCreateModalOpen(false)} />
+              <ClientForm 
+                onSave={saveClient} 
+                onFinish={() => {
+                  setIsCreateModalOpen(false);
+                  setIsCreateModalMinimized(false);
+                }} 
+              />
             </DialogContent>
           </Dialog>
+
+          {/* 🔹 BURBUJA MINIMIZADA */}
+          {isCreateModalOpen && isCreateModalMinimized && (
+            <div className="fixed bottom-6 right-6 z-50">
+              <Button
+                onClick={() => setIsCreateModalMinimized(false)}
+                className="h-14 w-14 rounded-full shadow-lg hover:scale-110 transition-transform"
+                size="icon"
+              >
+                <Plus className="h-6 w-6" />
+              </Button>
+              <div className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs">
+                1
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1033,6 +956,39 @@ const ClientForm = ({
     ]);
   };
 
+  // 🔥 NUEVA FUNCIÓN: Extraer coordenadas del link de Google Maps
+  const extractCoordinatesFromUrl = (url: string): { lat: string; lng: string } | null => {
+    if (!url) return null;
+
+    // Patrón 1: https://www.google.com/maps/@-12.046374,-77.042793,15z
+    const pattern1 = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+    const match1 = url.match(pattern1);
+    if (match1) {
+      return { lat: match1[1], lng: match1[2] };
+    }
+
+    // Patrón 2: https://maps.google.com/?q=-12.046374,-77.042793
+    const pattern2 = /[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/;
+    const match2 = url.match(pattern2);
+    if (match2) {
+      return { lat: match2[1], lng: match2[2] };
+    }
+
+    // Patrón 3: https://www.google.com/maps/place/Nombre/@-12.046374,-77.042793
+    const pattern3 = /place\/[^@]*@(-?\d+\.\d+),(-?\d+\.\d+)/;
+    const match3 = url.match(pattern3);
+    if (match3) {
+      return { lat: match3[1], lng: match3[2] };
+    }
+
+    // Patrón 4: https://maps.app.goo.gl/... o links cortos (estos NO funcionan sin API)
+    if (url.includes('goo.gl') || url.includes('maps.app.goo.gl')) {
+      return null; // No se puede extraer sin API
+    }
+
+    return null;
+  };
+
   const deleteSede = (id: string) => {
     setSedes(sedes.filter(s => s.id !== id));
   };
@@ -1295,19 +1251,22 @@ const ClientForm = ({
                         placeholder="Ej: Miraflores"
                       />
                     </div>
-                    <div className="space-y-2 md:col-span-2">
-                      <Label>Link Google Maps</Label>
-                      <Input
-                        value={sede.googleMapsUrl}
-                        onChange={e => {
-                          const newSedes = [...sedes];
-                          newSedes[idx].googleMapsUrl = e.target.value;
-                          setSedes(newSedes);
-                        }}
-                        placeholder="https://maps.google.com/..."
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-4 md:col-span-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:col-span-2">
+                      <div className="space-y-2 md:col-span-1">
+                        <Label>Link Google Maps (referencia)</Label>
+                        <Input
+                          value={sede.googleMapsUrl}
+                          onChange={e => {
+                            const newSedes = [...sedes];
+                            newSedes[idx].googleMapsUrl = e.target.value;
+                            setSedes(newSedes);
+                          }}
+                          placeholder="https://maps.google.com/..."
+                        />
+                        <p className="text-xs text-stone-500">
+                          📍 Solo para referencia, copiar/pegar
+                        </p>
+                      </div>
                       <div className="space-y-2">
                         <Label>Latitud</Label>
                         <Input

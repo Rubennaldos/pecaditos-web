@@ -1,96 +1,69 @@
 import { Navigate } from "react-router-dom";
-import { PropsWithChildren, useEffect } from "react";
+import { PropsWithChildren } from "react";
 import { useAuth } from "@/hooks/useAuth";
-
-// Mapeo de módulos a rutas
-const MODULE_TO_ROUTE: Record<string, string> = {
-  "dashboard": "/panel-control",
-  "catalog": "/catalogo",
-  "orders": "/pedidos",
-  "tracking": "/seguimiento",
-  "delivery": "/reparto",
-  "production": "/produccion",
-  "billing": "/cobranzas",
-  "logistics": "/logistica",
-  "locations": "/donde-nos-ubicamos",
-  "reports": "/reportes",
-  "wholesale": "/mayorista",
-};
 
 export function ProtectedRoute({
   module,
   children,
 }: PropsWithChildren<{ module?: string }>) {
-  const { user, perfil, loading } = useAuth() as {
-    user: { uid: string } | null;
-    perfil?: { 
-      activo?: boolean;
-      isAdmin?: boolean;
-      rol?: string;
-      role?: string;
-      accessModules?: string[];
-      permissions?: string[];
-      portalLoginRuc?: string | null;
-    } | null;
-    loading: boolean;
-  };
+  const { user, profile, loading } = useAuth();
 
-  useEffect(() => {
-    console.log("ProtectedRoute check:", {
-      module,
-      uid: user?.uid,
-      perfil,
-    });
-  }, [module, user, perfil]);
+  // Mostrar loading
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
 
-  // Sin módulo = ruta pública
-  if (!module) return <>{children}</>;
-
-  // Cargando perfil
-  if (loading) return null;
-
-  // Sin sesión → login
+  // Sin usuario → redirigir a login
   if (!user) {
-    console.warn("Acceso denegado: no autenticado");
+    console.warn('[ProtectedRoute] Sin usuario, redirigiendo a login');
     return <Navigate to="/login" replace />;
   }
 
-  // Perfil inactivo
-  if (perfil && perfil.activo === false) {
-    console.warn("Acceso denegado: usuario inactivo");
+  // Sin perfil → error
+  if (!profile) {
+    console.warn('[ProtectedRoute] Sin perfil');
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-stone-600">Cargando perfil...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Usuario inactivo
+  if (!profile.activo) {
+    console.warn('[ProtectedRoute] Usuario inactivo');
     return <Navigate to="/" replace />;
   }
 
-  // Caso especial: Portal Mayorista: se controla por portalLoginRuc o rol mayorista
-  if (module === 'wholesale') {
-    const isWholesaleUser = !!perfil?.portalLoginRuc || perfil?.rol === 'mayorista';
-
-    if (!isWholesaleUser) {
-      console.warn('Acceso denegado portal mayorista', { module, perfil });
-      return <Navigate to="/" replace />;
-    }
-
-    console.log('Acceso autorizado portal mayorista', { module, perfil });
+  // Si no requiere módulo específico, permitir acceso
+  if (!module) {
     return <>{children}</>;
   }
 
-  // Usuarios con rol admin tienen acceso automático a todos los módulos
-  const isAdminRole = perfil?.rol === 'admin' || perfil?.rol === 'adminGeneral' || perfil?.role === 'admin';
-  
-  if (isAdminRole) {
-    console.log("Acceso autorizado: usuario admin con acceso completo");
+  // Usuarios admin tienen acceso a TODO
+  const isAdmin = profile.rol === 'admin' || profile.rol === 'adminGeneral';
+  if (isAdmin) {
+    console.log('[ProtectedRoute] Admin, acceso completo');
     return <>{children}</>;
   }
 
-  // Verificar si tiene acceso al módulo específico
-  const userModules = perfil?.accessModules || perfil?.permissions || [];
-  const hasAccess = userModules.includes(module);
-
+  // Verificar acceso al módulo
+  const hasAccess = profile.access_modules?.includes(module);
   if (!hasAccess) {
-    console.warn("Acceso denegado:", { module, userModules });
-    return <Navigate to="/" replace />;
+    console.warn('[ProtectedRoute] Sin acceso al módulo:', module);
+    return <Navigate to="/panel-control" replace />;
   }
 
-  console.log("Acceso autorizado:", { module });
+  console.log('[ProtectedRoute] Acceso permitido:', module);
   return <>{children}</>;
 }

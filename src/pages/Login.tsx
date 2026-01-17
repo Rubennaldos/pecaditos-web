@@ -47,7 +47,7 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as any)?.from?.pathname || "/";
-  const { perfil, loading: authLoading } = useAuth() as any;
+  const { profile, loading: authLoading } = useAuth();
   const [pendingRedirect, setPendingRedirect] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -98,7 +98,7 @@ const Login = () => {
 
       const user = await signInAndEnsureProfile(finalEmail, finalPassword);
       setPendingRedirect(true);
-      console.log('[Login] inicio de sesión correcto, esperando a AuthProvider para redirigir', user.uid);
+      console.log('[Login] inicio de sesión correcto, esperando a AuthProvider para redirigir');
     } catch (err: any) {
       const code = err?.code || "";
       const msgMap: Record<string, string> = {
@@ -125,7 +125,7 @@ const Login = () => {
       return;
     }
     try {
-      if (!perfil) {
+      if (!profile) {
         toast({
           title: 'Perfil no encontrado',
           description: 'Se inició sesión, pero no se encontró el perfil.',
@@ -134,7 +134,7 @@ const Login = () => {
         navigate('/', { replace: true });
         return;
       }
-      if (perfil.activo === false) {
+      if (profile.activo === false) {
         toast({
           title: 'Acceso denegado',
           description: 'Usuario inactivo. Contacta al administrador.',
@@ -143,16 +143,17 @@ const Login = () => {
         navigate('/', { replace: true });
         return;
       }
-      const redirectPath = getFirstAvailableRoute(perfil);
-      console.log('🔀 Ruta de redirección (post-auth):', redirectPath);
+      // Todos los usuarios admin van al panel de control
+      const redirectPath = '/panel-control';
+      console.log('🔀 Redirigiendo a:', redirectPath);
       toast({ title: 'Bienvenido', description: `Has iniciado sesión exitosamente` });
-      navigate(from !== '/' ? from : redirectPath, { replace: true });
+      navigate(redirectPath, { replace: true });
     } finally {
       setPendingRedirect(false);
       setIsLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingRedirect, authLoading, perfil]);
+  }, [pendingRedirect, authLoading, profile]);
 
   const handleNumpadClick = (num: string) => {
     if (pin.length < 4) {
